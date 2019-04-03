@@ -1,0 +1,21 @@
+[package]
+name = "libzmq-sys"
+version = "0.0.1"
+authors = ["jean-airoldie <25088801+jean-airoldie@users.noreply.github.com>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+links = "zmq"
+build = "build.rs"
+
+[features]
+# Used to link statically to libzmq (by default it is linked dynamically).
+static = []
+# Used to enable the libzmq DRAFT API.
+draft = []
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+cmake = "0.1"
+bindgen = "0.49.0"
