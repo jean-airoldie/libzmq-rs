@@ -1,5 +1,4 @@
-//! libzmq - A subset of ØMQ with a high*ish* level API based on `libzmq` rust
-//! bindings.
+//! libzmq - A strict subset of ØMQ with a high level API.
 
 mod ctx;
 pub mod endpoint;
@@ -13,7 +12,7 @@ pub use msg::*;
 
 use libzmq_sys as sys;
 
-use failure::{Backtrace, Context, Error, Fail};
+use failure::{Backtrace, Context, Fail};
 
 use std::{
     ffi,
@@ -28,11 +27,7 @@ pub mod prelude {
         endpoint::Endpoint,
         error::{Error, ErrorKind},
         msg::Msg,
-        socket::{
-            Client, Dish, MutSocket, Pair, Pull, Push, Radio, RecvAtomic,
-            RecvPart, SendAtomic, SendPart, Server, Socket, MORE, NONE,
-            NO_BLOCK,
-        },
+        socket::{Client, Dish, Radio, RecvMsg, SendMsg, Server, Socket},
     };
 }
 
@@ -103,7 +98,7 @@ mod error {
     /// let client = Client::new()?;
     ///
     /// // This means that the following call would block.
-    /// if let Err(mut err) = client.send("msg", NO_BLOCK) {
+    /// if let Err(mut err) = client.send_poll("msg") {
     ///   match err.kind() {
     ///     // This covers all the possible error scenarios for this socket type.
     ///     // Normally we would process each error differently.

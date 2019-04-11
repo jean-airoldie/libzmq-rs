@@ -9,15 +9,10 @@ use crate::{
 use libzmq_sys as sys;
 use sys::errno;
 
-use bitflags::bitflags;
-
-use static_assertions::const_assert_eq;
-
 use serde::{Deserialize, Serialize};
 
 use std::{
     ffi::CString,
-    fmt::Debug,
     os::{
         raw::{c_int, c_void},
         unix::io::RawFd,
@@ -25,22 +20,24 @@ use std::{
     time::Duration,
 };
 
-/// Prevent users from implementing the Socket & MutSocket trait.
+const MAX_HB_TTL: i64 = 6_553_599;
+
+/// Prevent users from implementing the Socket & SocketConfig traits.
 mod private {
     pub trait Sealed {}
-    impl Sealed for super::Push {}
-    impl Sealed for super::Pull {}
-    impl Sealed for super::PullConfig {}
-    impl Sealed for super::Pair {}
     impl Sealed for super::Client {}
+    impl Sealed for super::ClientConfig {}
     impl Sealed for super::Server {}
+    impl Sealed for super::ServerConfig {}
     impl Sealed for super::Radio {}
+    impl Sealed for super::RadioConfig {}
     impl Sealed for super::Dish {}
+    impl Sealed for super::DishConfig {}
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[doc(hidden)]
-pub struct SocketConfig {
+pub struct SharedConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
@@ -51,12 +48,12 @@ pub struct SocketConfig {
 }
 
 /// The set of shared socket configuration methods.
-pub trait SharedConfig: private::Sealed {
+pub trait SocketConfig: private::Sealed {
     #[doc(hidden)]
-    fn socket_config(&self) -> &SocketConfig;
+    fn socket_config(&self) -> &SharedConfig;
 
     #[doc(hidden)]
-    fn mut_socket_config(&mut self) -> &mut SocketConfig;
+    fn mut_socket_config(&mut self) -> &mut SharedConfig;
 
     fn connect(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
         let mut config = self.mut_socket_config();
@@ -109,7 +106,7 @@ pub trait SharedConfig: private::Sealed {
         self
     }
 
-    fn apply(&self, socket: &mut Pull) -> Result<(), Error<()>> {
+    fn apply<S: Socket>(&self, socket: &S) -> Result<(), Error<()>> {
         let config = self.socket_config();
 
         if let Some(ref endpoints) = config.connect {
@@ -133,14 +130,14 @@ pub trait SharedConfig: private::Sealed {
 
 macro_rules! impl_config_trait {
     ($name:ident) => {
-        impl SharedConfig for $name {
+        impl SocketConfig for $name {
             #[doc(hidden)]
-            fn socket_config(&self) -> &SocketConfig {
+            fn socket_config(&self) -> &SharedConfig {
                 &self.inner
             }
 
             #[doc(hidden)]
-            fn mut_socket_config(&mut self) -> &mut SocketConfig {
+            fn mut_socket_config(&mut self) -> &mut SharedConfig {
                 &mut self.inner
             }
         }
@@ -261,505 +258,6 @@ fn unbind(mut_sock_ptr: *mut c_void, c_str: CString) -> Result<(), Error<()>> {
     }
 }
 
-/// The set of socket options shared among all socket types. We parametrize the
-/// type of `self` so that this macro can be used for bot the `Socket` and `MutSocket`
-/// trait.
-macro_rules! impl_shared_socket_options {
-    ($tyself:ty) => {
-        /// Connects the socket to an [`endpoint`] and then accepts incoming connections
-        /// on that [`endpoint`].
-        ///
-        /// The socket actually connects a few instants after the `connect` call
-        /// (usually less than a millisecond).
-        ///
-        /// See [`zmq_connect`].
-        ///
-        /// # Usage Contract
-        /// TODO
-        ///
-        /// # Returned Errors
-        /// * [`InvalidInput`] (if contract not followed)
-        /// * [`IncompatTransport`]
-        /// * [`CtxTerminated`]
-        ///
-        /// [`endpoint`]: #endpoint
-        /// [`zmq_connect`]: http://api.zeromq.org/master:zmq-connect
-        /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-        /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
-        /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-        fn connect<E>(self: $tyself, endpoint: E) -> Result<(), Error<()>>
-        where
-            E: AsRef<Endpoint>,
-        {
-            let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
-            connect(self.mut_sock_ptr(), c_str)
-        }
-
-        /// Disconnect the socket from the endpoint.
-        ///
-        /// Any outstanding messages physically received from the network but not
-        /// yet received by the application are discarded. The behaviour for
-        /// discarding messages depends on the value of [`linger`].
-        ///
-        /// See [`zmq_disconnect`].
-        ///
-        /// # Usage Contract
-        /// TODO
-        ///
-        /// # Returned Errors
-        /// * [`InvalidInput`] (if contract not followed)
-        /// * [`CtxTerminated`]
-        /// * [`NotFound`] (if endpoint not connected to)
-        ///
-        /// [`zmq_disconnect`]: http://api.zeromq.org/master:zmq-disconnect
-        /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-        /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-        /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-        /// [`linger`]: #method.linger
-        fn disconnect<E>(self: $tyself, endpoint: E) -> Result<(), Error<()>>
-        where
-            E: AsRef<Endpoint>,
-        {
-            let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
-            disconnect(self.mut_sock_ptr(), c_str)
-        }
-
-        /// Binds the socket to a local [`endpoint`] and then accepts incoming
-        /// connections.
-        ///
-        /// The socket actually binds a few instants after the `bind` call
-        /// (usually less than a millisecond).
-        ///
-        /// See [`zmq_bind`].
-        ///
-        /// # Usage Contract
-        /// TODO
-        ///
-        /// # Returned Errors
-        /// * [`InvalidInput`] (if usage contract not followed)
-        /// * [`IncompatTransport`]
-        /// * [`AddrInUse`]
-        /// * [`AddrNotAvailable`]
-        /// * [`CtxTerminated`]
-        ///
-        /// [`endpoint`]: #endpoint
-        /// [`zmq_bind`]: http://api.zeromq.org/master:zmq-bind
-        /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-        /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
-        /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
-        /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
-        /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-        fn bind<E>(self: $tyself, endpoint: E) -> Result<(), Error<()>>
-        where
-            E: AsRef<Endpoint>,
-        {
-            let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
-            bind(self.mut_sock_ptr(), c_str)
-        }
-
-        /// Unbinds the socket from the endpoint.
-        ///
-        /// Any outstanding messages physically received from the network but not
-        /// yet received by the application are discarded. The behaviour for
-        /// discarding messages depends on the value of [`linger`].
-        ///
-        /// See [`zmq_unbind`].
-        ///
-        /// # Usage Contract
-        /// TODO
-        ///
-        /// # Returned Errors
-        /// * [`InvalidInput`] (if usage contract not followed)
-        /// * [`CtxTerminated`]
-        /// * [`NotFound`] (if endpoint was not bound to)
-        ///
-        /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
-        /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-        /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-        /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-        /// [`linger`]: #method.linger
-        fn unbind<E>(self: $tyself, endpoint: E) -> Result<(), Error<()>>
-        where
-            E: AsRef<Endpoint>,
-        {
-            let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
-            unbind(self.mut_sock_ptr(), c_str)
-        }
-
-        /// Retrieve the maximum length of the queue of outstanding peer connections.
-        ///
-        /// See `ZMQ_BLACKLOG` in [`zmq_getsockopt`].
-        ///
-        /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-        fn backlog(&self) -> Result<i32, Error<()>> {
-            // This is safe the call does not actually mutate the socket.
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            getsockopt_scalar(mut_sock_ptr, SocketOption::Backlog)
-        }
-
-        /// Set the maximum length of the queue of outstanding peer connections
-        /// for the specified socket; this only applies to connection-oriented
-        /// transports.
-        ///
-        /// See `ZMQ_BACKLOG` in [`zmq_setsockopt`].
-        ///
-        /// # Default Value
-        /// 100
-        ///
-        /// # Applicable Socket Type
-        /// All (Connection Oriented Transports)
-        ///
-        /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
-        fn set_backlog(self: $tyself, value: i32) -> Result<(), Error<()>> {
-            setsockopt_scalar(self.mut_sock_ptr(), SocketOption::Backlog, value)
-        }
-
-        /// Retrieves how many milliseconds to wait before timing-out a [`connect`]
-        /// call.
-        ///
-        /// See `ZMQ_CONNECT_TIMEOUT` in [`zmq_getsockopt`].
-        ///
-        /// [`connect`]: #method.connect
-        /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-        fn connect_timeout(&self) -> Result<Option<Duration>, Error<()>> {
-            // This is safe the call does not actually mutate the socket.
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            let maybe_duration = getsockopt_duration(mut_sock_ptr, SocketOption::ConnectTimeout)?;
-            if let Some(duration) = maybe_duration {
-                if duration.as_millis() > 0 {
-                    return Ok(Some(duration));
-                }
-            }
-            Ok(None)
-        }
-
-        /// Sets how many milliseconds to wait before timing-out a [`connect`] call
-        ///
-        /// The `connect` call normally takes a long time before it returns
-        /// a time out error.
-        ///
-        /// # Default Value
-        /// `None`
-        ///
-        /// # Applicable Socket Type
-        /// All (TCP transport)
-        fn set_connect_timeout(
-            self: $tyself,
-            maybe_duration: Option<Duration>,
-        ) -> Result<(), Error<()>> {
-            if let Some(ref duration) = maybe_duration {
-                assert!(
-                    duration.as_millis() > 0,
-                    "number of ms in duration cannot be zero"
-                );
-            }
-            // This is safe the call does not actually mutate the socket.
-            setsockopt_duration(
-                self.mut_sock_ptr(),
-                SocketOption::ConnectTimeout,
-                maybe_duration
-            )
-        }
-
-        /// Retrieve the file descriptor associated with the specified socket.
-        ///
-        /// The returned file descriptor is intended for use with a poll or similar
-        /// system call only. Applications must never attempt to read or write data
-        /// to it directly, neither should they try to close it.
-        ///
-        /// See `ZMQ_FD` in [`zmq_getsockopt`].
-        ///
-        /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-        fn fd(&self) -> Result<RawFd, Error<()>> {
-            // This is safe the call does not actually mutate the socket.
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            getsockopt_scalar(mut_sock_ptr, SocketOption::FileDescriptor)
-        }
-
-        /// The interval between sending ZMTP heartbeats.
-        fn heartbeat_interval(&self) -> Result<Option<Duration>, Error<()>> {
-            // This is safe the call does not actually mutate the socket.
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            getsockopt_duration(mut_sock_ptr, SocketOption::HeartbeatInterval)
-        }
-
-        /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
-        ///
-        /// # Default Value
-        /// `None`
-        ///
-        /// # Applicable Socket Type
-        /// All (connection oriented transports)
-        fn set_heartbeat_interval(
-            self: $tyself,
-            maybe_duration: Option<Duration>,
-        ) -> Result<(), Error<()>> {
-            setsockopt_duration(
-                self.mut_sock_ptr(),
-                SocketOption::HeartbeatInterval,
-                maybe_duration
-            )
-        }
-
-        /// How long to wait before timing-out a connection after sending a
-        /// PING ZMTP command and not receiving any traffic.
-        fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error<()>> {
-            // This is safe the call does not actually mutate the socket.
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            getsockopt_duration(mut_sock_ptr, SocketOption::HeartbeatTimeout)
-        }
-
-        /// How long to wait before timing-out a connection after sending a
-        /// PING ZMTP command and not receiving any traffic.
-        ///
-        /// # Default Value
-        /// `None`. If `heartbeat_interval` is set, then it uses the same value
-        /// by default.
-        fn set_heartbeat_timeout(
-            self: $tyself,
-            maybe_duration: Option<Duration>
-            ) -> Result<(), Error<()>> {
-            setsockopt_duration(
-                self.mut_sock_ptr(),
-                SocketOption::HeartbeatTimeout,
-                maybe_duration
-            )
-        }
-
-        /// The timeout on the remote peer for ZMTP heartbeats.
-        /// If this option and `heartbeat_interval` is not `None` the remote
-        /// side shall time out the connection if it does not receive any more
-        /// traffic within the TTL period.
-        fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error<()>> {
-            // This is safe the call does not actually mutate the socket.
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            getsockopt_duration(mut_sock_ptr, SocketOption::HeartbeatTtl)
-        }
-
-        /// Set timeout on the remote peer for ZMTP heartbeats.
-        /// If this option and `heartbeat_interval` is not `None` the remote
-        /// side shall time out the connection if it does not receive any more
-        /// traffic within the TTL period.
-        ///
-        /// # Default value
-        /// `None`
-        fn set_heartbeat_ttl(
-            self: $tyself,
-            maybe_duration:
-            Option<Duration>
-        ) -> Result<(), Error<()>> {
-            if let Some(ref duration) = maybe_duration {
-                let ms = duration.as_millis();
-                assert!(ms <= 6553599, "duration ms cannot exceed 6553599");
-            }
-            setsockopt_duration(
-                self.mut_sock_ptr(),
-                SocketOption::HeartbeatTtl,
-                maybe_duration
-            )
-        }
-    }
-}
-
-macro_rules! impl_send_socket_options {
-    ($tyself:ty) => {
-        /// The high water mark for outbound messages on the specified socket.
-        ///
-        /// The high water mark is a hard limit on the maximum number of
-        /// outstanding messages ØMQ shall queue in memory.
-        ///
-        /// If this limit has been reached the socket shall enter the `mute state`.
-        fn send_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            let limit = getsockopt_scalar(
-                mut_sock_ptr,
-                SocketOption::SendHighWaterMark,
-            )?;
-
-            if limit == 0 {
-                Ok(None)
-            } else {
-                Ok(Some(limit))
-            }
-        }
-
-        /// Set the high water mark for outbound messages on the specified socket.
-        ///
-        /// The high water mark is a hard limit on the maximum number of
-        /// outstanding messages ØMQ shall queue in memory.
-        ///
-        /// If this limit has been reached the socket shall enter the `mute state`.
-        ///
-        /// A value of `None` means no limit.
-        ///
-        /// # Default value
-        /// 1000
-        fn set_send_high_water_mark(
-            self: $tyself,
-            maybe_limit: Option<i32>
-        ) -> Result<(), Error<()>> {
-            match maybe_limit {
-                Some(limit) => {
-                    assert!(limit != 0, "high water mark cannot be zero");
-                    setsockopt_scalar(
-                        self.mut_sock_ptr(),
-                        SocketOption::SendHighWaterMark,
-                        limit
-                    )
-                }
-                None => {
-                    setsockopt_scalar(
-                        self.mut_sock_ptr(),
-                        SocketOption::SendHighWaterMark,
-                        0
-                    )
-                }
-            }
-        }
-
-        /// Sets the timeout for `send` operation on the socket.
-        ///
-        /// If the value is 0, `send` will return immediately, with a EAGAIN
-        /// error if the message cannot be sent. If the value is `None`, it
-        /// will block until the message is sent. For all other values, it will
-        /// try to send the message for that amount of time before returning
-        /// with an EAGAIN error.
-        fn send_timeout(&self) -> Result<Option<Duration>, Error<()>> {
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            getsockopt_duration(
-                mut_sock_ptr,
-                SocketOption::SendTimeout,
-            )
-        }
-
-        /// Sets the timeout for `send` operation on the socket.
-        ///
-        /// If the value is 0, `send` will return immediately, with a EAGAIN
-        /// error if the message cannot be sent. If the value is `None`, it
-        /// will block until the message is sent. For all other values, it will
-        /// try to send the message for that amount of time before returning
-        /// with an EAGAIN error.
-        ///
-        /// # Default Value
-        /// `None`
-        fn set_send_timeout(
-            self: $tyself,
-            maybe_duration: Option<Duration>,
-        ) -> Result<(), Error<()>> {
-            setsockopt_duration(
-                self.mut_sock_ptr(),
-                SocketOption::SendTimeout,
-                maybe_duration,
-            )
-        }
-    };
-}
-
-macro_rules! impl_recv_socket_options {
-    ($tyself:ty) => {
-        /// The high water mark for incoming messages on the specified socket.
-        ///
-        /// The high water mark is a hard limit on the maximum number of
-        /// incoming messages ØMQ shall queue in memory.
-        ///
-        /// If this limit has been reached the socket shall enter the `mute state`.
-        fn recv_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            let limit = getsockopt_scalar(
-                mut_sock_ptr,
-                SocketOption::RecvHighWaterMark,
-            )?;
-
-            if limit == 0 {
-                Ok(None)
-            } else {
-                Ok(Some(limit))
-            }
-        }
-
-        /// Set the high water mark for inbound messages on the specified socket.
-        ///
-        /// The high water mark is a hard limit on the maximum number of
-        /// outstanding messages ØMQ shall queue in memory.
-        ///
-        /// If this limit has been reached the socket shall enter the `mute state`.
-        ///
-        /// A value of `None` means no limit.
-        ///
-        /// # Default value
-        /// 1000
-        fn set_recv_high_water_mark(
-            self: $tyself,
-            maybe_limit: Option<i32>
-        ) -> Result<(), Error<()>> {
-            match maybe_limit {
-                Some(limit) => {
-                    assert!(limit != 0, "high water mark cannot be zero");
-                    setsockopt_scalar(
-                        self.mut_sock_ptr(),
-                        SocketOption::RecvHighWaterMark,
-                        limit
-                    )
-                }
-                None => {
-                    setsockopt_scalar(
-                        self.mut_sock_ptr(),
-                        SocketOption::RecvHighWaterMark,
-                        0
-                    )
-                }
-            }
-        }
-
-        /// Sets the timeout for `recv` operation on the socket.
-        ///
-        /// If the value is 0, `recv` will return immediately, with a EAGAIN
-        /// error if the message cannot be sent. If the value is `None`, it
-        /// will block until the message is sent. For all other values, it will
-        /// try to recv the message for that amount of time before returning
-        /// with an EAGAIN error.
-        fn recv_timeout(&self) -> Result<Option<Duration>, Error<()>> {
-            let mut_sock_ptr = self.sock_ptr() as *mut _;
-            getsockopt_duration(
-                mut_sock_ptr,
-                SocketOption::RecvTimeout,
-            )
-        }
-
-        /// Sets the timeout for `recv` operation on the socket.
-        ///
-        /// If the value is 0, `recv` will return immediately, with a EAGAIN
-        /// error if the message cannot be sent. If the value is `None`, it
-        /// will block until the message is sent. For all other values, it will
-        /// try to `recv` the message for that amount of time before returning
-        /// with an EAGAIN error.
-        ///
-        /// # Default Value
-        /// `None`
-        fn set_recv_timeout(
-            self: $tyself,
-            maybe_duration: Option<Duration>,
-        ) -> Result<(), Error<()>> {
-            setsockopt_duration(
-                self.mut_sock_ptr(),
-                SocketOption::RecvTimeout,
-                maybe_duration,
-            )
-        }
-    };
-}
-
-/// Methods shared by all mutable (non thread-safe) sockets.
-pub trait MutSocket: private::Sealed {
-    #[doc(hidden)]
-    fn sock_ptr(&self) -> *const c_void;
-
-    #[doc(hidden)]
-    fn mut_sock_ptr(&mut self) -> *mut c_void;
-
-    impl_shared_socket_options!(&mut Self);
-}
-
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: private::Sealed {
     #[doc(hidden)]
@@ -768,62 +266,321 @@ pub trait Socket: private::Sealed {
     #[doc(hidden)]
     fn mut_sock_ptr(&self) -> *mut c_void;
 
-    impl_shared_socket_options!(&Self);
-}
+    /// Connects the socket to an [`endpoint`] and then accepts incoming connections
+    /// on that [`endpoint`].
+    ///
+    /// The socket actually connects a few instants after the `connect` call
+    /// (usually less than a millisecond).
+    ///
+    /// See [`zmq_connect`].
+    ///
+    /// # Usage Contract
+    /// TODO
+    ///
+    /// # Returned Errors
+    /// * [`InvalidInput`] (if contract not followed)
+    /// * [`IncompatTransport`]
+    /// * [`CtxTerminated`]
+    ///
+    /// [`endpoint`]: #endpoint
+    /// [`zmq_connect`]: http://api.zeromq.org/master:zmq-connect
+    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
+    /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    fn connect<E>(&self, endpoint: E) -> Result<(), Error<()>>
+    where
+        E: AsRef<Endpoint>,
+    {
+        let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
+        connect(self.mut_sock_ptr(), c_str)
+    }
 
-bitflags! {
-    /// A bitflag type used in socket `send` and `recv` method calls.
-    pub struct Flags: c_int {
-        /// [`Read more`](constant.NONE.html)
-        const NONE = 0b00_000_000;
-        /// [`Read more`](constant.NO_BLOCK.html)
-        const NO_BLOCK = 0b00_000_001;
-        /// [`Read more`](constant.MORE.html)
-        const MORE = 0b00_000_010;
+    /// Disconnect the socket from the endpoint.
+    ///
+    /// Any outstanding messages physically received from the network but not
+    /// yet received by the application are discarded. The behaviour for
+    /// discarding messages depends on the value of [`linger`].
+    ///
+    /// See [`zmq_disconnect`].
+    ///
+    /// # Usage Contract
+    /// TODO
+    ///
+    /// # Returned Errors
+    /// * [`InvalidInput`] (if contract not followed)
+    /// * [`CtxTerminated`]
+    /// * [`NotFound`] (if endpoint not connected to)
+    ///
+    /// [`zmq_disconnect`]: http://api.zeromq.org/master:zmq-disconnect
+    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
+    /// [`linger`]: #method.linger
+    fn disconnect<E>(&self, endpoint: E) -> Result<(), Error<()>>
+    where
+        E: AsRef<Endpoint>,
+    {
+        let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
+        disconnect(self.mut_sock_ptr(), c_str)
+    }
+
+    /// Binds the socket to a local [`endpoint`] and then accepts incoming
+    /// connections.
+    ///
+    /// The socket actually binds a few instants after the `bind` call
+    /// (usually less than a millisecond).
+    ///
+    /// See [`zmq_bind`].
+    ///
+    /// # Usage Contract
+    /// TODO
+    ///
+    /// # Returned Errors
+    /// * [`InvalidInput`] (if usage contract not followed)
+    /// * [`IncompatTransport`]
+    /// * [`AddrInUse`]
+    /// * [`AddrNotAvailable`]
+    /// * [`CtxTerminated`]
+    ///
+    /// [`endpoint`]: #endpoint
+    /// [`zmq_bind`]: http://api.zeromq.org/master:zmq-bind
+    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
+    /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
+    /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
+    /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    fn bind<E>(&self, endpoint: E) -> Result<(), Error<()>>
+    where
+        E: AsRef<Endpoint>,
+    {
+        let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
+        bind(self.mut_sock_ptr(), c_str)
+    }
+
+    /// Unbinds the socket from the endpoint.
+    ///
+    /// Any outstanding messages physically received from the network but not
+    /// yet received by the application are discarded. The behaviour for
+    /// discarding messages depends on the value of [`linger`].
+    ///
+    /// See [`zmq_unbind`].
+    ///
+    /// # Usage Contract
+    /// TODO
+    ///
+    /// # Returned Errors
+    /// * [`InvalidInput`] (if usage contract not followed)
+    /// * [`CtxTerminated`]
+    /// * [`NotFound`] (if endpoint was not bound to)
+    ///
+    /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
+    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
+    /// [`linger`]: #method.linger
+    fn unbind<E>(&self, endpoint: E) -> Result<(), Error<()>>
+    where
+        E: AsRef<Endpoint>,
+    {
+        let c_str = CString::new(format!("{}", endpoint.as_ref())).unwrap();
+        unbind(self.mut_sock_ptr(), c_str)
+    }
+
+    /// Retrieve the maximum length of the queue of outstanding peer connections.
+    ///
+    /// See `ZMQ_BLACKLOG` in [`zmq_getsockopt`].
+    ///
+    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
+    fn backlog(&self) -> Result<i32, Error<()>> {
+        // This is safe the call does not actually mutate the socket.
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        getsockopt_scalar(mut_sock_ptr, SocketOption::Backlog)
+    }
+
+    /// Set the maximum length of the queue of outstanding peer connections
+    /// for the specified socket; this only applies to connection-oriented
+    /// transports.
+    ///
+    /// See `ZMQ_BACKLOG` in [`zmq_setsockopt`].
+    ///
+    /// # Default Value
+    /// 100
+    ///
+    /// # Applicable Socket Type
+    /// All (Connection Oriented Transports)
+    ///
+    /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
+    fn set_backlog(&self, value: i32) -> Result<(), Error<()>> {
+        setsockopt_scalar(self.mut_sock_ptr(), SocketOption::Backlog, value)
+    }
+
+    /// Retrieves how many milliseconds to wait before timing-out a [`connect`]
+    /// call.
+    ///
+    /// See `ZMQ_CONNECT_TIMEOUT` in [`zmq_getsockopt`].
+    ///
+    /// [`connect`]: #method.connect
+    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
+    fn connect_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+        // This is safe the call does not actually mutate the socket.
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        let maybe_duration =
+            getsockopt_duration(mut_sock_ptr, SocketOption::ConnectTimeout)?;
+        if let Some(duration) = maybe_duration {
+            if duration.as_millis() > 0 {
+                return Ok(Some(duration));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Sets how many milliseconds to wait before timing-out a [`connect`] call
+    ///
+    /// The `connect` call normally takes a long time before it returns
+    /// a time out error.
+    ///
+    /// # Default Value
+    /// `None`
+    ///
+    /// # Applicable Socket Type
+    /// All (TCP transport)
+    fn set_connect_timeout(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error<()>> {
+        if let Some(ref duration) = maybe_duration {
+            assert!(
+                duration.as_millis() > 0,
+                "number of ms in duration cannot be zero"
+            );
+        }
+        // This is safe the call does not actually mutate the socket.
+        setsockopt_duration(
+            self.mut_sock_ptr(),
+            SocketOption::ConnectTimeout,
+            maybe_duration,
+        )
+    }
+
+    /// Retrieve the file descriptor associated with the specified socket.
+    ///
+    /// The returned file descriptor is intended for use with a poll or similar
+    /// system call only. Applications must never attempt to read or write data
+    /// to it directly, neither should they try to close it.
+    ///
+    /// See `ZMQ_FD` in [`zmq_getsockopt`].
+    ///
+    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
+    fn fd(&self) -> Result<RawFd, Error<()>> {
+        // This is safe the call does not actually mutate the socket.
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        getsockopt_scalar(mut_sock_ptr, SocketOption::FileDescriptor)
+    }
+
+    /// The interval between sending ZMTP heartbeats.
+    fn heartbeat_interval(&self) -> Result<Option<Duration>, Error<()>> {
+        // This is safe the call does not actually mutate the socket.
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        getsockopt_duration(mut_sock_ptr, SocketOption::HeartbeatInterval)
+    }
+
+    /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
+    ///
+    /// # Default Value
+    /// `None`
+    ///
+    /// # Applicable Socket Type
+    /// All (connection oriented transports)
+    fn set_heartbeat_interval(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error<()>> {
+        setsockopt_duration(
+            self.mut_sock_ptr(),
+            SocketOption::HeartbeatInterval,
+            maybe_duration,
+        )
+    }
+
+    /// How long to wait before timing-out a connection after sending a
+    /// PING ZMTP command and not receiving any traffic.
+    fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+        // This is safe the call does not actually mutate the socket.
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        getsockopt_duration(mut_sock_ptr, SocketOption::HeartbeatTimeout)
+    }
+
+    /// How long to wait before timing-out a connection after sending a
+    /// PING ZMTP command and not receiving any traffic.
+    ///
+    /// # Default Value
+    /// `None`. If `heartbeat_interval` is set, then it uses the same value
+    /// by default.
+    fn set_heartbeat_timeout(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error<()>> {
+        setsockopt_duration(
+            self.mut_sock_ptr(),
+            SocketOption::HeartbeatTimeout,
+            maybe_duration,
+        )
+    }
+
+    /// The timeout on the remote peer for ZMTP heartbeats.
+    /// If this option and `heartbeat_interval` is not `None` the remote
+    /// side shall time out the connection if it does not receive any more
+    /// traffic within the TTL period.
+    fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error<()>> {
+        // This is safe the call does not actually mutate the socket.
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        getsockopt_duration(mut_sock_ptr, SocketOption::HeartbeatTtl)
+    }
+
+    /// Set timeout on the remote peer for ZMTP heartbeats.
+    /// If this option and `heartbeat_interval` is not `None` the remote
+    /// side shall time out the connection if it does not receive any more
+    /// traffic within the TTL period.
+    ///
+    /// # Default value
+    /// `None`
+    fn set_heartbeat_ttl(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error<()>> {
+        if let Some(ref duration) = maybe_duration {
+            let ms = duration.as_millis();
+            if ms <= MAX_HB_TTL as u128 {
+                return Err(Error::new(ErrorKind::InvalidInput {
+                    msg: "duration ms cannot exceed 6553599",
+                }));
+            }
+        }
+        setsockopt_duration(
+            self.mut_sock_ptr(),
+            SocketOption::HeartbeatTtl,
+            maybe_duration,
+        )
     }
 }
 
-/// Request default behavior for the operation.
-///
-/// The specific default behavior depends on the socket's
-/// action while in [`mute state`].
-///
-/// [`mute state`]: trait.Socket.html#mute-state
-pub const NONE: Flags = Flags::NONE;
-/// Request non-blocking behavior for the operation.
-pub const NO_BLOCK: Flags = Flags::NO_BLOCK;
-/// Signals that the message is part of a multipart message.
-pub const MORE: Flags = Flags::MORE;
-
-const_assert_eq!(flags_none; Flags::NONE.bits, 0);
-const_assert_eq!(flags_no_block; Flags::NO_BLOCK.bits, sys::ZMQ_NOBLOCK as c_int);
-const_assert_eq!(flags_more; Flags::MORE.bits, sys::ZMQ_SNDMORE as c_int);
-
-/// Attempts to send the pointed msg via the pointed socket. This function
-/// does not drop the pointed msg on success.
-///
-/// # Usage Contract
-/// ## Single part messages
-/// * On success, the caller has to forfeit ownership of the `sys::zmq_msg_t`.
-/// * On failure the caller can maintain ownership of the `sys::zmq_msg_t`.
-///
-/// ## Multipart messages
-/// * If every `send` call in the multipart message succeed, the caller has to
-///   forfeit ownership of the `sys::zmq_msg_t`.
-/// * If any `send` call in the multipart message fails, the caller can maintain
-///   ownership
-unsafe fn send_no_drop(
+fn send(
     mut_sock_ptr: *mut c_void,
-    mut_msg_ptr: *mut sys::zmq_msg_t,
-    flags: Flags,
-) -> Result<(), Error<()>> {
-    let rc = sys::zmq_msg_send(mut_msg_ptr, mut_sock_ptr, flags.bits());
+    mut msg: Msg,
+    no_block: bool,
+) -> Result<(), Error<Msg>> {
+    let mut_msg_ptr = msg.as_mut_ptr();
+    let rc = unsafe {
+        sys::zmq_msg_send(mut_msg_ptr, mut_sock_ptr, no_block as c_int)
+    };
 
     if rc == -1 {
-        let errno = sys::zmq_errno();
+        let errno = unsafe { sys::zmq_errno() };
         let err = {
             match errno {
-                errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
+                errno::EAGAIN => {
+                    Error::with_content(ErrorKind::WouldBlock, msg)
+                }
                 errno::ENOTSUP => {
                     panic!("send is not supported by socket type")
                 }
@@ -833,11 +590,17 @@ unsafe fn send_no_drop(
                 errno::EFSM => panic!(
                     "operation cannot be completed in current socket state"
                 ),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ETERM => {
+                    Error::with_content(ErrorKind::CtxTerminated, msg)
+                }
                 errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
+                errno::EINTR => {
+                    Error::with_content(ErrorKind::Interrupted, msg)
+                }
                 errno::EFAULT => panic!("invalid message"),
-                errno::EHOSTUNREACH => Error::new(ErrorKind::HostUnreachable),
+                errno::EHOSTUNREACH => {
+                    Error::with_content(ErrorKind::HostUnreachable, msg)
+                }
                 _ => panic!(msg_from_errno(errno)),
             }
         };
@@ -848,248 +611,48 @@ unsafe fn send_no_drop(
     }
 }
 
-fn send_atomic(
-    mut_sock_ptr: *mut c_void,
-    mut msg: Msg,
-    flags: Flags,
-) -> Result<(), Error<Msg>> {
-    assert!(!flags.contains(MORE));
-    match unsafe { send_no_drop(mut_sock_ptr, msg.as_mut_ptr(), flags) } {
-        Err(err) => {
-            // The call failed so we give ownership of the message back to the caller.
-            Err(Error::with_content(err.kind(), msg))
-        }
-        // The call succeeded, ØMQ now has ownership of the msg.
-        Ok(_) => Ok(()),
-    }
-}
-
-fn send_no_more(
-    mut_sock_ptr: *mut c_void,
-    mut msg: Msg,
-    flags: Flags,
-    buffer: &mut Vec<Msg>,
-) -> Result<(), Error<Vec<Msg>>> {
-    assert!(!flags.contains(MORE));
-    if buffer.is_empty() {
-        // Not part of a multipart message.
-        match send_atomic(mut_sock_ptr, msg, flags) {
-            Ok(_) => Ok(()),
-            Err(mut err) => {
-                let msg = err.take_content().unwrap();
-                Err(Error::with_content(err.kind(), vec![msg]))
-            }
-        }
-    } else {
-        // The final part of a multipart message.
-        match unsafe { send_no_drop(mut_sock_ptr, msg.as_mut_ptr(), flags) } {
-            // The call failed so we give ownership back to the caller.
-            Err(err) => {
-                let mut drained: Vec<Msg> = buffer.drain(..).collect();
-                drained.push(msg);
-                assert!(buffer.is_empty());
-
-                Err(Error::with_content(err.kind(), drained))
-            }
-            // The call succeeded, ØMQ now owns the messages in the buffer
-            // so we drop them.
-            Ok(_) => {
-                buffer.clear();
-                Ok(())
-            }
-        }
-    }
-}
-
-fn send_more(
-    mut_sock_ptr: *mut c_void,
-    mut msg: Msg,
-    flags: Flags,
-    buffer: &mut Vec<Msg>,
-) -> Result<(), Error<Vec<Msg>>> {
-    assert!(flags.contains(MORE));
-
-    let mut_msg_ptr = msg.as_mut_ptr();
-    buffer.push(msg);
-
-    match unsafe { send_no_drop(mut_sock_ptr, mut_msg_ptr, flags) } {
-        // The call failed so we ownership of the messages in the buffer
-        // back to the caller.
-        Err(err) => {
-            let drained = buffer.drain(..).collect();
-            assert!(buffer.is_empty());
-
-            Err(Error::with_content(err.kind(), drained))
-        }
-        // The call succeeded, but we keep ownership of the messages in the
-        // buffer in case a future multipart call fails.
-        Ok(_) => Ok(()),
-    }
-}
-
-/// This function is use to provide the guarantee that the `send` and `send_parts`
-/// methods of the `SendPart` trait cannot return `HostUnreachable`.
-///
-/// The only socket that could return in this case `HostUnreachable` is the `Router`,
-/// which we dont support. This function is meant to detect regressions.
-fn panic_on_host_unreachable<O, E>(result: &Result<O, Error<E>>)
-where
-    E: 'static + Send + Sync + Debug,
-{
-    if let Err(err) = result {
-        if let ErrorKind::HostUnreachable = err.kind() {
-            unreachable!()
-        }
-    }
-}
-
-fn send_part(
-    mut_sock_ptr: *mut c_void,
-    msg: Msg,
-    flags: Flags,
-    buffer: &mut Vec<Msg>,
-) -> Result<(), Error<Vec<Msg>>> {
-    let result = {
-        if flags.contains(MORE) {
-            send_more(mut_sock_ptr, msg, flags, buffer)
-        } else {
-            send_no_more(mut_sock_ptr, msg, flags, buffer)
-        }
-    };
-    panic_on_host_unreachable(&result);
-
-    result
-}
-
-/// Send messages parts in a mutable, non-thread-safe fashion.
-///
-/// Supports multipart messages.
-pub trait SendPart: MutSocket {
-    #[doc(hidden)]
-    fn mut_buffer(&mut self) -> &mut Vec<Msg>;
-
-    /// Send a message part from a socket.
-    ///
-    /// If the message is a `Msg`, `Vec<u8>` or a `String`, it is not copied.
-    ///
-    /// See [`zmq_msg_send`].
-    ///
-    /// # Success
-    /// If the [`NONE`] flag was passed, the message, as well as all the previous
-    /// multiparts messages (if any), were queued and now belong to ØMQ.
-    ///
-    /// If the [`MORE`] flag was passed, then success doesn't mean anything.
-    ///
-    /// # Error
-    /// The message was not queued and its ownership, along with any previous
-    /// multipart messages, is retured to the caller.
-    ///
-    /// ## Possible Error Variants
-    /// * [`WouldBlock`]
-    /// * [`CtxTerminated`]
-    /// * [`Interrupted`]
-    ///
-    /// [`zmq_msg_send`]: http://api.zeromq.org/master:zmq-msg-send
-    /// [`NONE`]: constant.NONE.html
-    /// [`MORE`]: constant.MORE.html
-    /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn send<M>(&mut self, part: M, flags: Flags) -> Result<(), Error<Vec<Msg>>>
-    where
-        M: Into<Msg>,
-    {
-        let msg: Msg = part.into();
-        send_part(self.mut_sock_ptr(), msg, flags, self.mut_buffer())
-    }
-
-    /// A convenience method that sends multipart message mutably from a socket.
-    ///
-    /// The `flags` are applied to each `send` call in the iterable.
-    ///
-    /// If the elements of the iterable are of the type `Msg`, `Vec<u8>` or `String`,
-    /// they are not copied.
-    ///
-    /// # Error
-    /// In case of an error, none of the messages are queued and their
-    /// ownership is returned.
-    ///
-    /// ## Possible Error Variants
-    /// * [`WouldBlock`]
-    /// * [`CtxTerminated`]
-    /// * [`Interrupted`]
-    ///
-    /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn send_parts<P, M>(
-        &mut self,
-        parts: P,
-        flags: Flags,
-    ) -> Result<(), Error<Vec<Msg>>>
-    where
-        P: IntoIterator<Item = M>,
-        M: Into<Msg>,
-    {
-        let mut maybe_err: Option<Error<Vec<Msg>>> = None;
-        let mut maybe_prev: Option<Msg> = None;
-        let iter = parts.into_iter();
-        // Since we consume the iterator, we might need to
-        // store the messages somewhere if the loop errors.
-        let mut maybe_buf: Option<Vec<Msg>> = None;
-        // Keep track of the nb of elems left in the iterator
-        // in case we have to alloc a buffer.
-        let mut elems_left = iter.size_hint().0;
-
-        for part in iter {
-            let msg: Msg = part.into();
-            if maybe_err.is_some() {
-                maybe_buf.as_mut().unwrap().push(msg);
-            } else {
-                let maybe_msg = maybe_prev.take();
-                elems_left -= 1;
-                if let Some(msg) = maybe_msg {
-                    if let Err(err) = send_part(
-                        self.mut_sock_ptr(),
-                        msg,
-                        flags | MORE,
-                        self.mut_buffer(),
-                    ) {
-                        maybe_buf = Some(Vec::with_capacity(elems_left));
-                        maybe_err = Some(err);
-                    }
-                }
-                maybe_prev = Some(msg);
-            }
-        }
-
-        if let Some(mut err) = maybe_err {
-            // Loop errored, so we return ownership of the messages to
-            // the caller.
-            let mut content = err.take_content().unwrap();
-            content.extend(maybe_buf.unwrap());
-
-            Err(Error::with_content(err.kind(), content))
-        } else if let Some(msg) = maybe_prev {
-            send_part(self.mut_sock_ptr(), msg, flags, self.mut_buffer())
-        } else {
-            // Empty iterator case.
-            Ok(())
-        }
-    }
-
-    impl_send_socket_options!(&mut Self);
-}
-
 /// Send messages in a thread-safe fashion.
 ///
 /// Does not support multipart messages.
-pub trait SendAtomic: Socket + Send + Sync {
-    /// Send a message immutably from a socket.
+pub trait SendMsg: Socket + Send + Sync {
+    /// Push a message into the outgoing socket queue.
     ///
-    /// If the message is a `Msg`, `Vec<u8>` or a `String`, it is not copied.
+    /// This operation might block if the socket is in mute state.
     ///
-    /// See [`zmq_msg_send`].
+    /// If the message is a `Msg`, `Vec<u8>`, `[u8]`, or a `String`, it is not copied.
+    ///
+    /// # Success
+    /// The message was queued and now belongs to ØMQ
+    ///
+    /// # Error
+    /// In case of an error, the message is not queued and
+    /// the ownership is returned.
+    ///
+    /// ## Possible Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`Interrupted`]
+    /// * [`HostUnreachable`] (only for [`Server`] socket)
+    ///
+    /// [`zmq_msg_send`]: http://api.zeromq.org/master:zmq-msg-send
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
+    /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
+    /// [`Server`]: struct.Server.html
+    fn send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
+    where
+        M: Into<Msg>,
+    {
+        let msg: Msg = sendable.into();
+        send(self.mut_sock_ptr(), msg, false)
+    }
+
+    /// Push a message into the outgoing socket queue without blocking.
+    ///
+    /// This polls the socket so see if the socket is in mute state, if it
+    /// is it errors with [`WouldBlock`], otherwise is pushes the message into
+    /// the outgoing queue.
+    ///
+    /// If the message is a `Msg`, `Vec<u8>`, `[u8]`, or a `String`, it is not copied.
     ///
     /// # Success
     /// The message was queued and now belongs to ØMQ
@@ -1110,25 +673,105 @@ pub trait SendAtomic: Socket + Send + Sync {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn send<M>(&self, sendable: M, flags: Flags) -> Result<(), Error<Msg>>
+    fn send_poll<M>(&self, sendable: M) -> Result<(), Error<Msg>>
     where
         M: Into<Msg>,
     {
-        assert!(!flags.contains(MORE), "MORE flag is not allowed");
         let msg: Msg = sendable.into();
-        send_atomic(self.mut_sock_ptr(), msg, flags)
+        send(self.mut_sock_ptr(), msg, true)
     }
 
-    impl_send_socket_options!(&Self);
+    /// The high water mark for outbound messages on the specified socket.
+    ///
+    /// The high water mark is a hard limit on the maximum number of
+    /// outstanding messages ØMQ shall queue in memory.
+    ///
+    /// If this limit has been reached the socket shall enter the `mute state`.
+    fn send_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        let limit =
+            getsockopt_scalar(mut_sock_ptr, SocketOption::SendHighWaterMark)?;
+
+        if limit == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(limit))
+        }
+    }
+
+    /// Set the high water mark for outbound messages on the specified socket.
+    ///
+    /// The high water mark is a hard limit on the maximum number of
+    /// outstanding messages ØMQ shall queue in memory.
+    ///
+    /// If this limit has been reached the socket shall enter the `mute state`.
+    ///
+    /// A value of `None` means no limit.
+    ///
+    /// # Default value
+    /// 1000
+    fn set_send_high_water_mark(
+        &self,
+        maybe_limit: Option<i32>,
+    ) -> Result<(), Error<()>> {
+        match maybe_limit {
+            Some(limit) => {
+                assert!(limit != 0, "high water mark cannot be zero");
+                setsockopt_scalar(
+                    self.mut_sock_ptr(),
+                    SocketOption::SendHighWaterMark,
+                    limit,
+                )
+            }
+            None => setsockopt_scalar(
+                self.mut_sock_ptr(),
+                SocketOption::SendHighWaterMark,
+                0,
+            ),
+        }
+    }
+
+    /// Sets the timeout for `send` operation on the socket.
+    ///
+    /// If the value is 0, `send` will return immediately, with a EAGAIN
+    /// error if the message cannot be sent. If the value is `None`, it
+    /// will block until the message is sent. For all other values, it will
+    /// try to send the message for that amount of time before returning
+    /// with an EAGAIN error.
+    fn send_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        getsockopt_duration(mut_sock_ptr, SocketOption::SendTimeout)
+    }
+
+    /// Sets the timeout for `send` operation on the socket.
+    ///
+    /// If the value is 0, `send` will return immediately, with a EAGAIN
+    /// error if the message cannot be sent. If the value is `None`, it
+    /// will block until the message is sent. For all other values, it will
+    /// try to send the message for that amount of time before returning
+    /// with an EAGAIN error.
+    ///
+    /// # Default Value
+    /// `None`
+    fn set_send_timeout(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error<()>> {
+        setsockopt_duration(
+            self.mut_sock_ptr(),
+            SocketOption::SendTimeout,
+            maybe_duration,
+        )
+    }
 }
 
 fn recv(
     mut_sock_ptr: *mut c_void,
     msg: &mut Msg,
-    flags: Flags,
+    no_block: bool,
 ) -> Result<(), Error<()>> {
     let rc = unsafe {
-        sys::zmq_msg_recv(msg.as_mut_ptr(), mut_sock_ptr, flags.bits())
+        sys::zmq_msg_recv(msg.as_mut_ptr(), mut_sock_ptr, no_block as c_int)
     };
 
     if rc == -1 {
@@ -1154,157 +797,157 @@ fn recv(
     }
 }
 
-fn recv_parts(
-    mut_sock_ptr: *mut c_void,
-    queue: &mut Vec<Msg>,
-    flags: Flags,
-) -> Result<(), Error<()>> {
-    for msg in queue.iter_mut() {
-        recv(mut_sock_ptr, msg, flags)?;
-        if !msg.more() {
-            return Ok(());
-        }
-    }
-
-    loop {
-        let mut msg = Msg::new();
-        recv(mut_sock_ptr, &mut msg, flags)?;
-
-        let more = msg.more();
-        queue.push(msg);
-
-        if !more {
-            return Ok(());
-        }
-    }
-}
-
-/// Receive messages parts in a mutable, non-thread-safe fashion.
-///
-/// Supports multipart messages.
-pub trait RecvPart: MutSocket {
-    /// Receive a message part mutably from a socket.
-    ///
-    /// See [`zmq_msg_recv`].
-    ///
-    /// # Error
-    /// In case of an error the message that failed to be received is
-    /// not lost, unless the `Ctx` was terminated.
-    ///
-    /// ## Possible Error Variants
-    /// * [`WouldBlock`]
-    /// * [`CtxTerminated`]
-    /// * [`Interrupted`]
-    ///
-    /// [`zmq_msg_recv`]: http://api.zeromq.org/master:zmq-msg-recv
-    /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn recv(&mut self, msg: &mut Msg, flags: Flags) -> Result<(), Error<()>> {
-        assert!(!flags.contains(MORE), "MORE flag not allowed");
-        recv(self.mut_sock_ptr(), msg, flags)
-    }
-
-    /// A convenience function with the same properties as [`recv`] but
-    /// that returns an allocated a [`Msg`].
-    ///
-    /// [`recv`]: #method.recv
-    /// [`Msg`]: ../msg/struct.Msg.html
-    fn recv_msg(&mut self, flags: Flags) -> Result<Msg, Error<()>> {
-        let mut msg = Msg::new();
-        self.recv(&mut msg, flags)?;
-
-        Ok(msg)
-    }
-
-    /// A convenience method that receives a multipart message mutably
-    /// from a socket.
-    ///
-    /// The `flags` are applied to each `recv` call in the iterable.
-    ///
-    /// This might allocate to the `queue`.
-    ///
-    /// # Error
-    /// In case of an error the multipart message that failed to be
-    /// received is not lost, unless the `Ctx` was terminated.
-    ///
-    /// ## Possible Error Variants
-    /// * [`WouldBlock`]
-    /// * [`CtxTerminated`]
-    /// * [`Interrupted`]
-    ///
-    /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn recv_parts(
-        &mut self,
-        queue: &mut Vec<Msg>,
-        flags: Flags,
-    ) -> Result<(), Error<()>> {
-        assert!(!flags.contains(MORE), "MORE flag not allowed");
-        recv_parts(self.mut_sock_ptr(), queue, flags)
-    }
-
-    /// A convenience function with the same properties as [`recv_parts`] but
-    /// that returns an allocated a `Vec<Msg>`.
-    ///
-    /// [`recv_parts`]: #method.recv_parts
-    /// [`Msg`]: ../msg/struct.Msg.html
-    fn recv_msg_parts(&mut self, flags: Flags) -> Result<Vec<Msg>, Error<()>> {
-        let mut queue = Vec::new();
-        self.recv_parts(&mut queue, flags)?;
-
-        Ok(queue)
-    }
-
-    impl_recv_socket_options!(&mut Self);
-}
-
 /// Receive atomic messages in an immutable, thread-safe fashion.
 ///
 /// Does not support multipart messages.
-pub trait RecvAtomic: Socket + Send + Sync {
-    /// Receive a message immutably from a socket.
+pub trait RecvMsg: Socket + Send + Sync {
+    /// Retreive a message from the inbound socket queue.
     ///
-    /// See [`zmq_msg_recv`].
+    /// This operation might block until the socket receives a message.
     ///
     /// # Error
-    /// In case of an error the message that failed to be received is
-    /// not lost, unless the `Ctx` was terminated.
+    /// No message from the inbound queue is lost if there is an error.
+    ///
+    /// ## Possible Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`Interrupted`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
+    fn recv(&self, msg: &mut Msg) -> Result<(), Error<()>> {
+        recv(self.mut_sock_ptr(), msg, false)
+    }
+
+    /// Retreive a message from the inbound socket queue without blocking.
+    ///
+    /// This polls the socket to determine there is at least on inbound message in
+    /// the socket queue. If there is, it retuns it, otherwise it errors with
+    /// [`WouldBlock`].
+    ///
+    /// # Error
+    /// No message from the inbound queue is lost if there is an error.
     ///
     /// ## Possible Error Variants
     /// * [`WouldBlock`]
     /// * [`CtxTerminated`]
     /// * [`Interrupted`]
     ///
-    /// [`zmq_msg_recv`]: http://api.zeromq.org/master:zmq-msg-recv
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn recv(&self, msg: &mut Msg, flags: Flags) -> Result<(), Error<()>> {
-        assert!(!flags.contains(MORE), "MORE flag not allowed");
-        // This is safe since this socket type is thread safe.
-        recv(self.mut_sock_ptr(), msg, flags)
+    fn recv_poll(&self, msg: &mut Msg) -> Result<(), Error<()>> {
+        recv(self.mut_sock_ptr(), msg, true)
     }
 
-    /// A convenience function that allocates a [`Msg`] with the same properties as [`recv`].
+    /// A convenience function that allocates a [`Msg`] with the same properties
+    /// as [`recv`].
     ///
     /// [`recv`]: #method.recv
     /// [`Msg`]: ../msg/struct.Msg.html
-    fn recv_msg(&self, flags: Flags) -> Result<Msg, Error<()>> {
+    fn recv_msg(&self) -> Result<Msg, Error<()>> {
         let mut msg = Msg::new();
-        self.recv(&mut msg, flags)?;
+        self.recv(&mut msg)?;
 
         Ok(msg)
     }
 
-    impl_recv_socket_options!(&Self);
+    /// A convenience function that allocates a [`Msg`] with the same properties
+    /// as [`recv_poll`].
+    ///
+    /// [`recv_poll`]: #method.recv
+    /// [`Msg`]: ../msg/struct.Msg.html
+    fn recv_msg_poll(&self) -> Result<Msg, Error<()>> {
+        let mut msg = Msg::new();
+        self.recv_poll(&mut msg)?;
+
+        Ok(msg)
+    }
+
+    /// The high water mark for incoming messages on the specified socket.
+    ///
+    /// The high water mark is a hard limit on the maximum number of
+    /// incoming messages ØMQ shall queue in memory.
+    ///
+    /// If this limit has been reached the socket shall enter the `mute state`.
+    fn recv_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        let limit =
+            getsockopt_scalar(mut_sock_ptr, SocketOption::RecvHighWaterMark)?;
+
+        if limit == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(limit))
+        }
+    }
+
+    /// Set the high water mark for inbound messages on the specified socket.
+    ///
+    /// The high water mark is a hard limit on the maximum number of
+    /// outstanding messages ØMQ shall queue in memory.
+    ///
+    /// If this limit has been reached the socket shall enter the `mute state`.
+    ///
+    /// A value of `None` means no limit.
+    ///
+    /// # Default value
+    /// 1000
+    fn set_recv_high_water_mark(
+        &self,
+        maybe_limit: Option<i32>,
+    ) -> Result<(), Error<()>> {
+        match maybe_limit {
+            Some(limit) => {
+                assert!(limit != 0, "high water mark cannot be zero");
+                setsockopt_scalar(
+                    self.mut_sock_ptr(),
+                    SocketOption::RecvHighWaterMark,
+                    limit,
+                )
+            }
+            None => setsockopt_scalar(
+                self.mut_sock_ptr(),
+                SocketOption::RecvHighWaterMark,
+                0,
+            ),
+        }
+    }
+
+    /// Sets the timeout for `recv` operation on the socket.
+    ///
+    /// If the value is 0, `recv` will return immediately, with a EAGAIN
+    /// error if the message cannot be sent. If the value is `None`, it
+    /// will block until the message is sent. For all other values, it will
+    /// try to recv the message for that amount of time before returning
+    /// with an EAGAIN error.
+    fn recv_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+        let mut_sock_ptr = self.sock_ptr() as *mut _;
+        getsockopt_duration(mut_sock_ptr, SocketOption::RecvTimeout)
+    }
+
+    /// Sets the timeout for `recv` operation on the socket.
+    ///
+    /// If the value is 0, `recv` will return immediately, with a EAGAIN
+    /// error if the message cannot be sent. If the value is `None`, it
+    /// will block until the message is sent. For all other values, it will
+    /// try to `recv` the message for that amount of time before returning
+    /// with an EAGAIN error.
+    ///
+    /// # Default Value
+    /// `None`
+    fn set_recv_timeout(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error<()>> {
+        setsockopt_duration(
+            self.mut_sock_ptr(),
+            SocketOption::RecvTimeout,
+            maybe_duration,
+        )
+    }
 }
 
 enum SocketType {
-    Push,
-    Pull,
-    Pair,
     Client,
     Server,
     Radio,
@@ -1314,9 +957,6 @@ enum SocketType {
 impl Into<c_int> for SocketType {
     fn into(self) -> c_int {
         match self {
-            SocketType::Push => sys::ZMQ_PUSH as c_int,
-            SocketType::Pull => sys::ZMQ_PULL as c_int,
-            SocketType::Pair => sys::ZMQ_PAIR as c_int,
             SocketType::Client => sys::ZMQ_CLIENT as c_int,
             SocketType::Server => sys::ZMQ_SERVER as c_int,
             SocketType::Radio => sys::ZMQ_RADIO as c_int,
@@ -1366,65 +1006,18 @@ impl Drop for RawSocket {
     fn drop(&mut self) {
         let rc = unsafe { sys::zmq_close(self.socket) };
 
-        assert_eq!(rc, 0, "invalid socket");
+        if rc == -1 {
+            let errno = unsafe { sys::zmq_errno() };
+            match errno {
+                errno::EFAULT => panic!("socket invalid"),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        }
     }
 }
 
-/// Implement the shared methods for a buffered socket.
-macro_rules! impl_shared_buf_methods {
-    ($name:ident, $sname:expr) => {
-        /// Create a `
-        #[doc = $sname]
-        /// ` socket from the [`global context`]
-        ///
-        /// # Returned Error Variants
-        /// * [`CtxTerminated`]
-        /// * [`SocketLimit`]
-        ///
-        /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-        /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-        /// [`global context`]: ../ctx/struct.Ctx.html#method.global
-        pub fn new() -> Result<Self, Error<()>> {
-            let inner = RawSocket::new(SocketType::$name)?;
-
-            Ok(Self {
-                inner,
-                buffer: vec![],
-            })
-        }
-
-        /// Create a `
-        #[doc = $sname]
-        /// ` socket from a specific context.
-        ///
-        /// # Returned Error Variants
-        /// * [`CtxTerminated`]
-        /// * [`SocketLimit`]
-        ///
-        /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-        /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-        pub fn with_ctx(ctx: Ctx) -> Result<Self, Error<()>> {
-            let inner = RawSocket::with_ctx(SocketType::$name, ctx)?;
-
-            Ok(Self {
-                inner,
-                buffer: vec![],
-            })
-        }
-
-        /// Returns a reference to the context of the socket.
-        pub fn ctx(&self) -> &Ctx {
-            &self.inner.ctx
-        }
-    };
-
-    ($name:tt) => {
-        impl_shared_buf_methods!($name, stringify!($name));
-    };
-}
-
-/// Implement the methods for an unbuffered socket.
-macro_rules! impl_shared_methods {
+/// Implement the shared methods for a socket.
+macro_rules! impl_socket_methods {
     ($name:ident, $sname:expr) => {
             /// Create a `
             #[doc = $sname]
@@ -1471,22 +1064,7 @@ macro_rules! impl_shared_methods {
     };
 
     ($name:tt) => {
-        impl_shared_methods!($name, stringify!($name));
-    };
-}
-
-/// Implement the MutSocket trait.
-macro_rules! impl_mut_socket_trait {
-    ($name:ident) => {
-        impl MutSocket for $name {
-            fn sock_ptr(&self) -> *const c_void {
-                self.inner.socket
-            }
-
-            fn mut_sock_ptr(&mut self) -> *mut c_void {
-                self.inner.socket
-            }
-        }
+        impl_socket_methods!($name, stringify!($name));
     };
 }
 
@@ -1505,264 +1083,6 @@ macro_rules! impl_socket_trait {
         }
     };
 }
-
-/// A `Push` socket is used by a pipeline node to send messages to
-/// downstream pipeline nodes. Messages are round-robined to all connected
-/// downstream nodes.
-///
-/// # Use case
-/// The `Push` - [`Pull`] pattern provide the best message throughtput at the
-/// expense of usability.
-///
-/// Indeed, since messaging is strictly unidirectionally, it does not provide
-/// the ability to synchronize the producer with the workers.
-/// This can be problematic because workers won't all connect to the producer
-/// at the same time. Thus, a worker that connected first might receive more
-/// messages than the others, until equilibrium is eventually reached.
-/// Using a lower `recv_high_water_mark` on the workers can help mitigate this
-/// effect.
-///
-/// # Mute state
-/// When a `Push` socket enters the mute state due to having reached the high
-/// water mark for all downstream nodes, or if there are no downstream nodes at
-/// all, then any `send` operations on the socket shall block until the mute
-/// state ends or at least one downstream node becomes available for sending;
-/// messages are not discarded.
-///
-/// # Usage Example
-///
-/// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
-/// use libzmq::prelude::*;
-///
-/// let endpoint: Endpoint = "inproc://test".parse()?;
-///
-/// // Let's fire up our sockets. We have a task ventilator as well
-/// // two workers.
-/// let mut ventilator = Push::new()?;
-/// let mut first = Pull::new()?;
-/// let mut second = Pull::new()?;
-///
-/// // All of these sockets are currently in mute state since they
-/// // don't have any peers. Let's fix that.
-/// ventilator.bind(&endpoint)?;
-/// first.connect(&endpoint)?;
-/// second.connect(endpoint)?;
-///
-/// // Lets illustrate the synchronization problem. We distribute some
-/// // tasks downstream.
-/// ventilator.send_parts(vec!["one", "two", "three"], NONE)?;
-///
-/// // The first worker connected first so that, while the second worker was
-/// // still connected, the task ventilator was able to send all its task
-/// // downstream.
-/// let mut msg = first.recv_msg(NONE)?;
-/// assert_eq!("one", msg.to_str()?);
-/// first.recv(&mut msg, NONE)?;
-/// assert_eq!("two", msg.to_str()?);
-/// first.recv(&mut msg, NONE)?;
-/// assert_eq!("three", msg.to_str()?);
-/// // Indeed the second worker did not receive any work.
-/// let err = second.recv(&mut msg, NO_BLOCK).unwrap_err();
-/// assert_eq!(ErrorKind::WouldBlock, err.kind());
-/// #
-/// #     Ok(())
-/// # }
-/// ```
-///
-/// # Summary of Characteristics
-/// | Characteristic            | Value                  |
-/// |:-------------------------:|:----------------------:|
-/// | Compatible peer sockets   | [`Pull`]               |
-/// | Direction                 | Unidirectional         |
-/// | Pattern                   | Send only              |
-/// | Incoming routing strategy | N/A                    |
-/// | Outgoing routing strategy | Round-robin            |
-/// | Action in mute state      | Block                  |
-///
-/// [`Pull`]: struct.Pull.html
-pub struct Push {
-    inner: RawSocket,
-    buffer: Vec<Msg>,
-}
-
-impl Push {
-    impl_shared_buf_methods!(Push);
-}
-
-impl_mut_socket_trait!(Push);
-
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PullConfig {
-    #[serde(flatten)]
-    inner: SocketConfig,
-}
-
-impl PullConfig {
-    pub fn build(&self) -> Result<Pull, Error<()>> {
-        let mut pull = Pull::new()?;
-        self.apply(&mut pull)?;
-
-        Ok(pull)
-    }
-
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Pull, Error<()>> {
-        let mut pull = Pull::with_ctx(ctx)?;
-        self.apply(&mut pull)?;
-
-        Ok(pull)
-    }
-}
-
-impl_config_trait!(PullConfig);
-
-impl SendPart for Push {
-    fn mut_buffer(&mut self) -> &mut Vec<Msg> {
-        &mut self.buffer
-    }
-}
-
-/// A `Pull` socket is used by a pipeline node to receive messages from
-/// upstream pipeline nodes. Messages are fair-queued from among all connected
-/// upstream nodes.
-///
-/// # Use Case
-/// [`Read more here`](struct.Push.html#use-case).
-///
-/// # Mute state
-/// When a `Pull` socket enters the mute state due to having reached the high
-/// water mark for all upstream nodes, or if there are no upstream nodes at
-/// all, then any `recv` operations on the socket shall block until the mute
-/// state ends or at least one upstream node becomes available for receiving.
-///
-///# Usage Example
-/// [`Read more here`](struct.Push.html#usage-example).
-///
-/// # Summary of Characteristics
-/// | Characteristic            | Value                  |
-/// |:-------------------------:|:----------------------:|
-/// | Compatible peer sockets   | [`Push`]               |
-/// | Direction                 | Unidirectional         |
-/// | Pattern                   | Receive only           |
-/// | Incoming routing strategy | Fair-queued            |
-/// | Outgoing routing strategy | N/A                    |
-/// | Action in mute state      | Block                  |
-pub struct Pull {
-    inner: RawSocket,
-}
-
-impl Pull {
-    impl_shared_methods!(Pull);
-}
-
-impl_mut_socket_trait!(Pull);
-
-impl RecvPart for Pull {}
-
-/// A socket of can only be connected to a single peer at any one time.
-///
-/// No message routing or filtering is performed on messages sent. The `Pair`
-/// socket is designed for inter-thread communication across the
-/// inproc transport and do not implement functionality such as
-/// auto-reconnection.
-///
-/// # Use case
-/// The `Pair` socket should be used to communicate accross thread boundaries
-/// within the same process via the `inproc` transport.
-///
-/// # Mute State
-/// When a `Pair` socket enters the mute state due to having reached the
-/// high water mark for the connected peer, or if no peer is connected,
-/// then any `send` operations on the socket shall block until the peer
-/// becomes available for sending; messages are not discarded.
-///
-/// # Basic Usage Example
-/// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
-/// use libzmq::prelude::*;
-/// use std::{thread, time::Duration};
-///
-/// let endpoint: Endpoint = "inproc://test".parse()?;
-///
-/// // We set `no_linger` so that the sockets disconnect `almost` instantly.
-/// Ctx::global().set_no_linger(true);
-///
-/// let mut first = Pair::new()?;
-/// let mut second = Pair::new()?;
-///
-/// // Both sockets are in mute state since they don't have any peers.
-/// // While in mute state, a `Pair` socket blocks. Let's remedy that.
-/// first.bind(&endpoint)?;
-/// second.connect(&endpoint)?;
-///
-/// // Now both sockets have a peer so they won't block anymore.
-/// // We can send single part messages...
-/// first.send("one", NONE)?;
-/// let mut msg = second.recv_msg(NONE)?;
-/// assert_eq!("one", msg.to_str()?);
-///
-/// // ...as well as multipart messages.
-/// second.send("cya", MORE)?;
-/// second.send("l8er", NONE)?;
-///
-/// let parts = first.recv_msg_parts(NONE)?;
-/// let strings: Vec<&str> = parts.iter().filter_map(|x| x.to_str().ok()).collect();
-/// assert_eq!(["cya", "l8er"], strings.as_slice());
-///
-/// // Note that ØMQ guarantees that peers shall receive either all
-/// // message parts or none at all. Therefore, this would block:
-/// first.send("time", MORE)?;
-/// let err = second.recv(&mut msg, NO_BLOCK).unwrap_err();
-/// assert_eq!(ErrorKind::WouldBlock, err.kind());
-///
-/// // Now lets disconnect one of the sockets.
-/// second.disconnect(endpoint)?;
-/// thread::sleep(Duration::from_millis(1)); // 'almost' instantly
-///
-/// // The first socket is now in mute state, so the next call would block.
-/// let mut err = first.send("is money", NO_BLOCK).unwrap_err();
-/// assert_eq!(ErrorKind::WouldBlock, err.kind());
-///
-/// // We can get back the messages that weren't sent.
-/// let parts = err.take_content().unwrap();
-/// let strings: Vec<&str> = parts.iter().filter_map(|x| x.to_str().ok()).collect();
-/// assert_eq!(["time", "is money"], strings.as_slice());
-/// #
-/// #     Ok(())
-/// # }
-/// ```
-///
-/// # Summary of Characteristics
-/// | Characteristic            | Value         |
-/// |:-------------------------:|:-------------:|
-/// | Compatible peer           | ZMQ_PAIR      |
-/// | Direction                 | Bidirectional |
-/// | Pattern                   | Unrestricted  |
-/// | Incoming routing strategy | N/A           |
-/// | Outgoing routing strategy | N/A           |
-/// | Action in mute state      | Block         |
-pub struct Pair {
-    inner: RawSocket,
-    buffer: Vec<Msg>,
-}
-
-impl Pair {
-    impl_shared_buf_methods!(Pair);
-}
-
-impl_mut_socket_trait!(Pair);
-
-impl SendPart for Pair {
-    fn mut_buffer(&mut self) -> &mut Vec<Msg> {
-        &mut self.buffer
-    }
-}
-
-impl RecvPart for Pair {}
 
 /// A `Client` socket is used for advanced request-reply messaging.
 ///
@@ -1802,21 +1122,21 @@ impl RecvPart for Pair {}
 /// second.connect(endpoint)?;
 ///
 /// // Lets do the whole request-reply thing.
-/// first.send("request", NONE)?;
+/// first.send("request")?;
 ///
-/// let mut msg = second.recv_msg(NONE)?;
+/// let mut msg = second.recv_msg()?;
 /// assert_eq!("request", msg.to_str()?);
 ///
-/// second.send("reply", NONE)?;
+/// second.send("reply")?;
 ///
-/// first.recv(&mut msg, NONE)?;
+/// first.recv(&mut msg)?;
 /// assert_eq!("reply", msg.to_str()?);
 ///
 /// // We can send as many replies as we want. We don't need to follow
 /// // a strict one request equals one reply pattern.
-/// second.send("another reply", NONE)?;
+/// second.send("another reply")?;
 ///
-/// first.recv(&mut msg, NONE)?;
+/// first.recv(&mut msg)?;
 /// assert_eq!("another reply", msg.to_str()?);
 /// #
 /// #     Ok(())
@@ -1839,16 +1159,45 @@ pub struct Client {
 }
 
 impl Client {
-    impl_shared_methods!(Client);
+    impl_socket_methods!(Client);
 }
 
 impl_socket_trait!(Client);
 
-impl SendAtomic for Client {}
-impl RecvAtomic for Client {}
+impl SendMsg for Client {}
+impl RecvMsg for Client {}
 
 unsafe impl Send for Client {}
 unsafe impl Sync for Client {}
+
+/// A builder for a `Client`.
+///
+/// Especially helpfull in config files.
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ClientConfig {
+    inner: SharedConfig,
+}
+
+impl ClientConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn build(&self) -> Result<Client, Error<()>> {
+        let ctx = Ctx::global().clone();
+
+        self.build_with_ctx(ctx)
+    }
+
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error<()>> {
+        let client = Client::with_ctx(ctx)?;
+        self.apply(&client)?;
+
+        Ok(client)
+    }
+}
+
+impl_config_trait!(ClientConfig);
 
 /// A `Server` socket is a socket used for advanced request-reply messaging.
 ///
@@ -1895,8 +1244,8 @@ unsafe impl Sync for Client {}
 /// server.bind(endpoint)?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.
-/// client.send("request", NONE)?;
-/// let msg = server.recv_msg(NONE)?;
+/// client.send("request")?;
+/// let msg = server.recv_msg()?;
 /// assert_eq!("request", msg.to_str()?);
 /// let routing_id = msg.routing_id().expect("no routing id");
 ///
@@ -1904,16 +1253,16 @@ unsafe impl Sync for Client {}
 /// // want to the client.
 /// let mut msg: Msg = "reply 1".into();
 /// msg.set_routing_id(routing_id);
-/// server.send(msg, NONE)?;
+/// server.send(msg)?;
 /// let mut msg: Msg = "reply 2".into();
 /// msg.set_routing_id(routing_id);
-/// server.send(msg, NONE)?;
+/// server.send(msg)?;
 ///
 /// // The `routing_id` is discarted when the message is sent to the client.
-/// let mut msg = client.recv_msg(NONE)?;
+/// let mut msg = client.recv_msg()?;
 /// assert_eq!("reply 1", msg.to_str()?);
 /// assert!(msg.routing_id().is_none());
-/// client.recv(&mut msg, NONE)?;
+/// client.recv(&mut msg)?;
 /// assert_eq!("reply 2", msg.to_str()?);
 /// assert!(msg.routing_id().is_none());
 /// #
@@ -1931,19 +1280,313 @@ pub struct Server {
 }
 
 impl Server {
-    impl_shared_methods!(Server);
+    impl_socket_methods!(Server);
 }
 
 impl_socket_trait!(Server);
 
-impl SendAtomic for Server {}
-impl RecvAtomic for Server {}
+impl SendMsg for Server {}
+impl RecvMsg for Server {}
 
 unsafe impl Send for Server {}
 unsafe impl Sync for Server {}
 
+/// A builder for a `Server`.
+///
+/// Especially helpfull in config files.
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ServerConfig {
+    inner: SharedConfig,
+}
+
+impl ServerConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn build(&self) -> Result<Server, Error<()>> {
+        let ctx = Ctx::global().clone();
+
+        self.build_with_ctx(ctx)
+    }
+
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error<()>> {
+        let server = Server::with_ctx(ctx)?;
+        self.apply(&server)?;
+
+        Ok(server)
+    }
+}
+
+impl_config_trait!(ServerConfig);
+
 /// A `Radio` socket is used by a publisher to distribute data to [`Dish`]
-/// sockets. Each message belong to a group specified with [`set_group`].
+/// sockets.
+///
+/// Each message belong to a group specified with [`set_group`].
+//! libzmq - A subset of ØMQ with a high*ish* level API based on `libzmq` rust
+//! bindings.
+
+mod ctx;
+pub mod endpoint;
+mod msg;
+pub mod socket;
+mod sockopt;
+
+pub use ctx::*;
+pub use error::*;
+pub use msg::*;
+
+use libzmq_sys as sys;
+
+use failure::{Backtrace, Context, Fail};
+
+use std::{
+    ffi,
+    fmt::{self, Debug, Display},
+    os::raw::*,
+    str,
+};
+
+pub mod prelude {
+    pub use crate::{
+        ctx::{Ctx, CtxConfig},
+        endpoint::Endpoint,
+        error::{Error, ErrorKind},
+        msg::Msg,
+        socket::{Client, Dish, Radio, RecvMsg, SendMsg, Server, Socket},
+    };
+}
+
+/// Reports the ØMQ library version.
+///
+/// Returns a tuple in the format `(Major, Minor, Patch)`.
+///
+/// See [`zmq_version`].
+///
+/// [`zmq_version`]: http://api.zeromq.org/4-2:zmq-version
+///
+/// ```
+/// use libzmq::zmq_version;
+///
+/// assert_eq!(zmq_version(), (4, 3, 1));
+/// ```
+// This test acts as a canary when upgrading the libzmq
+// version.
+pub fn zmq_version() -> (i32, i32, i32) {
+    let mut major = 0;
+    let mut minor = 0;
+    let mut patch = 0;
+    unsafe {
+        sys::zmq_version(
+            &mut major as *mut c_int,
+            &mut minor as *mut c_int,
+            &mut patch as *mut c_int,
+        );
+    }
+    (major, minor, patch)
+}
+
+/// Check for a ZMQ capability.
+///
+/// See [`zmq_has`].
+///
+/// [`zmq_has`]: http://api.zeromq.org/4-2:zmq-has
+///
+/// ```
+/// use libzmq::zmq_has;
+///
+/// assert!(zmq_has("curve"));
+/// ```
+pub fn zmq_has(capability: &str) -> bool {
+    let c_str = ffi::CString::new(capability).unwrap();
+    unsafe { sys::zmq_has(c_str.as_ptr()) == 1 }
+}
+
+mod error {
+    use super::*;
+
+    /// An error with a kind and a content.
+    ///
+    /// An `Error` contains a [`ErrorKind`] which gives context on the error cause,
+    /// as well as `Option<T>` which is used to prevent the loss of data
+    /// in case of a failed function call.
+    ///
+    /// # Usage example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::prelude::*;
+    /// // This will make our match pattern cleaner.
+    /// use ErrorKind::*;
+    ///
+    /// // This client has no peer and is therefore in mute state.
+    /// let client = Client::new()?;
+    ///
+    /// // This means that the following call would block.
+    /// if let Err(mut err) = client.send_poll("msg") {
+    ///   match err.kind() {
+    ///     // This covers all the possible error scenarios for this socket type.
+    ///     // Normally we would process each error differently.
+    ///     WouldBlock | CtxTerminated | Interrupted => {
+    ///       // Here we get back the message we tried to send.
+    ///       let msg = err.content().take().unwrap();
+    ///       assert_eq!("msg", msg.to_str()?);
+    ///     }
+    ///     // Since `ErrorKind` is non-exhaustive, need an
+    ///     // extra wildcard arm to account for potential future variants.
+    ///     _ => panic!("unhandled error : {}", err),
+    ///   }
+    /// }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [`ErrorKind`]: enum.ErrorKind.html
+    #[derive(Debug)]
+    pub struct Error<T>
+    where
+        T: 'static + Send + Sync + Debug,
+    {
+        inner: Context<ErrorKind>,
+        content: Option<T>,
+    }
+
+    impl<T> Error<T>
+    where
+        T: 'static + Send + Sync + Debug,
+    {
+        pub(crate) fn new(kind: ErrorKind) -> Self {
+            Self {
+                inner: Context::new(kind),
+                content: None,
+            }
+        }
+
+        pub(crate) fn with_content(kind: ErrorKind, content: T) -> Self {
+            Self {
+                inner: Context::new(kind),
+                content: Some(content),
+            }
+        }
+
+        /// Returns the kind of error.
+        pub fn kind(&self) -> ErrorKind {
+            *self.inner.get_context()
+        }
+
+        /// Returns the content held by the error.
+        pub fn content(&self) -> Option<&T> {
+            self.content.as_ref()
+        }
+
+        /// Takes the content of the error, if any.
+        pub fn take_content(&mut self) -> Option<T> {
+            self.content.take()
+        }
+    }
+
+    impl<T> Fail for Error<T>
+    where
+        T: 'static + Send + Sync + Debug,
+    {
+        fn cause(&self) -> Option<&Fail> {
+            self.inner.cause()
+        }
+
+        fn backtrace(&self) -> Option<&Backtrace> {
+            self.inner.backtrace()
+        }
+    }
+
+    impl<T> Display for Error<T>
+    where
+        T: 'static + Send + Sync + Debug,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            Display::fmt(&self.inner, f)
+        }
+    }
+
+    /// Used to give context to an `Error`.
+    ///
+    /// # Note
+    /// This error type is non-exhaustive and could have additional variants
+    /// added in future. Therefore, when matching against variants of
+    /// non-exhaustive enums, an extra wildcard arm must be added to account
+    /// for any future variants.
+    ///
+    /// [`Error`]: enum.Error.html
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Fail)]
+    pub enum ErrorKind {
+        /// Non-blocking mode was requested and the message cannot be sent
+        /// without blocking
+        #[fail(display = "operation would block")]
+        WouldBlock,
+        /// Occurs when a [`Server`] socket cannot route a message
+        /// to a host.
+        ///
+        /// [`Server`]: socket/struct.Server.html
+        #[fail(display = "host unreachable")]
+        HostUnreachable,
+        /// The context was terminated while the operation was ongoing. Any
+        /// further operations on sockets that share this context will result
+        /// in this error.
+        ///
+        /// This error can only occur if the [`Ctx`] was explicitely [`terminated`].
+        ///
+        /// [`Ctx`]: ../ctx/struct.Ctx.html
+        /// [`terminated`]: ../ctx/struct.Ctx.html#method.terminate
+        #[fail(display = "context terminated")]
+        CtxTerminated,
+        /// The operation was interrupted by a OS signal delivery.
+        #[fail(display = "interrupted by signal")]
+        Interrupted,
+        /// The addr cannot be bound because it is already in use.
+        #[fail(display = "addr in use")]
+        AddrInUse,
+        /// A nonexistent interface was requested or the requested address was
+        /// not local.
+        #[fail(display = "addr not available")]
+        AddrNotAvailable,
+        /// An entity was not found.
+        ///
+        /// The inner `msg` contains information on the specific entity.
+        #[fail(display = "not found: {}", msg)]
+        NotFound {
+            /// Additionnal information on the error.
+            msg: &'static str,
+        },
+        /// The open socket limit was reached.
+        #[fail(display = "open socket limit was reached")]
+        SocketLimit,
+        /// A fn call did not follow its usage contract and provided invalid inputs.
+        ///
+        /// An `InvalidInput` error is guaranteed to be related to some API misuse
+        /// that can be known at compile time. Thus `panic` should be called on
+        /// those types of error.
+        ///
+        /// The inner `msg` contains information on the specific contract breach.
+        #[fail(display = "invalid input: {}", msg)]
+        InvalidInput {
+            /// Additionnal information on the error.
+            msg: &'static str,
+        },
+    }
+
+    pub(crate) fn msg_from_errno(x: i32) -> String {
+        unsafe {
+            let s = sys::zmq_strerror(x);
+            format!(
+                "unknown error [{}]: {}",
+                x,
+                str::from_utf8(ffi::CStr::from_ptr(s).to_bytes()).unwrap()
+            )
+        }
+    }
+}
 /// Messages are distributed to all members of a group.
 ///
 /// # Mute State
@@ -1981,21 +1624,21 @@ unsafe impl Sync for Server {}
 /// // Lets publish some messages to subscribers.
 /// let mut msg: Msg = "first msg".into();
 /// msg.set_group("first group")?;
-/// radio.send(msg, NONE)?;
+/// radio.send(msg)?;
 /// let mut msg: Msg = "second msg".into();
 /// msg.set_group("second group")?;
-/// radio.send(msg, NONE)?;
+/// radio.send(msg)?;
 ///
 /// // Lets receive the publisher's messages.
-/// let mut msg = first.recv_msg(NONE)?;
+/// let mut msg = first.recv_msg()?;
 /// assert_eq!("first msg", msg.to_str().unwrap());
-/// let err = first.recv(&mut msg, NO_BLOCK).unwrap_err();
+/// let err = first.recv_poll(&mut msg).unwrap_err();
 /// // Only the message from the first group was received.
 /// assert_eq!(ErrorKind::WouldBlock, err.kind());
 ///
-/// second.recv(&mut msg, NONE)?;
+/// second.recv(&mut msg)?;
 /// assert_eq!("second msg", msg.to_str().unwrap());
-/// let err = first.recv(&mut msg, NO_BLOCK).unwrap_err();
+/// let err = first.recv_poll(&mut msg).unwrap_err();
 /// // Only the message from the second group was received.
 /// assert_eq!(ErrorKind::WouldBlock, err.kind());
 /// #
@@ -2020,7 +1663,7 @@ pub struct Radio {
 }
 
 impl Radio {
-    impl_shared_methods!(Radio);
+    impl_socket_methods!(Radio);
 
     /// Returns `true` if the `no_drop` option is set.
     pub fn no_drop(&self) -> Result<bool, Error<()>> {
@@ -2042,10 +1685,44 @@ impl Radio {
 
 impl_socket_trait!(Radio);
 
-impl SendAtomic for Radio {}
+impl SendMsg for Radio {}
 
 unsafe impl Send for Radio {}
 unsafe impl Sync for Radio {}
+
+/// A builder for a `Radio`.
+///
+/// Especially helpfull in config files.
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RadioConfig {
+    inner: SharedConfig,
+    no_drop: Option<bool>,
+}
+
+impl RadioConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn build(&self) -> Result<Radio, Error<()>> {
+        let ctx = Ctx::global().clone();
+
+        self.build_with_ctx(ctx)
+    }
+
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error<()>> {
+        let radio = Radio::with_ctx(ctx)?;
+        self.apply(&radio)?;
+
+        if let Some(enabled) = self.no_drop {
+            radio.set_no_drop(enabled)?;
+        }
+
+        Ok(radio)
+    }
+}
+
+impl_config_trait!(RadioConfig);
 
 /// A `Dish` socket is used by a subscriber to subscribe to groups distributed
 /// by a [`Radio`].
@@ -2069,7 +1746,7 @@ pub struct Dish {
 }
 
 impl Dish {
-    impl_shared_methods!(Dish);
+    impl_socket_methods!(Dish);
 
     /// Joins the specified group.
     ///
@@ -2158,10 +1835,42 @@ impl Dish {
 
 impl_socket_trait!(Dish);
 
-impl RecvAtomic for Dish {}
+impl RecvMsg for Dish {}
 
 unsafe impl Send for Dish {}
 unsafe impl Sync for Dish {}
 
-#[cfg(test)]
-mod test {}
+/// A builder for a `Dish`.
+///
+/// Especially helpfull in config files.
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct DishConfig {
+    inner: SharedConfig,
+    groups: Option<Vec<String>>,
+}
+
+impl DishConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn build(&self) -> Result<Dish, Error<()>> {
+        let ctx = Ctx::global().clone();
+
+        self.build_with_ctx(ctx)
+    }
+
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Dish, Error<()>> {
+        let dish = Dish::with_ctx(ctx)?;
+        self.apply(&dish)?;
+
+        if let Some(ref groups) = self.groups {
+            for group in groups {
+                dish.join(group)?;
+            }
+        }
+        Ok(dish)
+    }
+}
+
+impl_config_trait!(DishConfig);

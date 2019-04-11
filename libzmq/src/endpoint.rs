@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use failure::Fail;
 
-use std::{borrow::Cow, fmt, str};
+use std::{fmt, str};
 
 /// For the moment this is simply a wrapper around a `String`.
 ///
@@ -317,7 +317,7 @@ impl str::FromStr for Endpoint {
             }
         } else {
             Err(EndpointParseError {
-                msg: format!("malformed endpoint"),
+                msg: "malformed endpoint".to_string(),
             })
         }
     }

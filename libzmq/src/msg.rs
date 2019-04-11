@@ -6,7 +6,8 @@ use sys::errno;
 use libc::size_t;
 
 use std::{
-    ffi::{self, CString, CStr}, fmt,
+    ffi::{self, CStr, CString},
+    fmt,
     os::raw::c_void,
     ptr, slice,
     str::{self, Utf8Error},
@@ -231,9 +232,7 @@ impl Msg {
     pub fn group(&self) -> Option<&str> {
         // This is safe we don't actually mutate the msg.
         let mut_msg_ptr = self.as_ptr() as *mut _;
-        let char_ptr = unsafe {
-            sys::zmq_msg_group(mut_msg_ptr)
-        };
+        let char_ptr = unsafe { sys::zmq_msg_group(mut_msg_ptr) };
 
         if char_ptr.is_null() {
             None

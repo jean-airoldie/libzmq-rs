@@ -3,7 +3,7 @@
 
 > libzmq-rs
 
-A subset of ØMQ with a high*ish* level API based on `libzmq` rust bindings.
+A strict subset of ØMQ with a high level API.
 
 # Installation
 This crate builds and generates bindings from source. This means that you
@@ -12,7 +12,8 @@ do not need to install `libzmq`. However building from source requires:
 * [Clang 6.0+](https://github.com/rust-lang/rust-bindgen/blob/master/Cargo.toml#L51)
 
 # Linking
-By default `libzmq` is built and linked dynamically. To change this behavior [read this](./libzmq-sys/README.md).
+By default `libzmq` is built and linked dynamically. To change this behavior
+[read this](./libzmq-sys/README.md).
 
 # General Goals
 * Conform to these [`API guidelines`].
@@ -34,7 +35,7 @@ before the 1.0 version is released.
 See the [`FAQ`](./FAQ.md).
 
 # Aknowledgements
-* A significant part of the code was based on [`rust-zmq`].
+* A parts of the code was based on [`rust-zmq`].
 
 [`rust-zmq`]: https://github.com/erickt/rust-zmq
 [`API guidelines`]: https://rust-lang-nursery.github.io/api-guidelines/checklist.html

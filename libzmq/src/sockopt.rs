@@ -42,9 +42,9 @@ impl Into<c_int> for SocketOption {
                 sys::ZMQ_HEARTBEAT_TIMEOUT as c_int
             }
             SocketOption::HeartbeatTtl => sys::ZMQ_HEARTBEAT_TTL as c_int,
-            SocketOption::SendHighWaterMark=> sys::ZMQ_SNDHWM as c_int,
+            SocketOption::SendHighWaterMark => sys::ZMQ_SNDHWM as c_int,
             SocketOption::SendTimeout => sys::ZMQ_SNDTIMEO as c_int,
-            SocketOption::RecvHighWaterMark=> sys::ZMQ_RCVHWM as c_int,
+            SocketOption::RecvHighWaterMark => sys::ZMQ_RCVHWM as c_int,
             SocketOption::RecvTimeout => sys::ZMQ_RCVTIMEO as c_int,
             SocketOption::NoDrop => sys::ZMQ_XPUB_NODROP as c_int,
         }
@@ -143,8 +143,7 @@ pub(crate) fn getsockopt_duration(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
 ) -> Result<Option<Duration>, Error<()>> {
-    let ms: i32 =
-        getsockopt_scalar(mut_sock_ptr, option)?;
+    let ms: i32 = getsockopt_scalar(mut_sock_ptr, option)?;
     if ms < 0 {
         Ok(None)
     } else {
@@ -255,8 +254,6 @@ pub(crate) fn setsockopt_duration(
 
             setsockopt_scalar(mut_sock_ptr, option, ms)
         }
-        None => {
-            setsockopt_scalar(mut_sock_ptr, option, 0)
-        }
+        None => setsockopt_scalar(mut_sock_ptr, option, 0),
     }
 }
