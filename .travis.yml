@@ -1,0 +1,7 @@
+language: rust
+rust:
+  - stable
+compiler:
+  - clang
+script:
+  - cargo test --package libzmq --all-features

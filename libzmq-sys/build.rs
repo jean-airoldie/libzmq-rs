@@ -28,6 +28,10 @@ fn main() {
                 "cargo:rustc-link-search=native={}",
                 dest.join("lib64").to_string_lossy()
             );
+            println!(
+                "cargo:rustc-link-search=native={}",
+                dest.join("lib").to_string_lossy()
+            );
             println!("cargo:rustc-link-lib=static=zmq");
 
             dest
@@ -40,6 +44,10 @@ fn main() {
             println!(
                 "cargo:rustc-link-search=native={}",
                 dest.join("lib64").to_string_lossy()
+            );
+            println!(
+                "cargo:rustc-link-search=native={}",
+                dest.join("lib").to_string_lossy()
             );
             println!("cargo:rustc-link-lib=dylib=zmq");
 
