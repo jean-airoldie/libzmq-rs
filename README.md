@@ -5,6 +5,12 @@
 
 A strict subset of ØMQ with a high level API.
 
+# Cargo
+```toml
+[dependencies]
+libzmq = "0.1"
+```
+
 # Installation
 This crate builds and generates bindings from source. This means that you
 do not need to install `libzmq`. However building from source requires:

@@ -1,23 +1,37 @@
 [package]
 name = "libzmq"
 version = "0.1.0"
-authors = ["jean-airoldie <25088801+jean-airoldie@users.noreply.github.com>"]
+authors = ["jean-airoldie <maxence.caron@protonmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+description = """
+A strict subset of ØMQ with a high level API.
+"""
+repository = "https://github.com/jean-airoldie/libzmq-rs"
+readme = "../README.md"
+keywords = ["libzmq", "zmq", "zeromq", "bindings"]
+categories = ["api-bindings", "asynchronous"]
 autobenches = false
+
+[badges]
+travis-ci = { repository = "jean-airoldie/libzmq-rs", branch = "master" }
+maintenance = { status = "actively-developed" } 
+is-it-maintained-issue-resolution = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
+is-it-maintained-open-issues = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
 
 [dependencies]
 libc = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 lazy_static = "1.3.0"
 failure = "0.1"
-libzmq-sys = { path = "../libzmq-sys", features = ["draft"] }
+libzmq-sys = { path = "../libzmq-sys", version = "0.1", features = ["draft"] }
 
 [dev-dependencies]
 rand = "0.6"
 rand_isaac = "0.1.1"
 rand_core = "0.4"
 criterion = "0.2"
+version-sync = "0.8"
 
 [[bench]]
 name = "bench_main"

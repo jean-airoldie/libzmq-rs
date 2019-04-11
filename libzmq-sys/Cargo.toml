@@ -1,11 +1,24 @@
 [package]
 name = "libzmq-sys"
-version = "0.0.1"
-authors = ["jean-airoldie <25088801+jean-airoldie@users.noreply.github.com>"]
+version = "0.1.0"
+authors = ["jean-airoldie <maxence.caron@protonmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 links = "zmq"
 build = "build.rs"
+description = """
+Raw CFFI bindings for libzmq
+"""
+repository = "https://github.com/jean-airoldie/libzmq-rs"
+readme = "README.md"
+keywords = ["libzmq", "zmq", "zeromq", "bindings", "cffi"]
+categories = ["external-ffi-bindings"]
+
+[badges]
+travis-ci = { repository = "jean-airoldie/libzmq-rs", branch = "master" }
+maintenance = { status = "actively-developed" } 
+is-it-maintained-issue-resolution = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
+is-it-maintained-open-issues = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
 
 [features]
 # Used to link statically to libzmq (by default it is linked dynamically).
@@ -15,6 +28,9 @@ draft = []
 
 [dependencies]
 libc = "0.2"
+
+[dev-dependencies]
+version-sync = "0.8"
 
 [build-dependencies]
 cmake = "0.1"

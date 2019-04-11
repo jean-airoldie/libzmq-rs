@@ -7,10 +7,8 @@ Based on this [`guide`](https://kornel.ski/rust-sys-crate) as well as [`zmq-sys`
 
 # Cargo
 ```toml
-# Default dynamic compilation
-libzmq-sys = { path = "../libzmq-sys" }
-# Static compilation w/ DRAFT API
-libzmq-sys = { path = "../libzmq-sys", features = ["static", "draft"] }
+[dependencies]
+libzmq-sys = "0.1"
 ```
 
 # Dependencies
