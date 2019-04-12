@@ -24,6 +24,7 @@ fn main() {
                 .define("BUILD_STATIC", "ON")
                 .build();
 
+            // The exact location seem to vary by system.
             println!(
                 "cargo:rustc-link-search=native={}",
                 dest.join("lib64").to_string_lossy()
@@ -41,6 +42,7 @@ fn main() {
                 .define("BUILD_STATIC", "OFF")
                 .build();
 
+            // The exact location seem to vary by system.
             println!(
                 "cargo:rustc-link-search=native={}",
                 dest.join("lib64").to_string_lossy()

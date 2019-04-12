@@ -55,7 +55,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                 });
 
                 producer.unbind(&endpoint).unwrap();
-                consumer.disconnect(endpoint).unwrap();
+                consumer.disconnect(&endpoint).unwrap();
             })
             .with_function("server-client", move |b| {
                 let endpoint: Endpoint = INPROC_ADDR.parse().unwrap();
@@ -81,7 +81,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                 });
 
                 producer.unbind(&endpoint).unwrap();
-                consumer.disconnect(endpoint).unwrap();
+                consumer.disconnect(&endpoint).unwrap();
             })
             .with_function("radio", move |b| {
                 let endpoint: Endpoint = INPROC_ADDR.parse().unwrap();

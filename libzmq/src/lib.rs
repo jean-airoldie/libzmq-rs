@@ -7,6 +7,7 @@ pub mod endpoint;
 mod msg;
 pub mod socket;
 mod sockopt;
+mod poller;
 
 pub use ctx::*;
 pub use error::*;
@@ -30,6 +31,7 @@ pub mod prelude {
         error::{Error, ErrorKind},
         msg::Msg,
         socket::{Client, Dish, Radio, RecvMsg, SendMsg, Server, Socket},
+        poller::*,
     };
 }
 
@@ -106,7 +108,7 @@ mod error {
     ///     // Normally we would process each error differently.
     ///     WouldBlock | CtxTerminated | Interrupted => {
     ///       // Here we get back the message we tried to send.
-    ///       let msg = err.content().take().unwrap();
+    ///       let msg = err.take_content().unwrap();
     ///       assert_eq!("msg", msg.to_str()?);
     ///     }
     ///     // Since `ErrorKind` is non-exhaustive, need an
@@ -152,12 +154,12 @@ mod error {
             *self.inner.get_context()
         }
 
-        /// Returns the content held by the error.
+        /// Returns a reference to the content held by the error.
         pub fn content(&self) -> Option<&T> {
             self.content.as_ref()
         }
 
-        /// Takes the content of the error, if any.
+        /// Takes the content held by the error, if any.
         pub fn take_content(&mut self) -> Option<T> {
             self.content.take()
         }

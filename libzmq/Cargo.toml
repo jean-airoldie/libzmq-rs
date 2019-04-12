@@ -25,6 +25,8 @@ serde = { version = "1.0", features = ["derive"] }
 lazy_static = "1.3.0"
 failure = "0.1"
 libzmq-sys = { path = "../libzmq-sys", version = "0.1", features = ["draft"] }
+hashbrown = "0.2"
+bitflags = "1.0"
 
 [dev-dependencies]
 rand = "0.6"

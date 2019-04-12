@@ -102,14 +102,14 @@ impl PartialEq for RawCtx {
 impl Eq for RawCtx {}
 
 impl Default for RawCtx {
-    /// Create a new ØMQ context.
-    ///
-    /// See [`zmq_ctx_new`].
-    ///
-    /// [`zmq_ctx_new`]: http://api.zeromq.org/master:zmq-ctx-new
     fn default() -> Self {
         let ctx = unsafe { sys::zmq_ctx_new() };
-        RawCtx { ctx }
+
+        if ctx.is_null() {
+            panic!(msg_from_errno( unsafe { sys::zmq_errno() }));
+        }
+
+        Self { ctx }
     }
 }
 
