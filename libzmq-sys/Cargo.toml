@@ -21,8 +21,10 @@ is-it-maintained-issue-resolution = { repository = "https://github.com/jean-airo
 is-it-maintained-open-issues = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
 
 [features]
-# Used to link statically to libzmq (by default it is linked dynamically).
+# Used to link statically to libzmq.
 static = []
+# Used to build in debug mode.
+debug = []
 # Used to enable the libzmq DRAFT API.
 draft = []
 

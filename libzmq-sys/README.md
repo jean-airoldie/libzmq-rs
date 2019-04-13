@@ -15,14 +15,17 @@ libzmq-sys = "0.1"
 * [CMake 2.8.12+ (or 3.0.2+ on Darwin)](https://github.com/zeromq/libzmq/blob/de4d69f59788fed86bcb0f610723c5acd486a7da/CMakeLists.txt#L7)
 * [Clang 6.0+](https://github.com/rust-lang/rust-bindgen/blob/master/Cargo.toml#L51)
 
-# Build and link dynamically
-This is the default behavior.
+# Build and Linking.
+By default `libzmq` will be build and linked dynamically.
+If you would rather build and link statically, you can either:
+* Set `LIBZMQ_SYS_STATIC=1` in the ENV.
+* Enable the `static` cargo feature.
 
-# Build and link statically
-The crate can be configured to build and link `libzmq` statically via
-two methods:
-* The ENV variable `LIBZMQ_SYS_STATIC=1` can be set.
-* The cargo feature `static` can be enabled.
+# Build Type
+By default `libzmq` will be build in release mode. If you would rather
+build in debug mode, you can either:
+* Set `LIBZMQ_SYS_DEBUG=1` in the ENV.
+* Enable the `debug` cargo feature.
 
 # OUTPUT ENV Variables
 These are the output ENV variables of the cargo build script:

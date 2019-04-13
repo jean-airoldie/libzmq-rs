@@ -7,15 +7,24 @@ fn main() {
     let wants_static = cfg!(feature = "static")
         || env::var("LIBZMQ_SYS_STATIC").unwrap_or_default() == "1";
 
+    let wants_debug = cfg!(feature = "debug")
+        || env::var("LIBZMQ_SYS_DEBUG").unwrap_or_default() == "1";
+
     let wants_draft = cfg!(feature = "draft");
 
     let dest = {
         let mut config = cmake::Config::new("vendor");
 
-        if cfg!(feature = "draft") {
+        if wants_draft {
             config.define("ENABLE_DRAFTS", "ON");
         } else {
             config.define("ENABLE_DRAFTS", "OFF");
+        }
+
+        if wants_debug {
+            config.define("CMAKE_BUILD_TYPE", "Debug");
+        } else {
+            config.define("CMAKE_BUILD_TYPE", "Release");
         }
 
         if wants_static {
