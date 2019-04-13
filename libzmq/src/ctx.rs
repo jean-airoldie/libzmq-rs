@@ -106,7 +106,7 @@ impl Default for RawCtx {
         let ctx = unsafe { sys::zmq_ctx_new() };
 
         if ctx.is_null() {
-            panic!(msg_from_errno( unsafe { sys::zmq_errno() }));
+            panic!(msg_from_errno(unsafe { sys::zmq_errno() }));
         }
 
         Self { ctx }

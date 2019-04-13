@@ -438,14 +438,7 @@ pub trait Socket: AsRawSocket {
     fn connect_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.as_raw_socket() as *mut _;
-        let maybe_duration =
-            getsockopt_duration(mut_raw_socket, SocketOption::ConnectTimeout)?;
-        if let Some(duration) = maybe_duration {
-            if duration.as_millis() > 0 {
-                return Ok(Some(duration));
-            }
-        }
-        Ok(None)
+        getsockopt_duration(mut_raw_socket, SocketOption::ConnectTimeout)
     }
 
     /// Sets how many milliseconds to wait before timing-out a [`connect`] call
@@ -473,6 +466,7 @@ pub trait Socket: AsRawSocket {
             self.as_mut_raw_socket(),
             SocketOption::ConnectTimeout,
             maybe_duration,
+            0,
         )
     }
 
@@ -513,6 +507,7 @@ pub trait Socket: AsRawSocket {
             self.as_mut_raw_socket(),
             SocketOption::HeartbeatInterval,
             maybe_duration,
+            0,
         )
     }
 
@@ -538,6 +533,7 @@ pub trait Socket: AsRawSocket {
             self.as_mut_raw_socket(),
             SocketOption::HeartbeatTimeout,
             maybe_duration,
+            0,
         )
     }
 
@@ -574,6 +570,7 @@ pub trait Socket: AsRawSocket {
             self.as_mut_raw_socket(),
             SocketOption::HeartbeatTtl,
             maybe_duration,
+            0,
         )
     }
 }
@@ -726,9 +723,9 @@ pub trait SendMsg: AsRawSocket {
     /// 1000
     fn set_send_high_water_mark(
         &self,
-        maybe_limit: Option<i32>,
+        high_water_mark: Option<i32>,
     ) -> Result<(), Error<()>> {
-        match maybe_limit {
+        match high_water_mark {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
                 setsockopt_scalar(
@@ -745,36 +742,33 @@ pub trait SendMsg: AsRawSocket {
         }
     }
 
-    /// Sets the timeout for `send` operation on the socket.
+    /// Sets the timeout for [`send`] on the socket.
     ///
-    /// If the value is 0, `send` will return immediately, with a EAGAIN
-    /// error if the message cannot be sent. If the value is `None`, it
-    /// will block until the message is sent. For all other values, it will
-    /// try to send the message for that amount of time before returning
-    /// with an EAGAIN error.
+    /// If some timeout is specified, the [`send`] will return
+    /// [`WouldBlock`] after the duration is elapsed. Otherwise,
+    /// it will block until the message is sent.
     fn send_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         let mut_raw_socket = self.as_raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::SendTimeout)
     }
 
-    /// Sets the timeout for `send` operation on the socket.
+    /// Sets the timeout for [`send`] on the socket.
     ///
-    /// If the value is 0, `send` will return immediately, with a EAGAIN
-    /// error if the message cannot be sent. If the value is `None`, it
-    /// will block until the message is sent. For all other values, it will
-    /// try to send the message for that amount of time before returning
-    /// with an EAGAIN error.
+    /// If some timeout is specified, the [`send`] will return
+    /// [`WouldBlock`] after the duration is elapsed. Otherwise,
+    /// it will block until the message is sent.
     ///
     /// # Default Value
     /// `None`
     fn set_send_timeout(
         &self,
-        maybe_duration: Option<Duration>,
+        timeout: Option<Duration>,
     ) -> Result<(), Error<()>> {
         setsockopt_duration(
             self.as_mut_raw_socket(),
             SocketOption::SendTimeout,
-            maybe_duration,
+            timeout,
+            -1,
         )
     }
 }
@@ -927,28 +921,21 @@ pub trait RecvMsg: AsRawSocket {
         }
     }
 
-    /// Sets the timeout for `recv` operation on the socket.
+    /// The timeout for [`recv`] on the socket.
     ///
-    /// If the value is 0, `recv` will return immediately, with a EAGAIN
-    /// error if the message cannot be sent. If the value is `None`, it
-    /// will block until the message is sent. For all other values, it will
-    /// try to recv the message for that amount of time before returning
-    /// with an EAGAIN error.
+    /// If some timeout is specified, [`recv`] will return
+    /// [`WouldBlock`] after the duration is elapsed. Otherwise it
+    /// will until a message is received.
     fn recv_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         let mut_raw_socket = self.as_raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::RecvTimeout)
     }
 
-    /// Sets the timeout for `recv` operation on the socket.
+    /// Sets the timeout for [`recv`] on the socket.
     ///
-    /// If the value is 0, `recv` will return immediately, with a EAGAIN
-    /// error if the message cannot be sent. If the value is `None`, it
-    /// will block until the message is sent. For all other values, it will
-    /// try to `recv` the message for that amount of time before returning
-    /// with an EAGAIN error.
-    ///
-    /// # Default Value
-    /// `None`
+    /// If some timeout is specified, [`recv`] will return
+    /// [`WouldBlock`] after the duration is elapsed. Otherwise it
+    /// will until a message is received.
     fn set_recv_timeout(
         &self,
         maybe_duration: Option<Duration>,
@@ -957,6 +944,7 @@ pub trait RecvMsg: AsRawSocket {
             self.as_mut_raw_socket(),
             SocketOption::RecvTimeout,
             maybe_duration,
+            -1,
         )
     }
 }
@@ -1636,18 +1624,3 @@ impl DishConfig {
 }
 
 impl_config_trait!(DishConfig);
-
-/// The possible socket types.
-///
-/// # Note
-/// This error type is non-exhaustive and could have additional variants
-/// added in future. Therefore, when matching against variants of
-/// non-exhaustive enums, an extra wildcard arm must be added to account
-/// for any future variants.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SocketType {
-    Radio(Radio),
-    Dish(Dish),
-    Server(Server),
-    Client(Client),
-}

@@ -5,9 +5,9 @@
 mod ctx;
 pub mod endpoint;
 mod msg;
+pub mod poller;
 pub mod socket;
 mod sockopt;
-mod poller;
 
 pub use ctx::*;
 pub use error::*;
@@ -30,8 +30,8 @@ pub mod prelude {
         endpoint::Endpoint,
         error::{Error, ErrorKind},
         msg::Msg,
-        socket::{Client, Dish, Radio, RecvMsg, SendMsg, Server, Socket},
         poller::*,
+        socket::{Client, Dish, Radio, RecvMsg, SendMsg, Server, Socket},
     };
 }
 
@@ -103,18 +103,18 @@ mod error {
     ///
     /// // This means that the following call would block.
     /// if let Err(mut err) = client.send_poll("msg") {
-    ///   match err.kind() {
-    ///     // This covers all the possible error scenarios for this socket type.
-    ///     // Normally we would process each error differently.
-    ///     WouldBlock | CtxTerminated | Interrupted => {
-    ///       // Here we get back the message we tried to send.
-    ///       let msg = err.take_content().unwrap();
-    ///       assert_eq!("msg", msg.to_str()?);
+    ///     match err.kind() {
+    ///         // This covers all the possible error scenarios for this socket type.
+    ///         // Normally we would process each error differently.
+    ///         WouldBlock | CtxTerminated | Interrupted => {
+    ///             // Here we get back the message we tried to send.
+    ///             let msg = err.take_content().unwrap();
+    ///             assert_eq!("msg", msg.to_str()?);
+    ///         }
+    ///         // Since `ErrorKind` is non-exhaustive, need an
+    ///         // extra wildcard arm to account for potential future variants.
+    ///         _ => panic!("unhandled error : {}", err),
     ///     }
-    ///     // Since `ErrorKind` is non-exhaustive, need an
-    ///     // extra wildcard arm to account for potential future variants.
-    ///     _ => panic!("unhandled error : {}", err),
-    ///   }
     /// }
     /// #
     /// #     Ok(())

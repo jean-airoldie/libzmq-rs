@@ -144,7 +144,7 @@ pub(crate) fn getsockopt_duration(
     option: SocketOption,
 ) -> Result<Option<Duration>, Error<()>> {
     let ms: i32 = getsockopt_scalar(mut_sock_ptr, option)?;
-    if ms < 0 {
+    if ms <= 0 {
         Ok(None)
     } else {
         Ok(Some(Duration::from_millis(ms as u64)))
@@ -242,18 +242,27 @@ pub(crate) fn setsockopt_duration(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     maybe_duration: Option<Duration>,
+    none_value: i32,
 ) -> Result<(), Error<()>> {
     match maybe_duration {
         Some(duration) => {
-            assert!(
-                duration.as_millis() <= i32::max_value() as u128,
-                "number of ms in duration cannot be greater than i32::max_value()"
-            );
-
-            let ms = duration.as_millis() as i32;
-
+            let ms = checked_duration_ms(duration)?;
             setsockopt_scalar(mut_sock_ptr, option, ms)
         }
-        None => setsockopt_scalar(mut_sock_ptr, option, 0),
+        None => setsockopt_scalar(mut_sock_ptr, option, none_value),
+    }
+}
+
+fn checked_duration_ms(duration: Duration) -> Result<i32, Error<()>> {
+    if duration.as_millis() > i32::max_value() as u128 {
+        Err(Error::new(ErrorKind::InvalidInput {
+            msg: "ms in duration cannot be greater than i32::MAX",
+        }))
+    } else if duration.as_millis() == 0 {
+        Err(Error::new(ErrorKind::InvalidInput {
+            msg: "ms in duration cannot be zero",
+        }))
+    } else {
+        Ok(duration.as_millis() as i32)
     }
 }
