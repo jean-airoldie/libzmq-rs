@@ -11,33 +11,43 @@ use bitflags::bitflags;
 use hashbrown::HashMap;
 
 use std::{
-    fmt::Debug,
     marker::PhantomData,
     os::{
         raw::{c_short, c_void},
         unix::io::RawFd,
     },
+    time::Duration,
     vec,
 };
 
 bitflags! {
-    pub struct PollEvents: c_short {
-        const NO_POLL = 0b00_000_000;
+    /// The flags that can be specified to a poller.
+    pub struct PollFlags: c_short {
+        /// Represents the lack of events.
+        const NO_EVENTS = 0b00_000_000;
+        /// An event triggered by an incoming message.
         const INCOMING = 0b00_000_001;
+        /// An event triggered by an outgoing message.
         const OUTGOING = 0b00_000_010;
     }
 }
 
-pub const NO_POLL: PollEvents = PollEvents::NO_POLL;
-pub const INCOMING: PollEvents = PollEvents::INCOMING;
-pub const OUTGOING: PollEvents = PollEvents::OUTGOING;
+/// Represents the lack of events.
+pub const NO_EVENTS: PollFlags = PollFlags::NO_EVENTS;
+/// An event triggered by an incoming message.
+pub const INCOMING: PollFlags = PollFlags::INCOMING;
+/// An event triggered by an outgoing message.
+pub const OUTGOING: PollFlags = PollFlags::OUTGOING;
 
+/// An iterator over a set of [`PollItem`].
+///
+/// [`PollItem`]: struct.PollItem.html
 pub struct PollIter<'a, T> {
-    inner: vec::IntoIter<PollItem<'a, T>>,
+    inner: vec::IntoIter<PollEvent<'a, T>>,
 }
 
 impl<'a, T> Iterator for PollIter<'a, T> {
-    type Item = PollItem<'a, T>;
+    type Item = PollEvent<'a, T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -49,49 +59,55 @@ impl<'a, T> Iterator for PollIter<'a, T> {
     }
 }
 
-#[derive(Debug)]
-pub struct PollItem<'a, T> {
-    events: PollEvents,
+/// An event detected by a poller.
+pub struct PollEvent<'a, T> {
+    flags: PollFlags,
     user_data: &'a T,
 }
 
-impl<'a, T> PollItem<'a, T> {
-    pub fn events(&self) -> PollEvents {
-        self.events
+impl<'a, T> PollEvent<'a, T> {
+    /// Specifies the kind of event that was triggered.
+    ///
+    /// It will never be equal to [`NO_EVENTS`].
+    ///
+    /// [`NO_EVENTS`]: constant.NO_EVENTS.html
+    pub fn flags(&self) -> PollFlags {
+        self.flags
     }
 
+    /// Returns a reference to the user data that was provided when
+    /// calling [`add`].
+    ///
+    /// [`add`]: struct.Poller.html#method.add
     pub fn user_data(&self) -> &'a T {
         self.user_data
     }
 }
 
 #[doc(hidden)]
-impl<'a, T> From<&'a sys::zmq_poller_event_t> for PollItem<'a, T>
-where
-    T: Debug,
-{
-    fn from(poll: &'a sys::zmq_poller_event_t) -> Self {
-        let events = PollEvents::from_bits(poll.events).unwrap();
-        //panic!("unsafe af");
+impl<'a, T> From<&'a sys::zmq_poller_event_t> for PollEvent<'a, T> {
+    fn from(raw_event: &'a sys::zmq_poller_event_t) -> Self {
+        let flags = PollFlags::from_bits(raw_event.events).unwrap();
         // This is safe since its a reference into the `Poller`, meaning it has
         // the right lifetime.
-        let user_data = unsafe { &*(poll.user_data as *const T) };
+        let user_data = unsafe { &*(raw_event.user_data as *const T) };
 
-        Self { events, user_data }
+        PollEvent { flags, user_data }
     }
 }
 
+/// A `Poller` provide a mechanism for applications to multiplex input/output
+/// events in a level-triggered fashion over a set of sockets.
 ///
+/// # Example
 /// ```
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-///
 /// use libzmq::prelude::*;
 ///
 /// // This is the arbitrary user data that we pass to the poller.
 /// // Here we pass a reference to a socket which we will use in the loop.
-/// #[derive(Debug)]
 /// enum Which<'a> {
 ///     Server(&'a Server),
 ///     Client(&'a Client),
@@ -131,10 +147,11 @@ where
 /// for _ in 0..100 {
 ///     // This waits indefinitely until at least one event is detected. Since many
 ///     // events can be detected at once, it returns an iterator.
-///     for poll in poller.wait(-1)? {
-///         assert_eq!(INCOMING, poll.events());
-///         // Note that `user_data` is a reference to our user provided `Which` type.
-///         match poll.user_data() {
+///     for event in poller.block(None)? {
+///         assert_eq!(INCOMING, event.flags());
+///         // Note that `user_data` is the `Which` that we
+///         // passed in the `Poller::add` method.
+///         match event.user_data() {
 ///             // The server is ready to receive an incoming message.
 ///             Which::Server(server) => {
 ///                 let msg = server.recv_msg()?;
@@ -176,8 +193,8 @@ impl<T> Poller<T> {
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, 0, NO_POLL)?;
-    /// let err = poller.add(&server, 0, NO_POLL).unwrap_err();
+    /// poller.add(&server, 0, NO_EVENTS)?;
+    /// let err = poller.add(&server, 0, NO_EVENTS).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -191,15 +208,12 @@ impl<T> Poller<T> {
         &mut self,
         socket: &AsRawSocket,
         user_data: T,
-        events: PollEvents,
-    ) -> Result<(), Error<()>>
-    where
-        T: Debug,
-    {
+        flags: PollFlags,
+    ) -> Result<(), Error<()>> {
         // This is safe since we won't actually mutate the socket.
         let mut_raw_socket = socket.as_raw_socket() as *mut _;
 
-        if let Some(_) = self.map.get(&mut_raw_socket) {
+        if self.map.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "socket already added",
             }));
@@ -215,7 +229,7 @@ impl<T> Poller<T> {
                 self.poller,
                 mut_raw_socket,
                 mut_user_data_ptr,
-                events.bits(),
+                flags.bits(),
             )
         };
 
@@ -249,7 +263,7 @@ impl<T> Poller<T> {
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, 0, NO_POLL)?;
+    /// poller.add(&server, 0, NO_EVENTS)?;
     /// poller.remove(&server)?;
     ///
     /// let err = poller.remove(&server).unwrap_err();
@@ -265,7 +279,7 @@ impl<T> Poller<T> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.as_raw_socket() as *mut _;
 
-        if let None = self.map.remove(&mut_raw_socket) {
+        if self.map.get(&mut_raw_socket).is_none() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "cannot remove absent socket",
             }));
@@ -281,6 +295,7 @@ impl<T> Poller<T> {
                 _ => panic!(msg_from_errno(errno)),
             }
         } else {
+            self.map.remove(&mut_raw_socket).unwrap();
             self.vec.pop().unwrap();
 
             Ok(())
@@ -290,19 +305,19 @@ impl<T> Poller<T> {
     pub fn modify<S>(
         &mut self,
         socket: &AsRawSocket,
-        events: PollEvents,
+        flags: PollFlags,
     ) -> Result<(), Error<()>> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.as_raw_socket() as *mut _;
 
-        if let None = self.map.get(&mut_raw_socket) {
+        if self.map.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "cannot modify absent socket",
             }));
         }
 
         let rc = unsafe {
-            sys::zmq_poller_modify(self.poller, mut_raw_socket, events.bits())
+            sys::zmq_poller_modify(self.poller, mut_raw_socket, flags.bits())
         };
 
         if rc == -1 {
@@ -317,10 +332,7 @@ impl<T> Poller<T> {
         }
     }
 
-    pub fn wait(&mut self, timeout: i64) -> Result<PollIter<T>, Error<()>>
-    where
-        T: Debug,
-    {
+    fn wait(&mut self, timeout: i64) -> Result<PollIter<T>, Error<()>> {
         let len = self.vec.len();
 
         let rc = unsafe {
@@ -346,7 +358,7 @@ impl<T> Poller<T> {
 
             Err(err)
         } else {
-            let polled: Vec<PollItem<T>> = self
+            let polled: Vec<PollEvent<T>> = self
                 .vec
                 .iter()
                 .take(rc as usize)
@@ -359,10 +371,39 @@ impl<T> Poller<T> {
         }
     }
 
+    /// The poller will poll for events, returning instantly.
+    ///
+    /// If there are none, returns [`WouldBlock`].
+    pub fn poll(&mut self) -> Result<PollIter<T>, Error<()>> {
+        self.wait(0)
+    }
+
+    /// The poller will block until at least an event occurs.
+    ///
+    /// If a duration is specified, the poller will wait for at most the
+    /// duration for an event before it returns [`WouldBlock`].
+    pub fn block(
+        &mut self,
+        timeout: Option<Duration>,
+    ) -> Result<PollIter<T>, Error<()>> {
+        match timeout {
+            Some(duration) => {
+                let ms = duration.as_millis();
+                if ms > i64::max_value() as u128 {
+                    return Err(Error::new(ErrorKind::InvalidInput {
+                        msg: "ms in timeout must be less than i64::MAX",
+                    }));
+                }
+                self.wait(ms as i64)
+            }
+            None => self.wait(-1),
+        }
+    }
+
     pub fn add_fd(
         &mut self,
         fd: RawFd,
-        events: PollEvents,
+        flags: PollFlags,
     ) -> Result<(), Error<()>> {
         unimplemented!()
     }
@@ -374,7 +415,7 @@ impl<T> Poller<T> {
     pub fn modify_fd(
         &mut self,
         fd: RawFd,
-        events: PollEvents,
+        flags: PollFlags,
     ) -> Result<(), Error<()>> {
         unimplemented!()
     }
@@ -417,14 +458,14 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_events() {
-        assert_eq!(PollEvents::INCOMING.bits(), sys::ZMQ_POLLIN as c_short);
-        assert_eq!(PollEvents::OUTGOING.bits(), sys::ZMQ_POLLOUT as c_short);
+    fn test_flags() {
+        assert_eq!(PollFlags::INCOMING.bits(), sys::ZMQ_POLLIN as c_short);
+        assert_eq!(PollFlags::OUTGOING.bits(), sys::ZMQ_POLLOUT as c_short);
     }
 
     #[test]
     fn test_remove_absent_socket() {
-        use crate::prelude::*;
+        use crate::socket::Server;
 
         let server = Server::new().unwrap();
 

@@ -137,10 +137,10 @@ impl fmt::Display for VmciAddr {
 
 /// A transport and a transport-specific address supported by ØMQ.
 ///
-/// Currently this enum does not provide any functionality and is
+/// Currently this enum does not provide any proper parsing functionality and is
 /// nothing more than an interface around `String`. Proper parsing
 /// will eventualy be added, (hopefully) without modifying the interface.
-/// [See this issue] (https://github.com/jean-airoldie/libzmq-rs/issues/5)
+/// [See this issue](https://github.com/jean-airoldie/libzmq-rs/issues/5)
 /// for more information.
 ///
 /// # Bind vs. Connect
@@ -166,6 +166,7 @@ impl fmt::Display for VmciAddr {
 /// | "pgm", "epgm"   | reliable multicast transport using PGM      | [`zmq_pgm`]    |
 /// | "vmci"          | virtual machine communications interface    | [`zmq_vmci`]   |
 ///
+/// # Example
 /// ```
 /// use libzmq::{prelude::*};
 /// use Endpoint::*;
@@ -186,7 +187,6 @@ impl fmt::Display for VmciAddr {
 /// [`zmq_inproc`]: http://api.zeromq.org/master:zmq_inproc
 /// [`zmq_pgm`]: http://api.zeromq.org/master:zmq_pgm
 /// [`zmq_vmci`]: http://api.zeromq.org/master:zmq_vmci
-/// # Usage Example
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Endpoint {
