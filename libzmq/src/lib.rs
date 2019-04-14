@@ -2,6 +2,8 @@
 
 //! libzmq - A strict subset of ØMQ with a high level API.
 
+pub use failure;
+
 #[macro_use]
 mod core;
 pub mod ctx;

@@ -217,7 +217,7 @@ pub trait Socket: AsRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn disconnect<E>(&self, endpoint: &E) -> Result<(), Error<()>>
+    fn disconnect<E>(&self, endpoint: E) -> Result<(), Error<()>>
     where
         E: AsRef<Endpoint>,
     {
@@ -250,7 +250,7 @@ pub trait Socket: AsRawSocket {
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn bind<E>(&self, endpoint: &E) -> Result<(), Error<()>>
+    fn bind<E>(&self, endpoint: E) -> Result<(), Error<()>>
     where
         E: AsRef<Endpoint>,
     {
