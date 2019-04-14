@@ -1,6 +1,8 @@
-use crate::{endpoint::Endpoint, error::Error};
-
-use super::{private, Socket};
+use crate::{
+    core::{private, Socket},
+    endpoint::Endpoint,
+    error::Error,
+};
 
 use serde::{Deserialize, Serialize};
 

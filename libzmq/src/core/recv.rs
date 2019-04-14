@@ -1,10 +1,8 @@
 use crate::{
+    core::{raw::AsRawSocket, sockopt::*},
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
-    socket::sockopt::*,
 };
-
-use super::AsRawSocket;
 
 use libzmq_sys as sys;
 use sys::errno;

@@ -1,9 +1,8 @@
-use crate::{Ctx, socket::{*, raw::*}, error::*};
+use crate::{core::*, error::*, Ctx};
 
-#[macro_use]
-use super::macros::*;
+use serde::{Deserialize, Serialize};
 
-use serde::{Serialize, Deserialize};
+use std::sync::Arc;
 
 /// A `Client` socket is used for advanced request-reply messaging.
 ///
@@ -30,7 +29,7 @@ use serde::{Serialize, Deserialize};
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::prelude::*;
+/// use libzmq::{prelude::*, Client, Endpoint};
 ///
 /// let endpoint: Endpoint = "inproc://test".parse()?;
 ///
@@ -85,7 +84,7 @@ impl Client {
 }
 
 impl_as_raw_socket_trait!(Client);
-impl Socket for Clent {}
+impl Socket for Client {}
 
 impl SendMsg for Client {}
 impl RecvMsg for Client {}
@@ -99,7 +98,7 @@ unsafe impl Sync for Client {}
 ///
 /// # Example
 /// ```
-/// use libzmq::prelude::*;
+/// use libzmq::types::ClientConfig;
 ///
 /// let client = ClientConfig::new().build();
 /// ```
@@ -128,4 +127,3 @@ impl ClientConfig {
 }
 
 impl_config_trait!(ClientConfig);
-

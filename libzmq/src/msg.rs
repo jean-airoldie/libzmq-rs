@@ -31,7 +31,7 @@ impl Msg {
     /// [`zmq_msg_init`]: http://api.zeromq.org/master:zmq-msg-init
     ///
     /// ```rust
-    /// use libzmq::prelude::*;
+    /// use libzmq::Msg;
     ///
     /// let msg = Msg::new();
     ///
@@ -48,7 +48,7 @@ impl Msg {
     /// [`zmq_msg_init_size`]: http://api.zeromq.org/master:zmq-msg-init-size
     ///
     /// ```rust
-    /// use libzmq::prelude::*;
+    /// use libzmq::Msg;
     ///
     /// let size = 420;
     /// let msg = Msg::with_size(size);
@@ -83,7 +83,7 @@ impl Msg {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::prelude::*;
+    /// use libzmq::Msg;
     ///
     /// let text = "blzit";
     /// let msg = Msg::from(text);
@@ -100,7 +100,7 @@ impl Msg {
     /// Return the message content as a byte slice.
     ///
     /// ```rust
-    /// use libzmq::prelude::*;
+    /// use libzmq::Msg;
     ///
     /// let bytes: &[u8] = b"blzit";
     /// let msg = Msg::from(bytes);
@@ -192,7 +192,7 @@ impl Msg {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::prelude::*;
+    /// use libzmq::Msg;
     ///
     /// let mut msg = Msg::new();
     ///
@@ -247,7 +247,7 @@ impl Msg {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::prelude::*;
+    /// use libzmq::Msg;
     ///
     /// let mut msg: Msg = "some msg".into();
     /// msg.set_group("some group")?;

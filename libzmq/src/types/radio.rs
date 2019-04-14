@@ -1,9 +1,12 @@
-use crate::{Ctx, socket::{*, raw::*, sockopt::SocketOption}, error::*};
+use crate::{
+    core::{sockopt::*, *},
+    error::*,
+    Ctx,
+};
 
-#[macro_use]
-use super::macros::*;
+use serde::{Deserialize, Serialize};
 
-use serde::{Serialize, Deserialize};
+use std::sync::Arc;
 
 /// A `Radio` socket is used by a publisher to distribute data to [`Dish`]
 /// sockets.
@@ -20,7 +23,7 @@ use serde::{Serialize, Deserialize};
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::prelude::*;
+/// use libzmq::{prelude::*, *};
 ///
 /// let endpoint: Endpoint = "inproc://test".parse().unwrap();
 ///
@@ -107,6 +110,7 @@ impl Radio {
 }
 
 impl_as_raw_socket_trait!(Radio);
+impl Socket for Radio {}
 
 impl SendMsg for Radio {}
 
@@ -146,4 +150,3 @@ impl RadioConfig {
 }
 
 impl_config_trait!(RadioConfig);
-

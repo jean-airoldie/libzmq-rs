@@ -1,13 +1,6 @@
 use libzmq_sys as sys;
 
-use failure::{Backtrace, Context, Fail};
-
-use std::{
-    ffi,
-    fmt::{self, Debug, Display},
-    os::raw::*,
-    str,
-};
+use std::{ffi, os::raw::*, str};
 
 /// Reports the ØMQ library version.
 ///

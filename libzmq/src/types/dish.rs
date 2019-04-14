@@ -1,12 +1,11 @@
-use crate::{Ctx, socket::{*, raw::*, config::*}, error::*};
+use crate::{core::*, error::*, Ctx};
 
 use libzmq_sys as sys;
 use sys::errno;
 
-#[macro_use]
-use super::macros::*;
+use serde::{Deserialize, Serialize};
 
-use serde::{Serialize, Deserialize};
+use std::{ffi::CString, sync::Arc};
 
 /// A `Dish` socket is used by a subscriber to subscribe to groups distributed
 /// by a [`Radio`].
@@ -121,6 +120,7 @@ impl Dish {
 }
 
 impl_as_raw_socket_trait!(Dish);
+impl Socket for Dish {}
 
 impl RecvMsg for Dish {}
 

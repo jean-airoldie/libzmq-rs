@@ -5,7 +5,6 @@ use failure::{Backtrace, Context, Fail};
 use std::{
     ffi,
     fmt::{self, Debug, Display},
-    os::raw::*,
     str,
 };
 
@@ -20,9 +19,7 @@ use std::{
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::prelude::*;
-/// // This will make our match pattern cleaner.
-/// use ErrorKind::*;
+/// use libzmq::{prelude::*, *, ErrorKind::*};
 ///
 /// // This client has no peer and is therefore in mute state.
 /// let client = Client::new()?;
@@ -122,7 +119,7 @@ where
 /// for any future variants.
 ///
 /// [`Error`]: enum.Error.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Fail)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Fail, Hash)]
 pub enum ErrorKind {
     /// Non-blocking mode was requested and the message cannot be sent
     /// without blocking

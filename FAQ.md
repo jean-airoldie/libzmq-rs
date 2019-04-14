@@ -17,9 +17,10 @@ To test performance I wrote a benchmark using criterion that tested every basic
 socket pattern (PUSH-PULL, EXCLUSIVE PAIR, etc.). I used a sample size of
 50m messages per messages size of 10, 50 and 100 bytes, per pattern.
 I determined that the thread safe type had equal or better single thread
-performance in ALL cases. The only pattern that came even close was the
-EXCLUSIVE PAIR pattern type which had exactly the same performance has two
-`CLient` sockets.
+performance in almost ALL cases. The only exception was the EXCLUSIVE PAIR pattern
+that out performed, in terms of throughput, the `CLIENT-CLIENT` pattern
+by `~15%` for 10 bytes `~8.7%` for 50 bytes, and `7.2%` for 100 bytes.
+So an argument could be made to support PAIR sockets, im on the fence though.
 
 Lastly these deprecated socket types had a ton of footguns that were
 kept to maintan backward compatibility.

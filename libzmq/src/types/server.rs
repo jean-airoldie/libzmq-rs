@@ -1,9 +1,8 @@
-use crate::{socket::{*, raw::*}, error::*};
+use crate::{core::*, error::*, Ctx};
 
-#[macro_use]
-use super::macros::*;
+use serde::{Deserialize, Serialize};
 
-use serde::{Serialize, Deserialize};
+use std::sync::Arc;
 
 /// A `Server` socket is a socket used for advanced request-reply messaging.
 ///
@@ -39,7 +38,7 @@ use serde::{Serialize, Deserialize};
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::prelude::*;
+/// use libzmq::{prelude::*, *};
 ///
 /// let endpoint: Endpoint = "inproc://test".parse()?;
 ///
@@ -91,6 +90,7 @@ impl Server {
 }
 
 impl_as_raw_socket_trait!(Server);
+impl Socket for Server {}
 
 impl SendMsg for Server {}
 impl RecvMsg for Server {}
@@ -126,4 +126,3 @@ impl ServerConfig {
 }
 
 impl_config_trait!(ServerConfig);
-

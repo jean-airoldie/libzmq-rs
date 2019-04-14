@@ -14,8 +14,8 @@ macro_rules! impl_socket_methods {
             /// [`global context`]: ../ctx/struct.Ctx.html#method.global
             pub fn new() -> Result<Self, Error<()>> {
                 let inner = std::sync::Arc::new(
-                    crate::socket::raw::RawSocket::new(
-                        crate::socket::raw::RawSocketType::$name
+                    crate::core::RawSocket::new(
+                        crate::core::RawSocketType::$name
                     )?
                 );
 
@@ -36,8 +36,8 @@ macro_rules! impl_socket_methods {
             /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
             pub fn with_ctx(ctx: crate::Ctx) -> Result<Self, crate::Error<()>> {
                 let inner = std::sync::Arc::new(
-                    crate::socket::raw::RawSocket::with_ctx(
-                        crate::socket::raw::RawSocketType::$name, ctx
+                    crate::core::RawSocket::with_ctx(
+                        crate::core::RawSocketType::$name, ctx
                     )?
                 );
 
@@ -61,7 +61,7 @@ macro_rules! impl_socket_methods {
 /// Implement the AsRawSocket trait.
 macro_rules! impl_as_raw_socket_trait {
     ($name:ident) => {
-        impl crate::socket::AsRawSocket for $name {
+        impl crate::core::AsRawSocket for $name {
             fn as_raw_socket(&self) -> *const std::os::raw::c_void {
                 self.inner.socket
             }
@@ -76,18 +76,20 @@ macro_rules! impl_as_raw_socket_trait {
 
 macro_rules! impl_config_trait {
     ($name:ident) => {
-        impl crate::socket::config::AsSocketConfig for $name {
+        impl crate::core::AsSocketConfig for $name {
             #[doc(hidden)]
-            fn as_socket_config(&self) -> &crate::socket::config::SocketConfig {
+            fn as_socket_config(&self) -> &crate::core::SocketConfig {
                 &self.inner
             }
 
             #[doc(hidden)]
-            fn as_mut_as_socket_config(&mut self) -> &mut crate::socket::config::SocketConfig {
+            fn as_mut_as_socket_config(
+                &mut self,
+            ) -> &mut crate::core::SocketConfig {
                 &mut self.inner
             }
         }
 
-        impl crate::socket::config::SocketBuilder for $name {}
+        impl crate::core::SocketBuilder for $name {}
     };
 }

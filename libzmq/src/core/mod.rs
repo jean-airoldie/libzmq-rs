@@ -1,20 +1,45 @@
+//! The set of core ØMQ socket traits.
+
+mod config;
+mod raw;
+mod recv;
+mod send;
+pub(crate) mod sockopt;
+
+pub(crate) use self::config::{AsSocketConfig, SocketBuilder, SocketConfig};
+pub(crate) use self::raw::{AsRawSocket, RawSocket, RawSocketType};
+
+pub use recv::RecvMsg;
+pub use send::SendMsg;
+
+/// Prevent users from implementing the AsRawSocket trait.
+mod private {
+    use super::*;
+
+    pub trait Sealed {}
+    impl Sealed for crate::types::Client {}
+    impl Sealed for crate::types::ClientConfig {}
+    impl Sealed for crate::types::Server {}
+    impl Sealed for crate::types::ServerConfig {}
+    impl Sealed for crate::types::Radio {}
+    impl Sealed for crate::types::RadioConfig {}
+    impl Sealed for crate::types::Dish {}
+    impl Sealed for crate::types::DishConfig {}
+}
+
 use crate::{
     endpoint::Endpoint,
     error::{msg_from_errno, Error, ErrorKind},
-    socket::sockopt::*,
 };
 
-use super::AsRawSocket;
+use sockopt::*;
 
 use libzmq_sys as sys;
 use sys::errno;
 
 use std::{
     ffi::CString,
-    os::{
-        raw::{c_void},
-        unix::io::RawFd,
-    },
+    os::{raw::c_void, unix::io::RawFd},
     time::Duration,
 };
 

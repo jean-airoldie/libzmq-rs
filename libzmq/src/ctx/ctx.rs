@@ -136,7 +136,7 @@ impl CtxConfig {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::prelude::*;
+    /// use libzmq::ctx::*;
     ///
     /// let ctx = CtxConfig::new()
     ///   .io_threads(2)
@@ -157,7 +157,7 @@ impl CtxConfig {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::prelude::*;
+    /// use libzmq::ctx::*;
     ///
     /// let global = Ctx::global();
     ///
@@ -249,7 +249,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::prelude::*;
+    /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// let cloned = ctx.clone();
@@ -274,7 +274,7 @@ impl Ctx {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::prelude::*;
+    /// use libzmq::{Ctx, Client};
     ///
     /// // A socket created via `new` will use the global `Ctx`.
     /// let client = Client::new()?;
@@ -304,7 +304,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::prelude::*;
+    /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// assert_eq!(ctx.io_threads(), 1);
@@ -330,7 +330,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::prelude::*;
+    /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// assert_eq!(ctx.max_sockets(), 1023);
@@ -358,7 +358,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::prelude::*;
+    /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// assert_eq!(ctx.max_msg_size(), i32::max_value());
@@ -390,7 +390,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::prelude::*;
+    /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// assert_eq!(ctx.no_linger(), false);

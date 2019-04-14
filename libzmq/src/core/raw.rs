@@ -2,10 +2,7 @@ use libzmq_sys as sys;
 
 use sys::errno;
 
-use crate::{
-    error::*,
-    Ctx,
-};
+use crate::{error::*, Ctx};
 
 use std::os::raw::{c_int, c_void};
 
@@ -36,8 +33,8 @@ impl Into<c_int> for RawSocketType {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct RawSocket {
-    ctx: Ctx,
-    socket: *mut c_void,
+    pub(crate) ctx: Ctx,
+    pub(crate) socket: *mut c_void,
 }
 
 impl RawSocket {
@@ -47,7 +44,10 @@ impl RawSocket {
         Self::with_ctx(sock_type, ctx)
     }
 
-    pub(crate) fn with_ctx(sock_type: RawSocketType, ctx: Ctx) -> Result<Self, Error<()>> {
+    pub(crate) fn with_ctx(
+        sock_type: RawSocketType,
+        ctx: Ctx,
+    ) -> Result<Self, Error<()>> {
         let socket = unsafe { sys::zmq_socket(ctx.as_ptr(), sock_type.into()) };
 
         if socket.is_null() {

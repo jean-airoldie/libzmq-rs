@@ -1,6 +1,6 @@
 use crate::{
+    core::AsRawSocket,
     error::{msg_from_errno, Error, ErrorKind},
-    socket::AsRawSocket,
 };
 
 use libzmq_sys as sys;
@@ -39,9 +39,10 @@ pub const INCOMING: PollFlags = PollFlags::INCOMING;
 /// An event triggered by an outgoing message.
 pub const OUTGOING: PollFlags = PollFlags::OUTGOING;
 
-/// An iterator over a set of [`PollItem`].
+/// An iterator over a set of [`PollEvent`].
 ///
-/// [`PollItem`]: struct.PollItem.html
+/// [`PollEvent`]: struct.PollEvent.html
+#[derive(Clone, Debug)]
 pub struct PollIter<'a, T> {
     inner: vec::IntoIter<PollEvent<'a, T>>,
 }
@@ -60,6 +61,7 @@ impl<'a, T> Iterator for PollIter<'a, T> {
 }
 
 /// An event detected by a poller.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct PollEvent<'a, T> {
     flags: PollFlags,
     user_data: &'a T,
@@ -96,15 +98,14 @@ impl<'a, T> From<&'a sys::zmq_poller_event_t> for PollEvent<'a, T> {
     }
 }
 
-/// A `Poller` provide a mechanism for applications to multiplex input/output
-/// events in a level-triggered fashion over a set of sockets.
+/// A mechanism for input/output events multiplexing in a level-triggered fashion.
 ///
 /// # Example
 /// ```
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::prelude::*;
+/// use libzmq::{*, prelude::*};
 ///
 /// // This is the arbitrary user data that we pass to the poller.
 /// // Here we pass a reference to a socket which we will use in the loop.
@@ -171,6 +172,7 @@ impl<'a, T> From<&'a sys::zmq_poller_event_t> for PollEvent<'a, T> {
 /// #     Ok(())
 /// # }
 /// ```
+#[derive(Eq, PartialEq, Debug)]
 pub struct Poller<T> {
     poller: *mut c_void,
     vec: Vec<sys::zmq_poller_event_t>,
@@ -187,7 +189,7 @@ impl<T> Poller<T> {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::prelude::*;
+    /// use libzmq::{*, prelude::*};
     ///
     /// let server = Server::new()?;
     ///
@@ -258,7 +260,7 @@ impl<T> Poller<T> {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::prelude::*;
+    /// use libzmq::*;
     ///
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
@@ -402,20 +404,20 @@ impl<T> Poller<T> {
 
     pub fn add_fd(
         &mut self,
-        fd: RawFd,
-        flags: PollFlags,
+        _fd: RawFd,
+        _flags: PollFlags,
     ) -> Result<(), Error<()>> {
         unimplemented!()
     }
 
-    pub fn remove_fd(&mut self, fd: RawFd) -> Result<(), Error<()>> {
+    pub fn remove_fd(&mut self, _fd: RawFd) -> Result<(), Error<()>> {
         unimplemented!()
     }
 
     pub fn modify_fd(
         &mut self,
-        fd: RawFd,
-        flags: PollFlags,
+        _fd: RawFd,
+        _flags: PollFlags,
     ) -> Result<(), Error<()>> {
         unimplemented!()
     }
@@ -465,7 +467,7 @@ mod test {
 
     #[test]
     fn test_remove_absent_socket() {
-        use crate::socket::Server;
+        use crate::Server;
 
         let server = Server::new().unwrap();
 

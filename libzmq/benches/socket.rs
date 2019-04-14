@@ -1,15 +1,10 @@
 use criterion::{black_box, Benchmark, Criterion, Throughput};
 
-use rand::{
-    distributions::{Alphanumeric, Standard},
-    Rng,
-};
+use rand::{distributions::Standard, Rng};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 
-use libzmq::prelude::*;
-
-use std::{thread, time::Duration};
+use libzmq::{prelude::*, *};
 
 const MSG_AMOUNT: usize = 1_000_000;
 const INPROC_ADDR: &str = "inproc://bench";

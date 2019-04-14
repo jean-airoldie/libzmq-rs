@@ -1,3 +1,5 @@
+//! The different endpoint types supported by ØMQ.
+
 use serde::{Deserialize, Serialize};
 
 use failure::Fail;
@@ -168,8 +170,7 @@ impl fmt::Display for VmciAddr {
 ///
 /// # Example
 /// ```
-/// use libzmq::{prelude::*};
-/// use Endpoint::*;
+/// use libzmq::endpoint::*;
 ///
 /// // IPv4 addr with TCP transport.
 /// let endpoint: Endpoint = "tcp://127.0.0.1:9090".parse().unwrap();

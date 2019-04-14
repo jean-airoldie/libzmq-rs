@@ -1,10 +1,8 @@
 use crate::{
+    core::*,
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
-    socket::sockopt::*,
 };
-
-use super::AsRawSocket;
 
 use libzmq_sys as sys;
 use sys::errno;
@@ -205,7 +203,7 @@ pub trait SendMsg: AsRawSocket {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::prelude::*;
+    /// use libzmq::{prelude::*, Client, ErrorKind};
     /// use std::time::Duration;
     ///
     /// let client = Client::new()?;
