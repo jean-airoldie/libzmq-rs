@@ -25,7 +25,7 @@ use std::sync::Arc;
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
 ///
-/// let endpoint: Endpoint = "inproc://test".parse().unwrap();
+/// const ENDPOINT: &str = "inproc://test";
 ///
 /// // We create our sockets.
 /// let radio = Radio::new()?;
@@ -38,9 +38,9 @@ use std::sync::Arc;
 /// let second = Dish::new()?;
 ///
 /// // We connect them.
-/// radio.bind(&endpoint)?;
-/// first.connect(&endpoint)?;
-/// second.connect(&endpoint)?;
+/// radio.bind(ENDPOINT)?;
+/// first.connect(ENDPOINT)?;
+/// second.connect(ENDPOINT)?;
 ///
 /// // Each dish will only receive messages from that group.
 /// first.join("first group")?;

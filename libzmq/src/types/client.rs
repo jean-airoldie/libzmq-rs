@@ -31,15 +31,15 @@ use std::sync::Arc;
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, Client, Endpoint};
 ///
-/// let endpoint: Endpoint = "inproc://test".parse()?;
+/// const ENDPOINT: &str = "inproc://test";
 ///
 /// // Lets illustrate a request reply pattern using 2 client messaging
 /// // each other.
 /// let mut first = Client::new()?;
 /// let mut second = Client::new()?;
 ///
-/// first.bind(&endpoint)?;
-/// second.connect(&endpoint)?;
+/// first.bind(ENDPOINT)?;
+/// second.connect(ENDPOINT)?;
 ///
 /// // Lets do the whole request-reply thing.
 /// first.send("request")?;

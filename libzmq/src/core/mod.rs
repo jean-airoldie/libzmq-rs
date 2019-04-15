@@ -28,7 +28,7 @@ mod private {
 }
 
 use crate::{
-    endpoint::Endpoint,
+    endpoint::{Endpoint, ToEndpoints},
     error::{msg_from_errno, Error, ErrorKind},
 };
 
@@ -188,12 +188,15 @@ pub trait Socket: AsRawSocket {
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn connect<E>(&self, endpoint: E) -> Result<(), Error<()>>
+    fn connect<E>(&self, endpoints: E) -> Result<(), Error<()>>
     where
-        E: AsRef<Endpoint>,
+        E: ToEndpoints,
     {
-        let c_str = CString::new(endpoint.as_ref().to_string()).unwrap();
-        connect(self.as_mut_raw_socket(), c_str)
+        for endpoint in endpoints.to_endpoints()? {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            connect(self.as_mut_raw_socket(), c_str)?;
+        }
+        Ok(())
     }
 
     /// Disconnect the socket from the endpoint.
@@ -217,12 +220,16 @@ pub trait Socket: AsRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn disconnect<E>(&self, endpoint: E) -> Result<(), Error<()>>
+    fn disconnect<E>(&self, endpoints: E) -> Result<(), Error<()>>
     where
-        E: AsRef<Endpoint>,
+        E: ToEndpoints,
     {
-        let c_str = CString::new(endpoint.as_ref().to_string()).unwrap();
-        disconnect(self.as_mut_raw_socket(), c_str)
+        for endpoint in endpoints.to_endpoints()? {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            disconnect(self.as_mut_raw_socket(), c_str)?;
+        }
+
+        Ok(())
     }
 
     /// Binds the socket to a local [`endpoint`] and then accepts incoming
@@ -250,12 +257,16 @@ pub trait Socket: AsRawSocket {
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn bind<E>(&self, endpoint: E) -> Result<(), Error<()>>
+    fn bind<E>(&self, endpoints: E) -> Result<(), Error<()>>
     where
-        E: AsRef<Endpoint>,
+        E: ToEndpoints,
     {
-        let c_str = CString::new(endpoint.as_ref().to_string()).unwrap();
-        bind(self.as_mut_raw_socket(), c_str)
+        for endpoint in endpoints.to_endpoints()? {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            bind(self.as_mut_raw_socket(), c_str)?;
+        }
+
+        Ok(())
     }
 
     /// Unbinds the socket from the endpoint.
@@ -279,12 +290,16 @@ pub trait Socket: AsRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn unbind<E>(&self, endpoint: &E) -> Result<(), Error<()>>
+    fn unbind<E>(&self, endpoints: E) -> Result<(), Error<()>>
     where
-        E: AsRef<Endpoint>,
+        E: ToEndpoints,
     {
-        let c_str = CString::new(endpoint.as_ref().to_string()).unwrap();
-        unbind(self.as_mut_raw_socket(), c_str)
+        for endpoint in endpoints.to_endpoints()? {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            unbind(self.as_mut_raw_socket(), c_str)?;
+        }
+
+        Ok(())
     }
 
     /// Retrieve the maximum length of the queue of outstanding peer connections.

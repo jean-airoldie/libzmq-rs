@@ -7,7 +7,7 @@ use rand_isaac::Isaac64Rng;
 use libzmq::{prelude::*, *};
 
 const MSG_AMOUNT: usize = 1_000_000;
-const INPROC_ADDR: &str = "inproc://bench";
+const ENDPOINT: &str = "inproc://bench";
 const MSG_SIZE_BYTES: [usize; 3] = [10, 50, 100];
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
@@ -32,12 +32,10 @@ pub(crate) fn bench(c: &mut Criterion) {
                 });
             })
             .with_function("client-client", move |b| {
-                let endpoint: Endpoint = INPROC_ADDR.parse().unwrap();
-
                 let producer = Client::new().unwrap();
-                producer.bind(&endpoint).unwrap();
+                producer.bind(ENDPOINT).unwrap();
                 let consumer = Client::new().unwrap();
-                consumer.connect(&endpoint).unwrap();
+                consumer.connect(ENDPOINT).unwrap();
 
                 let mut msg = Msg::new();
 
@@ -49,16 +47,14 @@ pub(crate) fn bench(c: &mut Criterion) {
                     }
                 });
 
-                producer.unbind(&endpoint).unwrap();
-                consumer.disconnect(&endpoint).unwrap();
+                producer.unbind(ENDPOINT).unwrap();
+                consumer.disconnect(ENDPOINT).unwrap();
             })
             .with_function("server-client", move |b| {
-                let endpoint: Endpoint = INPROC_ADDR.parse().unwrap();
-
                 let producer = Server::new().unwrap();
-                producer.bind(&endpoint).unwrap();
+                producer.bind(ENDPOINT).unwrap();
                 let consumer = Client::new().unwrap();
-                consumer.connect(&endpoint).unwrap();
+                consumer.connect(ENDPOINT).unwrap();
 
                 consumer.send("").unwrap();
                 let mut msg = producer.recv_msg().unwrap();
@@ -75,14 +71,12 @@ pub(crate) fn bench(c: &mut Criterion) {
                     }
                 });
 
-                producer.unbind(&endpoint).unwrap();
-                consumer.disconnect(&endpoint).unwrap();
+                producer.unbind(ENDPOINT).unwrap();
+                consumer.disconnect(ENDPOINT).unwrap();
             })
             .with_function("radio", move |b| {
-                let endpoint: Endpoint = INPROC_ADDR.parse().unwrap();
-
                 let producer = Radio::new().unwrap();
-                producer.bind(&endpoint).unwrap();
+                producer.bind(ENDPOINT).unwrap();
 
                 b.iter(|| {
                     let dataset = gen_dataset(MSG_AMOUNT, *msg_size);
@@ -92,7 +86,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                     }
                 });
 
-                producer.unbind(&endpoint).unwrap();
+                producer.unbind(ENDPOINT).unwrap();
             })
             .throughput(Throughput::Bytes((MSG_AMOUNT * msg_size) as u32))
             .sample_size(10),

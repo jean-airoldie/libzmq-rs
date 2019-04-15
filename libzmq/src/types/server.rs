@@ -40,13 +40,13 @@ use std::sync::Arc;
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
 ///
-/// let endpoint: Endpoint = "inproc://test".parse()?;
+/// const ENDPOINT: &str = "inproc://test";
 ///
 /// let client = Client::new()?;
 /// let server = Server::new()?;
 ///
-/// client.connect(&endpoint)?;
-/// server.bind(&endpoint)?;
+/// client.connect(ENDPOINT)?;
+/// server.bind(ENDPOINT)?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.
 /// client.send("request")?;

@@ -1,3 +1,5 @@
+use crate::endpoint::EndpointParseError;
+
 use libzmq_sys as sys;
 
 use failure::{Backtrace, Context, Fail};
@@ -107,6 +109,17 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&self.inner, f)
+    }
+}
+
+impl<T> From<EndpointParseError> for Error<T> 
+where
+    T: 'static + Send + Sync + Debug,
+{
+    fn from(error: EndpointParseError) -> Self {
+        Error::new(ErrorKind::InvalidInput {
+            msg: "unable to parse endpoint",
+        })
     }
 }
 
