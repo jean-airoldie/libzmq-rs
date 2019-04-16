@@ -7,7 +7,7 @@ use rand_isaac::Isaac64Rng;
 use libzmq::{prelude::*, *};
 
 const MSG_AMOUNT: usize = 1_000_000;
-const ENDPOINT: &str = "inproc://bench";
+const ENDPOINT: &str = "inproc://test";
 const MSG_SIZE_BYTES: [usize; 3] = [10, 50, 100];
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
@@ -30,25 +30,6 @@ pub(crate) fn bench(c: &mut Criterion) {
                 b.iter(|| {
                     black_box(gen_dataset(MSG_AMOUNT, *msg_size));
                 });
-            })
-            .with_function("client-client", move |b| {
-                let producer = Client::new().unwrap();
-                producer.bind(ENDPOINT).unwrap();
-                let consumer = Client::new().unwrap();
-                consumer.connect(ENDPOINT).unwrap();
-
-                let mut msg = Msg::new();
-
-                b.iter(|| {
-                    let dataset = gen_dataset(MSG_AMOUNT, *msg_size);
-                    for data in dataset {
-                        producer.send(data).unwrap();
-                        consumer.recv(&mut msg).unwrap();
-                    }
-                });
-
-                producer.unbind(ENDPOINT).unwrap();
-                consumer.disconnect(ENDPOINT).unwrap();
             })
             .with_function("server-client", move |b| {
                 let producer = Server::new().unwrap();
@@ -77,16 +58,36 @@ pub(crate) fn bench(c: &mut Criterion) {
             .with_function("radio", move |b| {
                 let producer = Radio::new().unwrap();
                 producer.bind(ENDPOINT).unwrap();
+                let consumer = Dish::new().unwrap();
+                consumer.connect(ENDPOINT).unwrap();
+
+                let mut msg = Msg::new();
 
                 b.iter(|| {
                     let dataset = gen_dataset(MSG_AMOUNT, *msg_size);
                     for data in dataset {
                         let mut data: Msg = data.into();
                         data.set_group("group").unwrap();
+                        producer.send(data).unwrap();
+                        consumer.recv(&mut msg).unwrap();
                     }
                 });
 
                 producer.unbind(ENDPOINT).unwrap();
+            })
+            .with_function("mscp", move |b| {
+                use std::sync::mpsc::channel;
+
+                let (tx, rx) = channel();
+
+                b.iter(|| {
+                    let dataset = gen_dataset(MSG_AMOUNT, *msg_size);
+                    for data in dataset {
+                        tx.send(data).unwrap();
+                        let data = rx.recv().unwrap();
+                        black_box(data);
+                    }
+                });
             })
             .throughput(Throughput::Bytes((MSG_AMOUNT * msg_size) as u32))
             .sample_size(10),

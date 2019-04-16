@@ -15,58 +15,16 @@ use std::sync::Arc;
 /// messages are distributed between connected peers on a round-robin basis.
 /// Likewise, the `Client` socket receives messages fairly from each connected peer.
 ///
-/// `Client` sockets do not accept the `MORE` flag on sends. This limits them to
-/// single part data.
-///
 /// # Mute State
 /// When `Client` socket enters the mute state due to having reached the high water
 /// mark, or if there are no peers at all, then any `send operations
 /// on the socket shall block unitl the mute state ends or at least one peer becomes
 /// available for sending; messages are not discarded.
 ///
-/// # Example
-/// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Client, Endpoint};
-///
-/// const ENDPOINT: &str = "inproc://test";
-///
-/// // Lets illustrate a request reply pattern using 2 client messaging
-/// // each other.
-/// let mut first = Client::new()?;
-/// let mut second = Client::new()?;
-///
-/// first.bind(ENDPOINT)?;
-/// second.connect(ENDPOINT)?;
-///
-/// // Lets do the whole request-reply thing.
-/// first.send("request")?;
-///
-/// let mut msg = second.recv_msg()?;
-/// assert_eq!("request", msg.to_str()?);
-///
-/// second.send("reply")?;
-///
-/// first.recv(&mut msg)?;
-/// assert_eq!("reply", msg.to_str()?);
-///
-/// // We can send as many replies as we want. We don't need to follow
-/// // a strict one request equals one reply pattern.
-/// second.send("another reply")?;
-///
-/// first.recv(&mut msg)?;
-/// assert_eq!("another reply", msg.to_str()?);
-/// #
-/// #     Ok(())
-/// # }
-/// ```
-///
 /// # Summary of Characteristics
 /// | Characteristic            | Value                  |
 /// |:-------------------------:|:----------------------:|
-/// | Compatible peer sockets   | [`Server`], [`Client`] |
+/// | Compatible peer sockets   | [`Server`]             |
 /// | Direction                 | Bidirectional          |
 /// | Send/receive pattern      | Unrestricted           |
 /// | Outgoing routing strategy | Round-robin            |

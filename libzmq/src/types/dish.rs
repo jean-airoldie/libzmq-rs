@@ -1,5 +1,4 @@
 use crate::{core::*, error::*, Ctx};
-
 use libzmq_sys as sys;
 use sys::errno;
 

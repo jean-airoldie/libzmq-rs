@@ -24,6 +24,7 @@ use std::sync::Arc;
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
+/// use std::{thread, time::Duration};
 ///
 /// const ENDPOINT: &str = "inproc://test";
 ///
@@ -37,21 +38,22 @@ use std::sync::Arc;
 /// let first = Dish::new()?;
 /// let second = Dish::new()?;
 ///
+///
 /// // We connect them.
 /// radio.bind(ENDPOINT)?;
 /// first.connect(ENDPOINT)?;
 /// second.connect(ENDPOINT)?;
 ///
 /// // Each dish will only receive messages from that group.
-/// first.join("first group")?;
-/// second.join("second group")?;
+/// first.join("A")?;
+/// second.join("B")?;
 ///
 /// // Lets publish some messages to subscribers.
 /// let mut msg: Msg = "first msg".into();
-/// msg.set_group("first group")?;
+/// msg.set_group("A")?;
 /// radio.send(msg)?;
 /// let mut msg: Msg = "second msg".into();
-/// msg.set_group("second group")?;
+/// msg.set_group("B")?;
 /// radio.send(msg)?;
 ///
 /// // Lets receive the publisher's messages.

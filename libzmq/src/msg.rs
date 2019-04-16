@@ -1,8 +1,8 @@
 use crate::error::{msg_from_errno, Error, ErrorKind};
-
 use libzmq_sys as sys;
 use sys::errno;
 
+use log::error;
 use libc::size_t;
 
 use std::{
@@ -378,11 +378,7 @@ impl Drop for Msg {
 
         if rc != 0 {
             let errno = unsafe { sys::zmq_errno() };
-
-            match errno {
-                errno::EFAULT => panic!("invalid message"),
-                _ => panic!(msg_from_errno(errno)),
-            }
+            error!("error while dropping message: {}", msg_from_errno(errno));
         }
     }
 }

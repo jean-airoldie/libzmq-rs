@@ -115,17 +115,17 @@ impl<'a, T> From<&'a sys::zmq_poller_event_t> for PollEvent<'a, T> {
 /// };
 ///
 /// // We initialize our sockets and connect them to each other.
-/// let endpoint: Endpoint = "inproc://test".parse()?;
+/// const ENDPOINT: &str = "inproc://test";
 ///
 /// let server = Server::new()?;
-/// server.bind(&endpoint)?;
+/// server.bind(ENDPOINT)?;
 ///
 /// // We create an arbitrary number of clients.
 /// let clients = {
 ///     let mut vec = Vec::with_capacity(3);
 ///     for _ in 0..3 {
 ///         let client = Client::new()?;
-///         client.connect(&endpoint)?;
+///         client.connect(ENDPOINT)?;
 ///         vec.push(client);
 ///     }
 ///     vec

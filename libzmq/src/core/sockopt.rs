@@ -1,5 +1,4 @@
 use crate::error::{msg_from_errno, Error, ErrorKind};
-
 use libzmq_sys as sys;
 use sys::errno;
 

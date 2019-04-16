@@ -3,7 +3,6 @@ use crate::{
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
 };
-
 use libzmq_sys as sys;
 use sys::errno;
 

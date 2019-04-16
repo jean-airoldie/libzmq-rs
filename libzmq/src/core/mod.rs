@@ -14,8 +14,6 @@ pub use send::SendMsg;
 
 /// Prevent users from implementing the AsRawSocket trait.
 mod private {
-    use super::*;
-
     pub trait Sealed {}
     impl Sealed for crate::types::Client {}
     impl Sealed for crate::types::ClientConfig {}
@@ -28,7 +26,7 @@ mod private {
 }
 
 use crate::{
-    endpoint::{Endpoint, ToEndpoints},
+    endpoint::ToEndpoints,
     error::{msg_from_errno, Error, ErrorKind},
 };
 

@@ -1,10 +1,9 @@
 //! The different endpoint types supported by ØMQ.
 
+use failure::Fail;
 use serde::{Deserialize, Serialize};
 
-use failure::Fail;
-
-use std::{fmt, str, vec, iter, slice, option};
+use std::{fmt, iter, slice, str, vec};
 
 /// For the moment this is simply a wrapper around a `String`.
 ///
@@ -170,7 +169,7 @@ impl fmt::Display for VmciAddr {
 ///
 /// # Example
 /// ```
-/// use libzmq::endpoint::*;
+/// use libzmq::endpoint::Endpoint;
 ///
 /// // IPv4 addr with TCP transport.
 /// let endpoint: Endpoint = "tcp://127.0.0.1:9090".parse().unwrap();
@@ -330,6 +329,7 @@ impl AsRef<Endpoint> for Endpoint {
     }
 }
 
+/// A trait objects which can be converted or resolved to one or more Endpoint.
 pub trait ToEndpoints {
     type Iter: Iterator<Item = Endpoint>;
 

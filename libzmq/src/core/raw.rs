@@ -1,8 +1,8 @@
+use crate::{error::*, Ctx};
 use libzmq_sys as sys;
-
 use sys::errno;
 
-use crate::{error::*, Ctx};
+use log::error;
 
 use std::os::raw::{c_int, c_void};
 
@@ -78,10 +78,7 @@ impl Drop for RawSocket {
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
-            match errno {
-                errno::EFAULT => panic!("socket invalid"),
-                _ => panic!(msg_from_errno(errno)),
-            }
+            error!("error while dropping socket: {}", msg_from_errno(errno));
         }
     }
 }
