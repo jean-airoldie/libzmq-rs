@@ -494,7 +494,7 @@ pub trait GetSocketConfig: private::Sealed {
     fn mut_socket_config(&mut self) -> &mut SocketConfig;
 }
 
-/// The set of shared socket configuration methods.
+/// Allows for configuration of common socket options.
 pub trait ConfigureSocket: GetSocketConfig {
     fn connect(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
         let mut config = self.mut_socket_config();
@@ -547,6 +547,7 @@ pub trait ConfigureSocket: GetSocketConfig {
         self
     }
 
+    #[doc(hidden)]
     fn apply_socket_config<S: Socket>(
         &self,
         socket: &S,

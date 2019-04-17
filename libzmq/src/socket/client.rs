@@ -80,9 +80,17 @@ impl ClientConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error<()>> {
         let client = Client::with_ctx(ctx)?;
-        self.apply_socket_config(&client)?;
+        self.apply(&client)?;
 
         Ok(client)
+    }
+
+    pub fn apply(&self, client: &Client) -> Result<(), Error<()>> {
+        self.apply_socket_config(client)?;
+        self.apply_send_config(client)?;
+        self.apply_recv_config(client)?;
+
+        Ok(())
     }
 }
 

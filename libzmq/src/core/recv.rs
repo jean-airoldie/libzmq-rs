@@ -203,6 +203,7 @@ pub trait GetRecvConfig: private::Sealed {
     fn mut_recv_config(&mut self) -> &mut RecvConfig;
 }
 
+/// Allows for configuration of `recv` socket options.
 pub trait ConfigureRecv: GetRecvConfig {
     fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
         let mut config = self.mut_recv_config();
@@ -214,5 +215,18 @@ pub trait ConfigureRecv: GetRecvConfig {
         let mut config = self.mut_recv_config();
         config.recv_timeout = timeout;
         self
+    }
+
+    #[doc(hidden)]
+    fn apply_recv_config<S: RecvMsg>(
+        &self,
+        socket: &S,
+    ) -> Result<(), Error<()>> {
+        let config = self.recv_config();
+
+        socket.set_recv_high_water_mark(config.recv_high_water_mark)?;
+        socket.set_recv_timeout(config.recv_timeout)?;
+
+        Ok(())
     }
 }

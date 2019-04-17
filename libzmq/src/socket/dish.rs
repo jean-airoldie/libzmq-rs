@@ -132,7 +132,6 @@ unsafe impl Sync for Dish {}
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DishConfig {
     socket_config: SocketConfig,
-    send_config: SendConfig,
     recv_config: RecvConfig,
     groups: Option<Vec<String>>,
 }
@@ -150,14 +149,22 @@ impl DishConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Dish, Error<()>> {
         let dish = Dish::with_ctx(ctx)?;
-        self.apply_socket_config(&dish)?;
+        self.apply(&dish)?;
+
+        Ok(dish)
+    }
+
+    pub fn apply(&self, dish: &Dish) -> Result<(), Error<()>> {
+        self.apply_socket_config(dish)?;
+        self.apply_recv_config(dish)?;
 
         if let Some(ref groups) = self.groups {
             for group in groups {
                 dish.join(group)?;
             }
         }
-        Ok(dish)
+
+        Ok(())
     }
 }
 

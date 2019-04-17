@@ -121,9 +121,17 @@ impl ServerConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error<()>> {
         let server = Server::with_ctx(ctx)?;
-        self.apply_socket_config(&server)?;
+        self.apply(&server)?;
 
         Ok(server)
+    }
+
+    pub fn apply(&self, server: &Server) -> Result<(), Error<()>> {
+        self.apply_socket_config(server)?;
+        self.apply_send_config(server)?;
+        self.apply_recv_config(server)?;
+
+        Ok(())
     }
 }
 

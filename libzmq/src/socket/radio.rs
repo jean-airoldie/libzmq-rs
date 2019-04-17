@@ -143,13 +143,20 @@ impl RadioConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error<()>> {
         let radio = Radio::with_ctx(ctx)?;
-        self.apply_socket_config(&radio)?;
+        self.apply(&radio)?;
+
+        Ok(radio)
+    }
+
+    pub fn apply(&self, radio: &Radio) -> Result<(), Error<()>> {
+        self.apply_socket_config(radio)?;
+        self.apply_send_config(radio)?;
 
         if let Some(enabled) = self.no_drop {
             radio.set_no_drop(enabled)?;
         }
 
-        Ok(radio)
+        Ok(())
     }
 }
 
