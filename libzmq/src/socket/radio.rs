@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 
-/// A `Radio` socket is used by a publisher to distribute data to [`Dish`]
+/// A `Radio` socket is used by a publisher to distribute data to [`Radio`]
 /// sockets.
 ///
 /// Each message belong to a group specified with [`set_group`].
@@ -76,14 +76,14 @@ use std::sync::Arc;
 /// # Summary of Characteristics
 /// | Characteristic            | Value          |
 /// |:-------------------------:|:--------------:|
-/// | Compatible peer sockets   | [`Dish`]       |
+/// | Compatible peer sockets   | [`Radio`]       |
 /// | Direction                 | Unidirectional |
 /// | Send/receive pattern      | Send only      |
 /// | Incoming routing strategy | N/A            |
 /// | Outgoing routing strategy | Fan out        |
 /// | Action in mute state      | Drop           |
 ///
-/// [`Dish`]: struct.Dish.html
+/// [`Radio`]: struct.Radio.html
 /// [`set_group`]: ../struct.Msg.html#method.set_group
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Radio {
@@ -95,7 +95,7 @@ impl Radio {
 
     /// Returns `true` if the `no_drop` option is set.
     pub fn no_drop(&self) -> Result<bool, Error<()>> {
-        getsockopt_bool(self.as_mut_raw_socket(), SocketOption::NoDrop)
+        getsockopt_bool(self.mut_raw_socket(), SocketOption::NoDrop)
     }
 
     /// Sets the socket's behaviour to block instead of drop messages when
@@ -107,11 +107,11 @@ impl Radio {
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`send_high_water_mark`]: #method.send_high_water_mark
     pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error<()>> {
-        setsockopt_bool(self.as_mut_raw_socket(), SocketOption::NoDrop, enabled)
+        setsockopt_bool(self.mut_raw_socket(), SocketOption::NoDrop, enabled)
     }
 }
 
-impl_as_raw_socket_trait!(Radio);
+impl_get_raw_socket_trait!(Radio);
 impl Socket for Radio {}
 
 impl SendMsg for Radio {}
@@ -124,7 +124,9 @@ unsafe impl Sync for Radio {}
 /// Especially helpfull in config files.
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RadioConfig {
-    inner: SocketConfig,
+    socket_config: SocketConfig,
+    send_config: SendConfig,
+    recv_config: RecvConfig,
     no_drop: Option<bool>,
 }
 
@@ -141,7 +143,7 @@ impl RadioConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error<()>> {
         let radio = Radio::with_ctx(ctx)?;
-        self.apply(&radio)?;
+        self.apply_socket_config(&radio)?;
 
         if let Some(enabled) = self.no_drop {
             radio.set_no_drop(enabled)?;
@@ -151,4 +153,8 @@ impl RadioConfig {
     }
 }
 
-impl_config_trait!(RadioConfig);
+impl_get_socket_config_trait!(RadioConfig);
+impl ConfigureSocket for RadioConfig {}
+
+impl_get_send_config_trait!(RadioConfig);
+impl ConfigureSend for RadioConfig {}

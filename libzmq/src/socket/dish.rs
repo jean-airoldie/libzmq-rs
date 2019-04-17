@@ -51,7 +51,7 @@ impl Dish {
     {
         let c_str = CString::new(group.as_ref()).unwrap();
         let rc =
-            unsafe { sys::zmq_join(self.as_mut_raw_socket(), c_str.as_ptr()) };
+            unsafe { sys::zmq_join(self.mut_raw_socket(), c_str.as_ptr()) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
@@ -94,7 +94,7 @@ impl Dish {
     {
         let c_str = CString::new(group.as_ref()).unwrap();
         let rc =
-            unsafe { sys::zmq_leave(self.as_mut_raw_socket(), c_str.as_ptr()) };
+            unsafe { sys::zmq_leave(self.mut_raw_socket(), c_str.as_ptr()) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
@@ -118,7 +118,7 @@ impl Dish {
     }
 }
 
-impl_as_raw_socket_trait!(Dish);
+impl_get_raw_socket_trait!(Dish);
 impl Socket for Dish {}
 
 impl RecvMsg for Dish {}
@@ -131,7 +131,9 @@ unsafe impl Sync for Dish {}
 /// Especially helpfull in config files.
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DishConfig {
-    inner: SocketConfig,
+    socket_config: SocketConfig,
+    send_config: SendConfig,
+    recv_config: RecvConfig,
     groups: Option<Vec<String>>,
 }
 
@@ -148,7 +150,7 @@ impl DishConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Dish, Error<()>> {
         let dish = Dish::with_ctx(ctx)?;
-        self.apply(&dish)?;
+        self.apply_socket_config(&dish)?;
 
         if let Some(ref groups) = self.groups {
             for group in groups {
@@ -159,4 +161,8 @@ impl DishConfig {
     }
 }
 
-impl_config_trait!(DishConfig);
+impl_get_socket_config_trait!(DishConfig);
+impl ConfigureSocket for DishConfig {}
+
+impl_get_recv_config_trait!(DishConfig);
+impl ConfigureRecv for DishConfig {}

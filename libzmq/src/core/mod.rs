@@ -1,39 +1,39 @@
 //! The set of core ØMQ socket traits.
 
-mod config;
 mod raw;
 mod recv;
 mod send;
 pub(crate) mod sockopt;
 
-pub(crate) use self::config::{AsSocketConfig, SocketBuilder, SocketConfig};
-pub(crate) use self::raw::{AsRawSocket, RawSocket, RawSocketType};
+pub(crate) use raw::{GetRawSocket, RawSocket, RawSocketType};
 
-pub use recv::RecvMsg;
-pub use send::SendMsg;
+pub use recv::*;
+pub use send::*;
 
 /// Prevent users from implementing the AsRawSocket trait.
 mod private {
+    use crate::socket::*;
+
     pub trait Sealed {}
-    impl Sealed for crate::types::Client {}
-    impl Sealed for crate::types::ClientConfig {}
-    impl Sealed for crate::types::Server {}
-    impl Sealed for crate::types::ServerConfig {}
-    impl Sealed for crate::types::Radio {}
-    impl Sealed for crate::types::RadioConfig {}
-    impl Sealed for crate::types::Dish {}
-    impl Sealed for crate::types::DishConfig {}
+    impl Sealed for Client {}
+    impl Sealed for ClientConfig {}
+    impl Sealed for Server {}
+    impl Sealed for ServerConfig {}
+    impl Sealed for Radio {}
+    impl Sealed for RadioConfig {}
+    impl Sealed for Dish {}
+    impl Sealed for DishConfig {}
 }
 
 use crate::{
-    endpoint::ToEndpoints,
+    endpoint::{Endpoint, ToEndpoints},
     error::{msg_from_errno, Error, ErrorKind},
 };
-
-use sockopt::*;
-
 use libzmq_sys as sys;
+use sockopt::*;
 use sys::errno;
+
+use serde::{Deserialize, Serialize};
 
 use std::{
     ffi::CString,
@@ -164,7 +164,7 @@ fn unbind(
 }
 
 /// Methods shared by all thread-safe sockets.
-pub trait Socket: AsRawSocket {
+pub trait Socket: GetRawSocket {
     /// Connects the socket to an [`endpoint`] and then accepts incoming connections
     /// on that [`endpoint`].
     ///
@@ -192,7 +192,7 @@ pub trait Socket: AsRawSocket {
     {
         for endpoint in endpoints.to_endpoints()? {
             let c_str = CString::new(endpoint.to_string()).unwrap();
-            connect(self.as_mut_raw_socket(), c_str)?;
+            connect(self.mut_raw_socket(), c_str)?;
         }
         Ok(())
     }
@@ -224,7 +224,7 @@ pub trait Socket: AsRawSocket {
     {
         for endpoint in endpoints.to_endpoints()? {
             let c_str = CString::new(endpoint.to_string()).unwrap();
-            disconnect(self.as_mut_raw_socket(), c_str)?;
+            disconnect(self.mut_raw_socket(), c_str)?;
         }
 
         Ok(())
@@ -261,7 +261,7 @@ pub trait Socket: AsRawSocket {
     {
         for endpoint in endpoints.to_endpoints()? {
             let c_str = CString::new(endpoint.to_string()).unwrap();
-            bind(self.as_mut_raw_socket(), c_str)?;
+            bind(self.mut_raw_socket(), c_str)?;
         }
 
         Ok(())
@@ -294,7 +294,7 @@ pub trait Socket: AsRawSocket {
     {
         for endpoint in endpoints.to_endpoints()? {
             let c_str = CString::new(endpoint.to_string()).unwrap();
-            unbind(self.as_mut_raw_socket(), c_str)?;
+            unbind(self.mut_raw_socket(), c_str)?;
         }
 
         Ok(())
@@ -307,7 +307,7 @@ pub trait Socket: AsRawSocket {
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn backlog(&self) -> Result<i32, Error<()>> {
         // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_scalar(mut_raw_socket, SocketOption::Backlog)
     }
 
@@ -325,11 +325,7 @@ pub trait Socket: AsRawSocket {
     ///
     /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
     fn set_backlog(&self, value: i32) -> Result<(), Error<()>> {
-        setsockopt_scalar(
-            self.as_mut_raw_socket(),
-            SocketOption::Backlog,
-            value,
-        )
+        setsockopt_scalar(self.mut_raw_socket(), SocketOption::Backlog, value)
     }
 
     /// Retrieves how many milliseconds to wait before timing-out a [`connect`]
@@ -341,7 +337,7 @@ pub trait Socket: AsRawSocket {
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn connect_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::ConnectTimeout)
     }
 
@@ -367,7 +363,7 @@ pub trait Socket: AsRawSocket {
         }
         // This is safe the call does not actually mutate the socket.
         setsockopt_duration(
-            self.as_mut_raw_socket(),
+            self.mut_raw_socket(),
             SocketOption::ConnectTimeout,
             maybe_duration,
             0,
@@ -385,14 +381,14 @@ pub trait Socket: AsRawSocket {
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn fd(&self) -> Result<RawFd, Error<()>> {
         // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_scalar(mut_raw_socket, SocketOption::FileDescriptor)
     }
 
     /// The interval between sending ZMTP heartbeats.
     fn heartbeat_interval(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatInterval)
     }
 
@@ -408,7 +404,7 @@ pub trait Socket: AsRawSocket {
         maybe_duration: Option<Duration>,
     ) -> Result<(), Error<()>> {
         setsockopt_duration(
-            self.as_mut_raw_socket(),
+            self.mut_raw_socket(),
             SocketOption::HeartbeatInterval,
             maybe_duration,
             0,
@@ -419,7 +415,7 @@ pub trait Socket: AsRawSocket {
     /// PING ZMTP command and not receiving any traffic.
     fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTimeout)
     }
 
@@ -434,7 +430,7 @@ pub trait Socket: AsRawSocket {
         maybe_duration: Option<Duration>,
     ) -> Result<(), Error<()>> {
         setsockopt_duration(
-            self.as_mut_raw_socket(),
+            self.mut_raw_socket(),
             SocketOption::HeartbeatTimeout,
             maybe_duration,
             0,
@@ -447,7 +443,7 @@ pub trait Socket: AsRawSocket {
     /// traffic within the TTL period.
     fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTtl)
     }
 
@@ -471,10 +467,107 @@ pub trait Socket: AsRawSocket {
             }
         }
         setsockopt_duration(
-            self.as_mut_raw_socket(),
+            self.mut_raw_socket(),
             SocketOption::HeartbeatTtl,
             maybe_duration,
             0,
         )
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[doc(hidden)]
+pub struct SocketConfig {
+    connect: Option<Vec<Endpoint>>,
+    bind: Option<Vec<Endpoint>>,
+    backlog: Option<i32>,
+    connect_timeout: Option<Duration>,
+    heartbeat_interval: Option<Duration>,
+    heartbeat_timeout: Option<Duration>,
+    heartbeat_ttl: Option<Duration>,
+}
+
+#[doc(hidden)]
+pub trait GetSocketConfig: private::Sealed {
+    fn socket_config(&self) -> &SocketConfig;
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig;
+}
+
+/// The set of shared socket configuration methods.
+pub trait ConfigureSocket: GetSocketConfig {
+    fn connect(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.connect = Some(endpoints);
+        self
+    }
+
+    fn bind(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.bind = Some(endpoints);
+        self
+    }
+
+    fn backlog(&mut self, len: i32) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.backlog = Some(len);
+        self
+    }
+
+    fn connect_timeout(
+        &mut self,
+        maybe_duration: Option<Duration>,
+    ) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.connect_timeout = maybe_duration;
+        self
+    }
+
+    fn heartbeat_interval(
+        &mut self,
+        maybe_duration: Option<Duration>,
+    ) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.heartbeat_interval = maybe_duration;
+        self
+    }
+
+    fn heartbeat_timeout(
+        &mut self,
+        maybe_duration: Option<Duration>,
+    ) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.heartbeat_timeout = maybe_duration;
+        self
+    }
+
+    fn heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.heartbeat_ttl = maybe_duration;
+        self
+    }
+
+    fn apply_socket_config<S: Socket>(
+        &self,
+        socket: &S,
+    ) -> Result<(), Error<()>> {
+        let config = self.socket_config();
+
+        if let Some(ref endpoints) = config.connect {
+            for endpoint in endpoints {
+                socket.connect(endpoint)?;
+            }
+        }
+        if let Some(ref endpoints) = config.bind {
+            for endpoint in endpoints {
+                socket.bind(endpoint)?;
+            }
+        }
+        if let Some(value) = config.backlog {
+            socket.set_backlog(value)?;
+        }
+        socket.set_connect_timeout(config.connect_timeout)?;
+
+        Ok(())
     }
 }

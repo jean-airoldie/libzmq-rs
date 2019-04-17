@@ -11,7 +11,8 @@ a unique feature.
 
 Turns out that you can replace all those deprecated
 socket types in terms of functionality using only `Client`,
-`Server`, `Dish` and `Radio`.
+`Server`, `Dish` and `Radio` (except of XPUB-XSUB but im working on
+[that](https://github.com/zeromq/libzmq/issues/3474)).
 
 To test performance I wrote a benchmark using criterion that tested every basic
 socket pattern (PUSH-PULL, EXCLUSIVE PAIR, etc.). I used a sample size of
@@ -23,7 +24,7 @@ you should rather be using rust std's [`mpsc`], which offers significantly
 better performance.
 
 Lastly these deprecated socket types had a ton of footguns that were
-kept to maintan backward compatibility.
+kept to maintain backward compatibility.
 
 If you still think your favorite socket type should be supported, feel
 free to open and issue as these decisions are not final.

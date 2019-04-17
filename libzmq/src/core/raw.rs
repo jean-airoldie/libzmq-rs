@@ -7,10 +7,10 @@ use log::error;
 use std::os::raw::{c_int, c_void};
 
 #[doc(hidden)]
-pub trait AsRawSocket: super::private::Sealed {
-    fn as_raw_socket(&self) -> *const c_void;
+pub trait GetRawSocket: super::private::Sealed {
+    fn raw_socket(&self) -> *const c_void;
 
-    fn as_mut_raw_socket(&self) -> *mut c_void;
+    fn mut_raw_socket(&self) -> *mut c_void;
 }
 
 pub(crate) enum RawSocketType {

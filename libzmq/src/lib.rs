@@ -11,14 +11,14 @@ pub mod endpoint;
 mod error;
 mod msg;
 pub mod poll;
-pub mod types;
+pub mod socket;
 mod utils;
 
 pub use ctx::Ctx;
 pub use error::{Error, ErrorKind};
 pub use msg::Msg;
 pub use poll::{Poller, INCOMING, NO_EVENTS, OUTGOING};
-pub use types::{Client, Dish, Radio, Server};
+pub use socket::{Client, Dish, Radio, Server};
 pub use utils::*;
 
 /// A "prelude" for users of the `libzmq` crate.

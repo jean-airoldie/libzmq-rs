@@ -2,8 +2,8 @@ use crate::error::{msg_from_errno, Error, ErrorKind};
 use libzmq_sys as sys;
 use sys::errno;
 
-use log::error;
 use libc::size_t;
+use log::error;
 
 use std::{
     ffi::{self, CStr, CString},

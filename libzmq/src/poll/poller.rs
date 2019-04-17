@@ -1,5 +1,5 @@
 use crate::{
-    core::AsRawSocket,
+    core::GetRawSocket,
     error::{msg_from_errno, Error, ErrorKind},
 };
 
@@ -208,12 +208,12 @@ impl<T> Poller<T> {
     /// ```
     pub fn add(
         &mut self,
-        socket: &AsRawSocket,
+        socket: &GetRawSocket,
         user_data: T,
         flags: PollFlags,
     ) -> Result<(), Error<()>> {
         // This is safe since we won't actually mutate the socket.
-        let mut_raw_socket = socket.as_raw_socket() as *mut _;
+        let mut_raw_socket = socket.raw_socket() as *mut _;
 
         if self.map.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {
@@ -277,9 +277,9 @@ impl<T> Poller<T> {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn remove(&mut self, socket: &AsRawSocket) -> Result<(), Error<()>> {
+    pub fn remove(&mut self, socket: &GetRawSocket) -> Result<(), Error<()>> {
         // This is safe since we don't actually mutate the socket.
-        let mut_raw_socket = socket.as_raw_socket() as *mut _;
+        let mut_raw_socket = socket.raw_socket() as *mut _;
 
         if self.map.get(&mut_raw_socket).is_none() {
             return Err(Error::new(ErrorKind::InvalidInput {
@@ -306,11 +306,11 @@ impl<T> Poller<T> {
 
     pub fn modify<S>(
         &mut self,
-        socket: &AsRawSocket,
+        socket: &GetRawSocket,
         flags: PollFlags,
     ) -> Result<(), Error<()>> {
         // This is safe since we don't actually mutate the socket.
-        let mut_raw_socket = socket.as_raw_socket() as *mut _;
+        let mut_raw_socket = socket.raw_socket() as *mut _;
 
         if self.map.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {

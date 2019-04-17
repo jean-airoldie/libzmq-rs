@@ -58,38 +58,65 @@ macro_rules! impl_socket_methods {
     };
 }
 
-/// Implement the AsRawSocket trait.
-macro_rules! impl_as_raw_socket_trait {
+macro_rules! impl_get_raw_socket_trait {
     ($name:ident) => {
-        impl crate::core::AsRawSocket for $name {
-            fn as_raw_socket(&self) -> *const std::os::raw::c_void {
+        impl crate::core::GetRawSocket for $name {
+            fn raw_socket(&self) -> *const std::os::raw::c_void {
                 self.inner.socket
             }
 
             // This is safe since this socket is thread safe.
-            fn as_mut_raw_socket(&self) -> *mut std::os::raw::c_void {
+            fn mut_raw_socket(&self) -> *mut std::os::raw::c_void {
                 self.inner.socket as *mut _
             }
         }
     };
 }
 
-macro_rules! impl_config_trait {
+macro_rules! impl_get_socket_config_trait {
     ($name:ident) => {
-        impl crate::core::AsSocketConfig for $name {
+        impl crate::core::GetSocketConfig for $name {
             #[doc(hidden)]
-            fn as_socket_config(&self) -> &crate::core::SocketConfig {
-                &self.inner
+            fn socket_config(&self) -> &crate::core::SocketConfig {
+                &self.socket_config
             }
 
             #[doc(hidden)]
-            fn as_mut_as_socket_config(
-                &mut self,
-            ) -> &mut crate::core::SocketConfig {
-                &mut self.inner
+            fn mut_socket_config(&mut self) -> &mut crate::core::SocketConfig {
+                &mut self.socket_config
             }
         }
+    };
+}
 
-        impl crate::core::SocketBuilder for $name {}
+macro_rules! impl_get_send_config_trait {
+    ($name:ident) => {
+        impl crate::core::GetSendConfig for $name {
+            #[doc(hidden)]
+            fn send_config(&self) -> &crate::core::SendConfig {
+                &self.send_config
+            }
+
+            #[doc(hidden)]
+            fn mut_send_config(&mut self) -> &mut crate::core::SendConfig {
+                &mut self.send_config
+            }
+        }
+    };
+}
+
+macro_rules! impl_get_recv_config_trait {
+    ($name:ident) => {
+        impl crate::core::GetRecvConfig for $name {
+            #[doc(hidden)]
+            fn recv_config(&self) -> &crate::core::RecvConfig {
+                &self.recv_config
+            }
+
+            #[doc(hidden)]
+            fn mut_recv_config(&mut self) -> &mut crate::core::RecvConfig {
+                &mut self.recv_config
+            }
+        }
     };
 }

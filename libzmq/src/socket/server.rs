@@ -8,7 +8,7 @@ use std::sync::Arc;
 ///
 /// `Server` sockets are threadsafe and do not accept the [`MORE`] flag.
 ///
-/// A `Server` socket talks to a set of [`Client`] sockets. The [`Client`] must
+/// A `Server` socket talks to a set of [`Server`] sockets. The [`Server`] must
 /// first initiate the conversation, which generates a [`routing_id`] associated
 /// with the connection. Each message received from a `Server` will have this
 /// [`routing_id`]. To send messages back to the client, you must
@@ -26,7 +26,7 @@ use std::sync::Arc;
 /// # Summary of Characteristics
 /// | Characteristic            | Value                  |
 /// |:-------------------------:|:----------------------:|
-/// | Compatible peer sockets   | [`Client`]             |
+/// | Compatible peer sockets   | [`Server`]             |
 /// | Direction                 | Bidirectional          |
 /// | Pattern                   | Unrestricted           |
 /// | Incoming routing strategy | Fair-queued            |
@@ -76,7 +76,7 @@ use std::sync::Arc;
 /// ```
 ///
 /// [`MORE`]: constant.MORE.html
-/// [`Client`]: struct.Client.html
+/// [`Server`]: struct.Server.html
 /// [`routing_id`]: ../msg/struct.Msg.html#method.routing_id
 /// [`set_routing_id`]: ../msg/struct.Msg.html#method.set_routing_id
 /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.host-unreachable
@@ -89,7 +89,7 @@ impl Server {
     impl_socket_methods!(Server);
 }
 
-impl_as_raw_socket_trait!(Server);
+impl_get_raw_socket_trait!(Server);
 impl Socket for Server {}
 
 impl SendMsg for Server {}
@@ -103,7 +103,9 @@ unsafe impl Sync for Server {}
 /// Especially helpfull in config files.
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ServerConfig {
-    inner: SocketConfig,
+    socket_config: SocketConfig,
+    send_config: SendConfig,
+    recv_config: RecvConfig,
 }
 
 impl ServerConfig {
@@ -119,10 +121,17 @@ impl ServerConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error<()>> {
         let server = Server::with_ctx(ctx)?;
-        self.apply(&server)?;
+        self.apply_socket_config(&server)?;
 
         Ok(server)
     }
 }
 
-impl_config_trait!(ServerConfig);
+impl_get_socket_config_trait!(ServerConfig);
+impl ConfigureSocket for ServerConfig {}
+
+impl_get_send_config_trait!(ServerConfig);
+impl ConfigureSend for ServerConfig {}
+
+impl_get_recv_config_trait!(ServerConfig);
+impl ConfigureRecv for ServerConfig {}

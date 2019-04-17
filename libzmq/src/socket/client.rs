@@ -41,7 +41,7 @@ impl Client {
     impl_socket_methods!(Client);
 }
 
-impl_as_raw_socket_trait!(Client);
+impl_get_raw_socket_trait!(Client);
 impl Socket for Client {}
 
 impl SendMsg for Client {}
@@ -56,13 +56,15 @@ unsafe impl Sync for Client {}
 ///
 /// # Example
 /// ```
-/// use libzmq::types::ClientConfig;
+/// use libzmq::socket::ClientConfig;
 ///
 /// let client = ClientConfig::new().build();
 /// ```
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClientConfig {
-    inner: SocketConfig,
+    socket_config: SocketConfig,
+    send_config: SendConfig,
+    recv_config: RecvConfig,
 }
 
 impl ClientConfig {
@@ -78,10 +80,17 @@ impl ClientConfig {
 
     pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error<()>> {
         let client = Client::with_ctx(ctx)?;
-        self.apply(&client)?;
+        self.apply_socket_config(&client)?;
 
         Ok(client)
     }
 }
 
-impl_config_trait!(ClientConfig);
+impl_get_socket_config_trait!(ClientConfig);
+impl ConfigureSocket for ClientConfig {}
+
+impl_get_send_config_trait!(ClientConfig);
+impl ConfigureSend for ClientConfig {}
+
+impl_get_recv_config_trait!(ClientConfig);
+impl ConfigureRecv for ClientConfig {}

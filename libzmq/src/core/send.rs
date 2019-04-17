@@ -6,6 +6,8 @@ use crate::{
 use libzmq_sys as sys;
 use sys::errno;
 
+use serde::{Deserialize, Serialize};
+
 use std::{
     os::raw::{c_int, c_void},
     time::Duration,
@@ -61,7 +63,7 @@ fn send(
 /// Send messages in a thread-safe fashion.
 ///
 /// Does not support multipart messages.
-pub trait SendMsg: AsRawSocket {
+pub trait SendMsg: GetRawSocket {
     /// Push a message into the outgoing socket queue.
     ///
     /// This operation might block if the socket is in mute state.
@@ -90,7 +92,7 @@ pub trait SendMsg: AsRawSocket {
         M: Into<Msg>,
     {
         let msg: Msg = sendable.into();
-        send(self.as_mut_raw_socket(), msg, false)
+        send(self.mut_raw_socket(), msg, false)
     }
 
     /// Push a message into the outgoing socket queue without blocking.
@@ -125,7 +127,7 @@ pub trait SendMsg: AsRawSocket {
         M: Into<Msg>,
     {
         let msg: Msg = sendable.into();
-        send(self.as_mut_raw_socket(), msg, true)
+        send(self.mut_raw_socket(), msg, true)
     }
 
     /// The high water mark for outbound messages on the specified socket.
@@ -135,7 +137,7 @@ pub trait SendMsg: AsRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     fn send_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         let limit =
             getsockopt_scalar(mut_raw_socket, SocketOption::SendHighWaterMark)?;
 
@@ -165,13 +167,13 @@ pub trait SendMsg: AsRawSocket {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
                 setsockopt_scalar(
-                    self.as_mut_raw_socket(),
+                    self.mut_raw_socket(),
                     SocketOption::SendHighWaterMark,
                     limit,
                 )
             }
             None => setsockopt_scalar(
-                self.as_mut_raw_socket(),
+                self.mut_raw_socket(),
                 SocketOption::SendHighWaterMark,
                 0,
             ),
@@ -184,7 +186,7 @@ pub trait SendMsg: AsRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise,
     /// it will block until the message is sent.
     fn send_timeout(&self) -> Result<Option<Duration>, Error<()>> {
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::SendTimeout)
     }
 
@@ -221,10 +223,38 @@ pub trait SendMsg: AsRawSocket {
         timeout: Option<Duration>,
     ) -> Result<(), Error<()>> {
         setsockopt_duration(
-            self.as_mut_raw_socket(),
+            self.mut_raw_socket(),
             SocketOption::SendTimeout,
             timeout,
             -1,
         )
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[doc(hidden)]
+pub struct SendConfig {
+    send_high_water_mark: Option<i32>,
+    send_timeout: Option<Duration>,
+}
+
+#[doc(hidden)]
+pub trait GetSendConfig: private::Sealed {
+    fn send_config(&self) -> &SendConfig;
+
+    fn mut_send_config(&mut self) -> &mut SendConfig;
+}
+
+pub trait ConfigureSend: GetSendConfig {
+    fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
+        let mut config = self.mut_send_config();
+        config.send_high_water_mark = Some(hwm);
+        self
+    }
+
+    fn send_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
+        let mut config = self.mut_send_config();
+        config.send_timeout = timeout;
+        self
     }
 }

@@ -1,10 +1,12 @@
 use crate::{
-    core::{raw::AsRawSocket, sockopt::*},
+    core::{private, raw::GetRawSocket, sockopt::*},
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
 };
 use libzmq_sys as sys;
 use sys::errno;
+
+use serde::{Deserialize, Serialize};
 
 use std::{
     os::raw::{c_int, c_void},
@@ -46,7 +48,7 @@ fn recv(
 /// Receive atomic messages in an immutable, thread-safe fashion.
 ///
 /// Does not support multipart messages.
-pub trait RecvMsg: AsRawSocket {
+pub trait RecvMsg: GetRawSocket {
     /// Retreive a message from the inbound socket queue.
     ///
     /// This operation might block until the socket receives a message.
@@ -61,7 +63,7 @@ pub trait RecvMsg: AsRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     fn recv(&self, msg: &mut Msg) -> Result<(), Error<()>> {
-        recv(self.as_mut_raw_socket(), msg, false)
+        recv(self.mut_raw_socket(), msg, false)
     }
 
     /// Retreive a message from the inbound socket queue without blocking.
@@ -82,7 +84,7 @@ pub trait RecvMsg: AsRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     fn recv_poll(&self, msg: &mut Msg) -> Result<(), Error<()>> {
-        recv(self.as_mut_raw_socket(), msg, true)
+        recv(self.mut_raw_socket(), msg, true)
     }
 
     /// A convenience function that allocates a [`Msg`] with the same properties
@@ -116,7 +118,7 @@ pub trait RecvMsg: AsRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     fn recv_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         let limit =
             getsockopt_scalar(mut_raw_socket, SocketOption::RecvHighWaterMark)?;
 
@@ -146,13 +148,13 @@ pub trait RecvMsg: AsRawSocket {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
                 setsockopt_scalar(
-                    self.as_mut_raw_socket(),
+                    self.mut_raw_socket(),
                     SocketOption::RecvHighWaterMark,
                     limit,
                 )
             }
             None => setsockopt_scalar(
-                self.as_mut_raw_socket(),
+                self.mut_raw_socket(),
                 SocketOption::RecvHighWaterMark,
                 0,
             ),
@@ -165,7 +167,7 @@ pub trait RecvMsg: AsRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
     fn recv_timeout(&self) -> Result<Option<Duration>, Error<()>> {
-        let mut_raw_socket = self.as_raw_socket() as *mut _;
+        let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::RecvTimeout)
     }
 
@@ -179,10 +181,38 @@ pub trait RecvMsg: AsRawSocket {
         maybe_duration: Option<Duration>,
     ) -> Result<(), Error<()>> {
         setsockopt_duration(
-            self.as_mut_raw_socket(),
+            self.mut_raw_socket(),
             SocketOption::RecvTimeout,
             maybe_duration,
             -1,
         )
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[doc(hidden)]
+pub struct RecvConfig {
+    recv_high_water_mark: Option<i32>,
+    recv_timeout: Option<Duration>,
+}
+
+#[doc(hidden)]
+pub trait GetRecvConfig: private::Sealed {
+    fn recv_config(&self) -> &RecvConfig;
+
+    fn mut_recv_config(&mut self) -> &mut RecvConfig;
+}
+
+pub trait ConfigureRecv: GetRecvConfig {
+    fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
+        let mut config = self.mut_recv_config();
+        config.recv_high_water_mark = Some(hwm);
+        self
+    }
+
+    fn recv_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
+        let mut config = self.mut_recv_config();
+        config.recv_timeout = timeout;
+        self
     }
 }
