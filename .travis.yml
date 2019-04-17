@@ -3,5 +3,11 @@ rust:
   - stable
 compiler:
   - clang
+env:
+  - RUST_BACKTRACE=1 RUST_LOG=error
+before_script:
+  - rustup component add rustfmt
 script:
+  - cargo fmt --all -- --check
+  - cargo build
   - cargo test --package libzmq --all-features
