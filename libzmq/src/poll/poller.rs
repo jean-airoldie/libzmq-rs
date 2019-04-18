@@ -11,11 +11,8 @@ use bitflags::bitflags;
 use hashbrown::HashMap;
 
 use std::{
-    marker::PhantomData,
-    os::{
-        raw::{c_short, c_void},
-        unix::io::RawFd,
-    },
+    os::raw::{c_short, c_void},
+    ptr,
     time::Duration,
     vec,
 };
@@ -83,18 +80,6 @@ impl<'a, T> PollEvent<'a, T> {
     /// [`add`]: struct.Poller.html#method.add
     pub fn user_data(&self) -> &'a T {
         self.user_data
-    }
-}
-
-#[doc(hidden)]
-impl<'a, T> From<&'a sys::zmq_poller_event_t> for PollEvent<'a, T> {
-    fn from(raw_event: &'a sys::zmq_poller_event_t) -> Self {
-        let flags = PollFlags::from_bits(raw_event.events).unwrap();
-        // This is safe since its a reference into the `Poller`, meaning it has
-        // the right lifetime.
-        let user_data = unsafe { &*(raw_event.user_data as *const T) };
-
-        PollEvent { flags, user_data }
     }
 }
 
@@ -175,9 +160,8 @@ impl<'a, T> From<&'a sys::zmq_poller_event_t> for PollEvent<'a, T> {
 #[derive(Eq, PartialEq, Debug)]
 pub struct Poller<T> {
     poller: *mut c_void,
-    vec: Vec<sys::zmq_poller_event_t>,
-    map: HashMap<*mut c_void, T>,
-    phantom: PhantomData<T>,
+    raw_event_vec: Vec<sys::zmq_poller_event_t>,
+    user_data_map: HashMap<*mut c_void, T>,
 }
 
 impl<T> Poller<T> {
@@ -215,28 +199,24 @@ impl<T> Poller<T> {
         // This is safe since we won't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut _;
 
-        if self.map.get(&mut_raw_socket).is_some() {
+        if self.user_data_map.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "socket already added",
             }));
         }
-        // This is sketchy since it means there will be a reference to our
-        // map at all time. Thus we have to make sure not to invalidate this
-        // reference.
-        let user_data = self.map.entry(mut_raw_socket).or_insert(user_data);
-        let mut_user_data_ptr = user_data as *const T as *mut _;
+        self.user_data_map.insert(mut_raw_socket, user_data);
 
         let rc = unsafe {
             sys::zmq_poller_add(
                 self.poller,
                 mut_raw_socket,
-                mut_user_data_ptr,
+                ptr::null_mut(),
                 flags.bits(),
             )
         };
 
         if rc == -1 {
-            self.map.remove(&mut_raw_socket).unwrap();
+            self.user_data_map.remove(&mut_raw_socket).unwrap();
 
             let errno = unsafe { sys::zmq_errno() };
             let err = {
@@ -251,7 +231,7 @@ impl<T> Poller<T> {
 
             Err(err)
         } else {
-            self.vec.push(sys::zmq_poller_event_t::default());
+            self.raw_event_vec.push(sys::zmq_poller_event_t::default());
             Ok(())
         }
     }
@@ -281,7 +261,7 @@ impl<T> Poller<T> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut _;
 
-        if self.map.get(&mut_raw_socket).is_none() {
+        if self.user_data_map.get(&mut_raw_socket).is_none() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "cannot remove absent socket",
             }));
@@ -297,8 +277,8 @@ impl<T> Poller<T> {
                 _ => panic!(msg_from_errno(errno)),
             }
         } else {
-            self.map.remove(&mut_raw_socket).unwrap();
-            self.vec.pop().unwrap();
+            self.user_data_map.remove(&mut_raw_socket).unwrap();
+            self.raw_event_vec.pop().unwrap();
 
             Ok(())
         }
@@ -312,7 +292,7 @@ impl<T> Poller<T> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut _;
 
-        if self.map.get(&mut_raw_socket).is_some() {
+        if self.user_data_map.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "cannot modify absent socket",
             }));
@@ -335,12 +315,12 @@ impl<T> Poller<T> {
     }
 
     fn wait(&mut self, timeout: i64) -> Result<PollIter<T>, Error<()>> {
-        let len = self.vec.len();
+        let len = self.raw_event_vec.len();
 
         let rc = unsafe {
             sys::zmq_poller_wait_all(
                 self.poller,
-                self.vec.as_mut_ptr(),
+                self.raw_event_vec.as_mut_ptr(),
                 len as i32,
                 timeout,
             )
@@ -360,12 +340,15 @@ impl<T> Poller<T> {
 
             Err(err)
         } else {
-            let polled: Vec<PollEvent<T>> = self
-                .vec
-                .iter()
-                .take(rc as usize)
-                .map(|e| e.into())
-                .collect();
+            let mut polled = Vec::with_capacity(rc as usize);
+
+            for i in 0..rc as usize {
+                let event = self.raw_event_vec[i];
+                let flags = PollFlags::from_bits(event.events).unwrap();
+                let user_data = self.user_data_map.get(&event.socket).unwrap();
+
+                polled.push(PollEvent { flags, user_data });
+            }
 
             Ok(PollIter {
                 inner: polled.into_iter(),
@@ -401,26 +384,6 @@ impl<T> Poller<T> {
             None => self.wait(-1),
         }
     }
-
-    pub fn add_fd(
-        &mut self,
-        _fd: RawFd,
-        _flags: PollFlags,
-    ) -> Result<(), Error<()>> {
-        unimplemented!()
-    }
-
-    pub fn remove_fd(&mut self, _fd: RawFd) -> Result<(), Error<()>> {
-        unimplemented!()
-    }
-
-    pub fn modify_fd(
-        &mut self,
-        _fd: RawFd,
-        _flags: PollFlags,
-    ) -> Result<(), Error<()>> {
-        unimplemented!()
-    }
 }
 
 impl<T> Default for Poller<T> {
@@ -433,9 +396,8 @@ impl<T> Default for Poller<T> {
 
         Self {
             poller,
-            vec: vec![],
-            map: HashMap::default(),
-            phantom: PhantomData,
+            raw_event_vec: vec![],
+            user_data_map: HashMap::default(),
         }
     }
 }
@@ -482,7 +444,7 @@ mod test {
 
     #[test]
     fn test_poller() {
-        use crate::{Client, Server, prelude::*};
+        use crate::{prelude::*, Client, Server};
 
         // This is the arbitrary user data that we pass to the poller.
         // Here we pass a reference to a socket which we will use in the loop.
@@ -511,7 +473,9 @@ mod test {
         // We create our poller instance.
         let mut poller = Poller::new();
         // In this example we will solely poll for incoming messages.
-        poller.add(&server, Which::Server(&server), INCOMING).unwrap();
+        poller
+            .add(&server, Which::Server(&server), INCOMING)
+            .unwrap();
         for client in &clients {
             poller.add(client, Which::Client(client), INCOMING).unwrap();
         }
