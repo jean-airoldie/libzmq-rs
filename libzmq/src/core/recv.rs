@@ -189,7 +189,7 @@ pub trait RecvMsg: GetRawSocket {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[doc(hidden)]
 pub struct RecvConfig {
     recv_high_water_mark: Option<i32>,

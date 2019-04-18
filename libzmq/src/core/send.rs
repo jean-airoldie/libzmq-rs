@@ -231,7 +231,7 @@ pub trait SendMsg: GetRawSocket {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[doc(hidden)]
 pub struct SendConfig {
     send_high_water_mark: Option<i32>,

@@ -60,7 +60,7 @@ unsafe impl Sync for Client {}
 ///
 /// let client = ClientConfig::new().build();
 /// ```
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClientConfig {
     socket_config: SocketConfig,
     send_config: SendConfig,

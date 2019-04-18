@@ -129,7 +129,7 @@ unsafe impl Sync for Dish {}
 /// A builder for a `Dish`.
 ///
 /// Especially helpfull in config files.
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DishConfig {
     socket_config: SocketConfig,
     recv_config: RecvConfig,

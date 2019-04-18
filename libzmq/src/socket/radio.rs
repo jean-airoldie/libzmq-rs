@@ -122,7 +122,7 @@ unsafe impl Sync for Radio {}
 /// A builder for a `Radio`.
 ///
 /// Especially helpfull in config files.
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RadioConfig {
     socket_config: SocketConfig,
     send_config: SendConfig,

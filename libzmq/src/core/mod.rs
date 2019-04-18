@@ -475,7 +475,7 @@ pub trait Socket: GetRawSocket {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[doc(hidden)]
 pub struct SocketConfig {
     connect: Option<Vec<Endpoint>>,

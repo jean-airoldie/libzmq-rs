@@ -101,7 +101,7 @@ unsafe impl Sync for Server {}
 /// A builder for a `Server`.
 ///
 /// Especially helpfull in config files.
-#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ServerConfig {
     socket_config: SocketConfig,
     send_config: SendConfig,
