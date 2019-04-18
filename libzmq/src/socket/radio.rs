@@ -59,13 +59,13 @@ use std::sync::Arc;
 /// // Lets receive the publisher's messages.
 /// let mut msg = first.recv_msg()?;
 /// assert_eq!("first msg", msg.to_str().unwrap());
-/// let err = first.recv_poll(&mut msg).unwrap_err();
+/// let err = first.try_recv(&mut msg).unwrap_err();
 /// // Only the message from the first group was received.
 /// assert_eq!(ErrorKind::WouldBlock, err.kind());
 ///
 /// second.recv(&mut msg)?;
 /// assert_eq!("second msg", msg.to_str().unwrap());
-/// let err = first.recv_poll(&mut msg).unwrap_err();
+/// let err = first.try_recv(&mut msg).unwrap_err();
 /// // Only the message from the second group was received.
 /// assert_eq!(ErrorKind::WouldBlock, err.kind());
 /// #

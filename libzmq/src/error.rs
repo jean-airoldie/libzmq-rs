@@ -26,7 +26,7 @@ use std::{
 /// let client = Client::new()?;
 ///
 /// // This means that the following call would block.
-/// if let Err(mut err) = client.send_poll("msg") {
+/// if let Err(mut err) = client.try_send("msg") {
 ///     match err.kind() {
 ///         // This covers all the possible error scenarios for this socket type.
 ///         // Normally we would process each error differently.

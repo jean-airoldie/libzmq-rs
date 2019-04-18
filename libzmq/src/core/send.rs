@@ -95,7 +95,7 @@ pub trait SendMsg: GetRawSocket {
         send(self.mut_raw_socket(), msg, false)
     }
 
-    /// Push a message into the outgoing socket queue without blocking.
+    /// Try to push a message into the outgoing socket queue without blocking.
     ///
     /// This polls the socket so see if the socket is in mute state, if it
     /// is it errors with [`WouldBlock`], otherwise is pushes the message into
@@ -122,7 +122,7 @@ pub trait SendMsg: GetRawSocket {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn send_poll<M>(&self, sendable: M) -> Result<(), Error<Msg>>
+    fn try_send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
     where
         M: Into<Msg>,
     {

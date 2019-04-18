@@ -66,7 +66,7 @@ pub trait RecvMsg: GetRawSocket {
         recv(self.mut_raw_socket(), msg, false)
     }
 
-    /// Retreive a message from the inbound socket queue without blocking.
+    /// Try to retrieve a message from the inbound socket queue without blocking.
     ///
     /// This polls the socket to determine there is at least on inbound message in
     /// the socket queue. If there is, it retuns it, otherwise it errors with
@@ -83,7 +83,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn recv_poll(&self, msg: &mut Msg) -> Result<(), Error<()>> {
+    fn try_recv(&self, msg: &mut Msg) -> Result<(), Error<()>> {
         recv(self.mut_raw_socket(), msg, true)
     }
 
@@ -100,13 +100,13 @@ pub trait RecvMsg: GetRawSocket {
     }
 
     /// A convenience function that allocates a [`Msg`] with the same properties
-    /// as [`recv_poll`].
+    /// as [`try_recv`].
     ///
-    /// [`recv_poll`]: #method.recv
+    /// [`try_recv`]: #method.recv
     /// [`Msg`]: ../msg/struct.Msg.html
-    fn recv_msg_poll(&self) -> Result<Msg, Error<()>> {
+    fn try_recv_msg(&self) -> Result<Msg, Error<()>> {
         let mut msg = Msg::new();
-        self.recv_poll(&mut msg)?;
+        self.try_recv(&mut msg)?;
 
         Ok(msg)
     }
