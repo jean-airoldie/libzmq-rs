@@ -479,4 +479,71 @@ mod test {
             _ => panic!("unexpected error"),
         }
     }
+
+    #[test]
+    fn test_poller() {
+        use crate::{Client, Server, prelude::*};
+
+        // This is the arbitrary user data that we pass to the poller.
+        // Here we pass a reference to a socket which we will use in the loop.
+        enum Which<'a> {
+            Server(&'a Server),
+            Client(&'a Client),
+        };
+
+        // We initialize our sockets and connect them to each other.
+        const ENDPOINT: &str = "inproc://test";
+
+        let server = Server::new().unwrap();
+        server.bind(ENDPOINT).unwrap();
+
+        // We create an arbitrary number of clients.
+        let clients = {
+            let mut vec = Vec::with_capacity(3);
+            for _ in 0..3 {
+                let client = Client::new().unwrap();
+                client.connect(ENDPOINT).unwrap();
+                vec.push(client);
+            }
+            vec
+        };
+
+        // We create our poller instance.
+        let mut poller = Poller::new();
+        // In this example we will solely poll for incoming messages.
+        poller.add(&server, Which::Server(&server), INCOMING).unwrap();
+        for client in &clients {
+            poller.add(client, Which::Client(client), INCOMING).unwrap();
+        }
+
+        // We send the initial request for each client.
+        for client in &clients {
+            client.send("ping").unwrap();
+        }
+
+        // Now the client and each server will send messages back and forth.
+        for _ in 0..100 {
+            // This waits indefinitely until at least one event is detected. Since many
+            // events can be detected at once, it returns an iterator.
+            for event in poller.block(None).unwrap() {
+                assert_eq!(INCOMING, event.flags());
+                // Note that `user_data` is the `Which` that we
+                // passed in the `Poller::add` method.
+                match event.user_data() {
+                    // The server is ready to receive an incoming message.
+                    Which::Server(server) => {
+                        let msg = server.recv_msg().unwrap();
+                        assert_eq!("ping", msg.to_str().unwrap());
+                        server.send(msg).unwrap();
+                    }
+                    // One of the clients is ready to receive an incoming message.
+                    Which::Client(client) => {
+                        let msg = client.recv_msg().unwrap();
+                        assert_eq!("ping", msg.to_str().unwrap());
+                        client.send(msg).unwrap();
+                    }
+                }
+            }
+        }
+    }
 }
