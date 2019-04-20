@@ -20,7 +20,7 @@ socket pattern (PUSH-PULL, EXCLUSIVE PAIR, etc.). I used a sample size of
 I determined that the thread safe type had equal or better single thread
 performance in almost ALL cases. The only exception was the EXCLUSIVE PAIR
 pattern which is used exclusively for inter-thread communication, where
-you should rather be using rust std's [`mpsc`], which offers significantly
+you should rather be using [`crossbeam_channel`], which offers significantly
 better performance.
 
 Lastly these deprecated socket types had a ton of footguns that were
@@ -29,4 +29,4 @@ kept to maintain backward compatibility.
 If you still think your favorite socket type should be supported, feel
 free to open and issue as these decisions are not final.
 
-[`mpsc`]: https://doc.rust-lang.org/std/sync/mpsc/index.html
+[`crossbeam_channel`]: https://docs.rs/crossbeam-channel/0.3.8/crossbeam_channel/

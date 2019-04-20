@@ -97,9 +97,8 @@ pub trait SendMsg: GetRawSocket {
 
     /// Try to push a message into the outgoing socket queue without blocking.
     ///
-    /// This polls the socket so see if the socket is in mute state, if it
-    /// is it errors with [`WouldBlock`], otherwise is pushes the message into
-    /// the outgoing queue.
+    /// If the action would block, it returns a [`WouldBlock`] error, otherwise
+    /// the message is pushed into the outgoing queue.
     ///
     /// If the message is a `Msg`, `Vec<u8>`, `[u8]`, or a `String`, it is not copied.
     ///

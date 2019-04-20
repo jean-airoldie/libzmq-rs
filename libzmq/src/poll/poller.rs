@@ -161,7 +161,9 @@ impl<'a, T> PollEvent<'a, T> {
 pub struct Poller<T> {
     poller: *mut c_void,
     raw_event_vec: Vec<sys::zmq_poller_event_t>,
-    user_data_map: HashMap<*mut c_void, T>,
+    user_data: Vec<T>,
+    free_slots: Vec<usize>,
+    used_slots: HashMap<*mut c_void, usize>,
 }
 
 impl<T> Poller<T> {
@@ -197,26 +199,40 @@ impl<T> Poller<T> {
         flags: PollFlags,
     ) -> Result<(), Error<()>> {
         // This is safe since we won't actually mutate the socket.
-        let mut_raw_socket = socket.raw_socket() as *mut _;
+        let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
-        if self.user_data_map.get(&mut_raw_socket).is_some() {
+        if self.used_slots.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "socket already added",
             }));
         }
-        self.user_data_map.insert(mut_raw_socket, user_data);
+
+        let slot = {
+            match self.free_slots.pop() {
+                Some(slot) => {
+                    self.user_data[slot] = user_data;
+                    slot
+                }
+                None => {
+                    self.user_data.push(user_data);
+                    self.user_data.len() - 1
+                }
+            }
+        };
+
+        let mut_user_data = slot as *mut c_void;
 
         let rc = unsafe {
             sys::zmq_poller_add(
                 self.poller,
                 mut_raw_socket,
-                ptr::null_mut(),
+                mut_user_data,
                 flags.bits(),
             )
         };
 
         if rc == -1 {
-            self.user_data_map.remove(&mut_raw_socket).unwrap();
+            self.free_slots.push(slot);
 
             let errno = unsafe { sys::zmq_errno() };
             let err = {
@@ -231,7 +247,9 @@ impl<T> Poller<T> {
 
             Err(err)
         } else {
+            self.used_slots.insert(mut_raw_socket, slot);
             self.raw_event_vec.push(sys::zmq_poller_event_t::default());
+
             Ok(())
         }
     }
@@ -259,9 +277,9 @@ impl<T> Poller<T> {
     /// ```
     pub fn remove(&mut self, socket: &GetRawSocket) -> Result<(), Error<()>> {
         // This is safe since we don't actually mutate the socket.
-        let mut_raw_socket = socket.raw_socket() as *mut _;
+        let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
-        if self.user_data_map.get(&mut_raw_socket).is_none() {
+        if self.used_slots.get(&mut_raw_socket).is_none() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "cannot remove absent socket",
             }));
@@ -277,8 +295,8 @@ impl<T> Poller<T> {
                 _ => panic!(msg_from_errno(errno)),
             }
         } else {
-            self.user_data_map.remove(&mut_raw_socket).unwrap();
-            self.raw_event_vec.pop().unwrap();
+            let slot = self.used_slots.remove(&mut_raw_socket).unwrap();
+            self.free_slots.push(slot);
 
             Ok(())
         }
@@ -290,9 +308,9 @@ impl<T> Poller<T> {
         flags: PollFlags,
     ) -> Result<(), Error<()>> {
         // This is safe since we don't actually mutate the socket.
-        let mut_raw_socket = socket.raw_socket() as *mut _;
+        let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
-        if self.user_data_map.get(&mut_raw_socket).is_some() {
+        if self.used_slots.get(&mut_raw_socket).is_some() {
             return Err(Error::new(ErrorKind::InvalidInput {
                 msg: "cannot modify absent socket",
             }));
@@ -345,7 +363,8 @@ impl<T> Poller<T> {
             for i in 0..rc as usize {
                 let event = self.raw_event_vec[i];
                 let flags = PollFlags::from_bits(event.events).unwrap();
-                let user_data = self.user_data_map.get(&event.socket).unwrap();
+                let slot = event.user_data as usize;
+                let user_data = &self.user_data[slot];
 
                 polled.push(PollEvent { flags, user_data });
             }
@@ -397,7 +416,9 @@ impl<T> Default for Poller<T> {
         Self {
             poller,
             raw_event_vec: vec![],
-            user_data_map: HashMap::default(),
+            user_data: Vec::new(),
+            free_slots: Vec::new(),
+            used_slots: HashMap::new(),
         }
     }
 }

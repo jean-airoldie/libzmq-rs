@@ -35,11 +35,7 @@ use sys::errno;
 
 use serde::{Deserialize, Serialize};
 
-use std::{
-    ffi::CString,
-    os::{raw::c_void, unix::io::RawFd},
-    time::Duration,
-};
+use std::{ffi::CString, os::raw::c_void, time::Duration};
 
 const MAX_HB_TTL: i64 = 6_553_599;
 
@@ -368,21 +364,6 @@ pub trait Socket: GetRawSocket {
             maybe_duration,
             0,
         )
-    }
-
-    /// Retrieve the file descriptor associated with the specified socket.
-    ///
-    /// The returned file descriptor is intended for use with a poll or similar
-    /// system call only. Applications must never attempt to read or write data
-    /// to it directly, neither should they try to close it.
-    ///
-    /// See `ZMQ_FD` in [`zmq_getsockopt`].
-    ///
-    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-    fn fd(&self) -> Result<RawFd, Error<()>> {
-        // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_scalar(mut_raw_socket, SocketOption::FileDescriptor)
     }
 
     /// The interval between sending ZMTP heartbeats.
