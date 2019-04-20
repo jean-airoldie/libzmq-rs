@@ -12,29 +12,28 @@ use hashbrown::HashMap;
 
 use std::{
     os::raw::{c_short, c_void},
-    ptr,
     time::Duration,
     vec,
 };
 
 bitflags! {
-    /// The flags that can be specified to a poller.
+    /// The event flags that can be specified to the poller.
     pub struct PollFlags: c_short {
-        /// Represents the lack of events.
-        const NO_EVENTS = 0b00_000_000;
-        /// An event triggered by an incoming message.
-        const INCOMING = 0b00_000_001;
-        /// An event triggered by an outgoing message.
-        const OUTGOING = 0b00_000_010;
+        /// Specifies no wakeup condition at all.
+        const NO_WAKEUP = 0b00_000_000;
+        /// Specifies wakeup on send readiness event.
+        const READABLE = 0b00_000_001;
+        /// Specifies wakeup on write readiness event.
+        const WRITABLE = 0b00_000_010;
     }
 }
 
-/// Represents the lack of events.
-pub const NO_EVENTS: PollFlags = PollFlags::NO_EVENTS;
-/// An event triggered by an incoming message.
-pub const INCOMING: PollFlags = PollFlags::INCOMING;
-/// An event triggered by an outgoing message.
-pub const OUTGOING: PollFlags = PollFlags::OUTGOING;
+/// Specifies no wakeup condition at all.
+pub const NO_WAKEUP: PollFlags = PollFlags::NO_WAKEUP;
+/// Specifies wakeup on send readiness.
+pub const READABLE: PollFlags = PollFlags::READABLE;
+/// Specifies wakeup on write readiness.
+pub const WRITABLE: PollFlags = PollFlags::WRITABLE;
 
 /// An iterator over a set of [`PollEvent`].
 ///
@@ -67,9 +66,9 @@ pub struct PollEvent<'a, T> {
 impl<'a, T> PollEvent<'a, T> {
     /// Specifies the kind of event that was triggered.
     ///
-    /// It will never be equal to [`NO_EVENTS`].
+    /// It will never be equal to [`NO_WAKEUP`].
     ///
-    /// [`NO_EVENTS`]: constant.NO_EVENTS.html
+    /// [`NO_WAKEUP`]: constant.NO_WAKEUP.html
     pub fn flags(&self) -> PollFlags {
         self.flags
     }
@@ -119,9 +118,9 @@ impl<'a, T> PollEvent<'a, T> {
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
 /// // In this example we will solely poll for incoming messages.
-/// poller.add(&server, Which::Server(&server), INCOMING)?;
+/// poller.add(&server, Which::Server(&server), READABLE)?;
 /// for client in &clients {
-///     poller.add(client, Which::Client(client), INCOMING)?;
+///     poller.add(client, Which::Client(client), READABLE)?;
 /// }
 ///
 /// // We send the initial request for each client.
@@ -134,7 +133,7 @@ impl<'a, T> PollEvent<'a, T> {
 ///     // This waits indefinitely until at least one event is detected. Since many
 ///     // events can be detected at once, it returns an iterator.
 ///     for event in poller.block(None)? {
-///         assert_eq!(INCOMING, event.flags());
+///         assert_eq!(READABLE, event.flags());
 ///         // Note that `user_data` is the `Which` that we
 ///         // passed in the `Poller::add` method.
 ///         match event.user_data() {
@@ -181,8 +180,8 @@ impl<T> Poller<T> {
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, 0, NO_EVENTS)?;
-    /// let err = poller.add(&server, 0, NO_EVENTS).unwrap_err();
+    /// poller.add(&server, 0, NO_WAKEUP)?;
+    /// let err = poller.add(&server, 0, NO_WAKEUP).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -263,7 +262,7 @@ impl<T> Poller<T> {
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, 0, NO_EVENTS)?;
+    /// poller.add(&server, 0, NO_WAKEUP)?;
     /// poller.remove(&server)?;
     ///
     /// let err = poller.remove(&server).unwrap_err();
@@ -365,7 +364,6 @@ impl<T> Poller<T> {
                 let flags = PollFlags::from_bits(event.events).unwrap();
                 let slot = event.user_data as usize;
                 let user_data = &self.user_data[slot];
-
                 polled.push(PollEvent { flags, user_data });
             }
 
@@ -444,8 +442,8 @@ mod test {
 
     #[test]
     fn test_flags() {
-        assert_eq!(PollFlags::INCOMING.bits(), sys::ZMQ_POLLIN as c_short);
-        assert_eq!(PollFlags::OUTGOING.bits(), sys::ZMQ_POLLOUT as c_short);
+        assert_eq!(PollFlags::READABLE.bits(), sys::ZMQ_POLLIN as c_short);
+        assert_eq!(PollFlags::WRITABLE.bits(), sys::ZMQ_POLLOUT as c_short);
     }
 
     #[test]
@@ -495,10 +493,10 @@ mod test {
         let mut poller = Poller::new();
         // In this example we will solely poll for incoming messages.
         poller
-            .add(&server, Which::Server(&server), INCOMING)
+            .add(&server, Which::Server(&server), READABLE)
             .unwrap();
         for client in &clients {
-            poller.add(client, Which::Client(client), INCOMING).unwrap();
+            poller.add(client, Which::Client(client), READABLE).unwrap();
         }
 
         // We send the initial request for each client.
@@ -511,7 +509,7 @@ mod test {
             // This waits indefinitely until at least one event is detected. Since many
             // events can be detected at once, it returns an iterator.
             for event in poller.block(None).unwrap() {
-                assert_eq!(INCOMING, event.flags());
+                assert_eq!(READABLE, event.flags());
                 // Note that `user_data` is the `Which` that we
                 // passed in the `Poller::add` method.
                 match event.user_data() {

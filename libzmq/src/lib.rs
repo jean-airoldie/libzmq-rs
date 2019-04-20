@@ -17,7 +17,7 @@ mod utils;
 pub use ctx::Ctx;
 pub use error::{Error, ErrorKind};
 pub use msg::Msg;
-pub use poll::{Poller, INCOMING, NO_EVENTS, OUTGOING};
+pub use poll::{Poller, NO_WAKEUP, READABLE, WRITABLE};
 pub use socket::{Client, Dish, Radio, Server};
 pub use utils::*;
 
