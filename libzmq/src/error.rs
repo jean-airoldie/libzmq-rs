@@ -59,14 +59,16 @@ impl<T> Error<T>
 where
     T: 'static + Send + Sync + Debug,
 {
-    pub(crate) fn new(kind: ErrorKind) -> Self {
+    /// Create a new error using the given `ErrorKind` with `None` as content.
+    pub fn new(kind: ErrorKind) -> Self {
         Self {
             inner: Context::new(kind),
             content: None,
         }
     }
 
-    pub(crate) fn with_content(kind: ErrorKind, content: T) -> Self {
+    /// Create a new error using the given `ErrorKind` and content.
+    pub fn with_content(kind: ErrorKind, content: T) -> Self {
         Self {
             inner: Context::new(kind),
             content: Some(content),
