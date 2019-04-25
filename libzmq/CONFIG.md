@@ -1,5 +1,6 @@
 `libzmq-rs` contains serializable builders which can be used in config files.
-Note that all the fields are optional.
+Note that all the fields are optional. Durations use the [humantime](https://docs.rs/humantime/1.2.0/humantime/)
+crate for deserialization.
 
 ```toml
 [radio]
