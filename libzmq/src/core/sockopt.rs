@@ -260,10 +260,6 @@ fn checked_duration_ms(duration: Duration) -> Result<i32, Error<()>> {
         Err(Error::new(ErrorKind::InvalidInput {
             msg: "ms in duration cannot be greater than i32::MAX",
         }))
-    } else if duration.as_millis() == 0 {
-        Err(Error::new(ErrorKind::InvalidInput {
-            msg: "ms in duration cannot be zero",
-        }))
     } else {
         Ok(duration.as_millis() as i32)
     }
