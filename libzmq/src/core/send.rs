@@ -234,6 +234,7 @@ pub trait SendMsg: GetRawSocket {
 #[doc(hidden)]
 pub struct SendConfig {
     send_high_water_mark: Option<i32>,
+    #[serde(default)]
     #[serde(with = "serde_humantime")]
     send_timeout: Option<Duration>,
 }

@@ -193,6 +193,7 @@ pub trait RecvMsg: GetRawSocket {
 #[doc(hidden)]
 pub struct RecvConfig {
     recv_high_water_mark: Option<i32>,
+    #[serde(default)]
     #[serde(with = "serde_humantime")]
     recv_timeout: Option<Duration>,
 }

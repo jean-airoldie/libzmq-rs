@@ -462,12 +462,16 @@ pub struct SocketConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
+    #[serde(default)]
     #[serde(with = "serde_humantime")]
     connect_timeout: Option<Duration>,
+    #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_interval: Option<Duration>,
+    #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_timeout: Option<Duration>,
+    #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_ttl: Option<Duration>,
 }

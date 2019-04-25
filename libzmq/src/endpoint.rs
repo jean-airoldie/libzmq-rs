@@ -1,7 +1,7 @@
 //! The different endpoint types supported by ØMQ.
 
 use failure::Fail;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::{fmt, iter, slice, str, vec};
 
@@ -187,8 +187,7 @@ impl fmt::Display for VmciAddr {
 /// [`zmq_inproc`]: http://api.zeromq.org/master:zmq_inproc
 /// [`zmq_pgm`]: http://api.zeromq.org/master:zmq_pgm
 /// [`zmq_vmci`]: http://api.zeromq.org/master:zmq_vmci
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Endpoint {
     /// Unicast transport using TCP, see [`zmq_tcp`].
     ///
@@ -270,6 +269,24 @@ impl Endpoint {
         } else {
             false
         }
+    }
+}
+
+impl Serialize for Endpoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_with::rust::display_fromstr::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Endpoint {
+    fn deserialize<D>(deserializer: D) -> Result<Endpoint, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        serde_with::rust::display_fromstr::deserialize(deserializer)
     }
 }
 
