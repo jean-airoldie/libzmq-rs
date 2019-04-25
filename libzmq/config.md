@@ -10,20 +10,20 @@ connect = ["tcp://localhost:3000"]
 # A list of endpoints to bind to.
 bind = ["tcp://*:3001"]
 backlog = 100
-connect_timeout = 30000
-heartbeat_interval = 3000
-heartbeat_timeout = 3000
-heartbeat_ttl = 3000
+connect_timeout = "30s"
+heartbeat_interval = "3s"
+heartbeat_timeout = "6s"
+heartbeat_ttl = "6s"
 
 # The following options are for socket that impl `RecvMsg`
 
 recv_high_water_mark = 1000
-recv_timeout: 1000
+recv_timeout = "100ms"
 
 # The following options are for socket that impl `SendMsg`
 
 send_high_water_mark = 1000
-send_timeout: 1000
+send_timeout = "100ms"
 
 # The following options exclusive to the `Dish` socket
 
