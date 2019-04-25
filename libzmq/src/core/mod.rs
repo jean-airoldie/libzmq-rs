@@ -485,14 +485,24 @@ pub trait GetSocketConfig: private::Sealed {
 
 /// Allows for configuration of common socket options.
 pub trait ConfigureSocket: GetSocketConfig {
-    fn connect(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+    fn connect<E>(&mut self, endpoints: E) -> &mut Self
+    where
+        E: ToEndpoints,
+    {
         let mut config = self.mut_socket_config();
+        let endpoints: Vec<Endpoint> =
+            endpoints.to_endpoints().unwrap().collect();
         config.connect = Some(endpoints);
         self
     }
 
-    fn bind(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+    fn bind<E>(&mut self, endpoints: E) -> &mut Self
+    where
+        E: ToEndpoints,
+    {
         let mut config = self.mut_socket_config();
+        let endpoints: Vec<Endpoint> =
+            endpoints.to_endpoints().unwrap().collect();
         config.bind = Some(endpoints);
         self
     }
