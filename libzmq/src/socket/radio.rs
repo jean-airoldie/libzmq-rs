@@ -124,9 +124,13 @@ unsafe impl Sync for Radio {}
 /// Especially helpfull in config files.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RadioConfig {
+    #[serde(flatten)]
     socket_config: SocketConfig,
+    #[serde(flatten)]
     send_config: SendConfig,
+    #[serde(flatten)]
     recv_config: RecvConfig,
+    #[serde(flatten)]
     no_drop: Option<bool>,
 }
 

@@ -62,8 +62,11 @@ unsafe impl Sync for Client {}
 /// ```
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClientConfig {
+    #[serde(flatten)]
     socket_config: SocketConfig,
+    #[serde(flatten)]
     send_config: SendConfig,
+    #[serde(flatten)]
     recv_config: RecvConfig,
 }
 

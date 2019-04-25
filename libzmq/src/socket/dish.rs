@@ -131,8 +131,11 @@ unsafe impl Sync for Dish {}
 /// Especially helpfull in config files.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DishConfig {
+    #[serde(flatten)]
     socket_config: SocketConfig,
+    #[serde(flatten)]
     recv_config: RecvConfig,
+    #[serde(flatten)]
     groups: Option<Vec<String>>,
 }
 

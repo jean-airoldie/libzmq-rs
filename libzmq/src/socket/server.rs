@@ -103,8 +103,11 @@ unsafe impl Sync for Server {}
 /// Especially helpfull in config files.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ServerConfig {
+    #[serde(flatten)]
     socket_config: SocketConfig,
+    #[serde(flatten)]
     send_config: SendConfig,
+    #[serde(flatten)]
     recv_config: RecvConfig,
 }
 

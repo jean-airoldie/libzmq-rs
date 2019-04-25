@@ -21,7 +21,7 @@ bitflags! {
     pub struct PollFlags: c_short {
         /// Specifies no wakeup condition at all.
         const NO_WAKEUP = 0b00_000_000;
-        /// Specifies wakeup on send readiness event.
+        /// Specifies wakeup on read readiness event.
         const READABLE = 0b00_000_001;
         /// Specifies wakeup on write readiness event.
         const WRITABLE = 0b00_000_010;
@@ -30,7 +30,7 @@ bitflags! {
 
 /// Specifies no wakeup condition at all.
 pub const NO_WAKEUP: PollFlags = PollFlags::NO_WAKEUP;
-/// Specifies wakeup on send readiness.
+/// Specifies wakeup on read readiness.
 pub const READABLE: PollFlags = PollFlags::READABLE;
 /// Specifies wakeup on write readiness.
 pub const WRITABLE: PollFlags = PollFlags::WRITABLE;
