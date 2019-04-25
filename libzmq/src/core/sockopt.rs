@@ -28,6 +28,7 @@ pub(crate) enum SocketOption {
     RecvHighWaterMark,
     RecvTimeout,
     NoDrop,
+    Linger,
 }
 
 impl Into<c_int> for SocketOption {
@@ -46,6 +47,7 @@ impl Into<c_int> for SocketOption {
             SocketOption::RecvHighWaterMark => sys::ZMQ_RCVHWM as c_int,
             SocketOption::RecvTimeout => sys::ZMQ_RCVTIMEO as c_int,
             SocketOption::NoDrop => sys::ZMQ_XPUB_NODROP as c_int,
+            SocketOption::Linger => sys::ZMQ_LINGER as c_int,
         }
     }
 }
@@ -141,9 +143,10 @@ pub(crate) fn getsockopt_string(
 pub(crate) fn getsockopt_duration(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
+    none_value: i32,
 ) -> Result<Option<Duration>, Error<()>> {
     let ms: i32 = getsockopt_scalar(mut_sock_ptr, option)?;
-    if ms <= 0 {
+    if ms == none_value {
         Ok(None)
     } else {
         Ok(Some(Duration::from_millis(ms as u64)))

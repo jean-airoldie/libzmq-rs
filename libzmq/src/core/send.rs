@@ -186,7 +186,7 @@ pub trait SendMsg: GetRawSocket {
     /// it will block until the message is sent.
     fn send_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::SendTimeout)
+        getsockopt_duration(mut_raw_socket, SocketOption::SendTimeout, -1)
     }
 
     /// Sets the timeout for [`send`] on the socket.

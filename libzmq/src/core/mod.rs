@@ -334,7 +334,7 @@ pub trait Socket: GetRawSocket {
     fn connect_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::ConnectTimeout)
+        getsockopt_duration(mut_raw_socket, SocketOption::ConnectTimeout, -1)
     }
 
     /// Sets how much time to wait before timing-out a [`connect`] call.
@@ -370,7 +370,7 @@ pub trait Socket: GetRawSocket {
     fn heartbeat_interval(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatInterval)
+        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatInterval, 0)
     }
 
     /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
@@ -397,7 +397,7 @@ pub trait Socket: GetRawSocket {
     fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTimeout)
+        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTimeout, 0)
     }
 
     /// How long to wait before timing-out a connection after sending a
@@ -425,7 +425,7 @@ pub trait Socket: GetRawSocket {
     fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error<()>> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTtl)
+        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTtl, 0)
     }
 
     /// Set timeout on the remote peer for ZMTP heartbeats.
@@ -454,6 +454,30 @@ pub trait Socket: GetRawSocket {
             0,
         )
     }
+
+    /// Returns the linger period for the socket shutdown.
+    fn linger(&self) -> Result<Option<Duration>, Error<()>> {
+        // This is safe since the call does not actually mutate the socket.
+        let mut_raw_socket = self.raw_socket() as *mut _;
+        getsockopt_duration(mut_raw_socket, SocketOption::Linger, -1)
+    }
+
+    /// Sets the linger period for the socket shutdown.
+    ///
+    /// The linger period determines how long pending messages which have
+    /// yet to be sent to a peer shall linger in memory after a socket is
+    /// disconnected or dropped.
+    ///
+    /// # Default Value
+    /// 30 secs
+    fn set_linger(&self, maybe_duration: Option<Duration>) -> Result<(), Error<()>> {
+        setsockopt_duration(
+            self.mut_raw_socket(),
+            SocketOption::Linger,
+            maybe_duration,
+            -1,
+        )
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -474,6 +498,9 @@ pub struct SocketConfig {
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_ttl: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    linger: Option<Duration>,
 }
 
 #[doc(hidden)]
@@ -536,6 +563,12 @@ pub trait ConfigureSocket: GetSocketConfig {
         self
     }
 
+    fn linger(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
+        let mut config = self.mut_socket_config();
+        config.linger = maybe_duration;
+        self
+    }
+
     #[doc(hidden)]
     fn apply_socket_config<S: Socket>(
         &self,
@@ -557,6 +590,10 @@ pub trait ConfigureSocket: GetSocketConfig {
             socket.set_backlog(value)?;
         }
         socket.set_connect_timeout(config.connect_timeout)?;
+        socket.set_heartbeat_interval(config.heartbeat_interval)?;
+        socket.set_heartbeat_timeout(config.heartbeat_timeout)?;
+        socket.set_heartbeat_ttl(config.heartbeat_ttl)?;
+        socket.set_linger(config.linger)?;
 
         Ok(())
     }

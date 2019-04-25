@@ -168,7 +168,7 @@ pub trait RecvMsg: GetRawSocket {
     /// will until a message is received.
     fn recv_timeout(&self) -> Result<Option<Duration>, Error<()>> {
         let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::RecvTimeout)
+        getsockopt_duration(mut_raw_socket, SocketOption::RecvTimeout, -1)
     }
 
     /// Sets the timeout for [`recv`] on the socket.
