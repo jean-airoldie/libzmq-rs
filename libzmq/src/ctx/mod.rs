@@ -82,6 +82,16 @@ impl RawCtx {
 
         Ok(())
     }
+
+    fn shutdown(&self) -> Result<(), String> {
+        let rc = unsafe { sys::zmq_ctx_shutdown(self.ctx) };
+        if rc == -1 {
+            let errno = unsafe { sys::zmq_errno() };
+            return Err(msg_from_errno(errno));
+        } else {
+            Ok(())
+        }
+    }
 }
 
 // The `zmq_ctx` is internally threadsafe.
@@ -430,10 +440,29 @@ impl Ctx {
     ///
     /// Read more [`here`].
     ///
+    /// # Error
+    /// Returns the error msg.
+    ///
     /// [`CtxTerminated`]: ../error/enum.ErrorKind.html#variant.CtxTerminated
     /// [`here`]: http://api.zeromq.org/master:zmq-ctx-term
     pub fn terminate(&self) -> Result<(), String> {
         self.raw.terminate()
+    }
+
+    /// Shutdown the ØMQ context context.
+    ///
+    /// Context shutdown will cause any blocking operations currently in
+    /// progress on sockets open within context to return immediately with [`CtxTerminated`].
+    ///
+    /// Any further operations on sockets open within context shall fail with
+    /// with [`CtxTerminated`].
+    ///
+    /// # Error
+    /// Returns the error msg.
+    ///
+    /// [`CtxTerminated`]: ../error/enum.ErrorKind.html#variant.CtxTerminated
+    pub fn shutdown(&self) -> Result<(), String> {
+        self.raw.shutdown()
     }
 
     pub(crate) fn as_ptr(&self) -> *mut c_void {
