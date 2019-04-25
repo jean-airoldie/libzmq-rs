@@ -441,7 +441,7 @@ pub trait Socket: GetRawSocket {
     ) -> Result<(), Error<()>> {
         if let Some(ref duration) = maybe_duration {
             let ms = duration.as_millis();
-            if ms <= MAX_HB_TTL as u128 {
+            if ms > MAX_HB_TTL as u128 {
                 return Err(Error::new(ErrorKind::InvalidInput {
                     msg: "duration ms cannot exceed 6553599",
                 }));
@@ -467,6 +467,8 @@ pub trait Socket: GetRawSocket {
     /// The linger period determines how long pending messages which have
     /// yet to be sent to a peer shall linger in memory after a socket is
     /// disconnected or dropped.
+    ///
+    /// A value of `None` means an infinite period.
     ///
     /// # Default Value
     /// 30 secs
