@@ -22,6 +22,7 @@ is-it-maintained-open-issues = { repository = "https://github.com/jean-airoldie/
 [dependencies]
 libc = "0.2"
 serde = { version = "1.0", features = ["derive"] }
+serde-humantime = { git = "https://github.com/tailhook/serde-humantime", branch = "serde_wrapper" }
 lazy_static = "1.3.0"
 failure = "0.1"
 libzmq-sys = { path = "../libzmq-sys", version = "0.1", features = ["draft"] }
