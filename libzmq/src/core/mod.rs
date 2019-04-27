@@ -472,7 +472,10 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(&self, maybe_duration: Option<Duration>) -> Result<(), Error<()>> {
+    fn set_linger(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error<()>> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::Linger,
@@ -514,15 +517,23 @@ pub trait GetSocketConfig: private::Sealed {
 
 /// Allows for configuration of common socket options.
 pub trait ConfigureSocket: GetSocketConfig {
-    fn connect(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+    fn connect<E>(&mut self, endpoints: E) -> &mut Self
+    where
+        E: ToEndpoints,
+    {
         let mut config = self.mut_socket_config();
-        config.connect = Some(endpoints);
+        let vec: Vec<Endpoint> = endpoints.to_endpoints().unwrap().collect();
+        config.connect = Some(vec);
         self
     }
 
-    fn bind(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+    fn bind<E>(&mut self, endpoints: E) -> &mut Self
+    where
+        E: ToEndpoints,
+    {
         let mut config = self.mut_socket_config();
-        config.bind = Some(endpoints);
+        let vec: Vec<Endpoint> = endpoints.to_endpoints().unwrap().collect();
+        config.bind = Some(vec);
         self
     }
 
