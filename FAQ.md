@@ -11,8 +11,7 @@ a unique feature.
 
 Turns out that you can replace all those deprecated
 socket types in terms of functionality using only `Client`,
-`Server`, `Dish` and `Radio` (except of XPUB-XSUB but im working on
-[that](https://github.com/zeromq/libzmq/issues/3474)).
+`Server`, `Dish` and `Radio`.
 
 To test performance I wrote a benchmark using criterion that tested every basic
 socket pattern (PUSH-PULL, EXCLUSIVE PAIR, etc.). I used a sample size of
@@ -20,8 +19,8 @@ socket pattern (PUSH-PULL, EXCLUSIVE PAIR, etc.). I used a sample size of
 I determined that the thread safe type had equal or better single thread
 performance in almost ALL cases. The only exception was the EXCLUSIVE PAIR
 pattern which is used exclusively for inter-thread communication, where
-you should rather be using [`crossbeam_channel`], which offers significantly
-better performance.
+you should rather be using something like [`crossbeam_channel`], which offers
+significantly better performance.
 
 Lastly these deprecated socket types had a ton of footguns that were
 kept to maintain backward compatibility.
