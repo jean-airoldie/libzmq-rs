@@ -578,6 +578,17 @@ pub trait ConfigureSocket: GetSocketConfig {
     ) -> Result<(), Error<()>> {
         let config = self.socket_config();
 
+        if let Some(value) = config.backlog {
+            socket.set_backlog(value)?;
+        }
+        socket.set_connect_timeout(config.connect_timeout)?;
+        socket.set_heartbeat_interval(config.heartbeat_interval)?;
+        socket.set_heartbeat_timeout(config.heartbeat_timeout)?;
+        socket.set_heartbeat_ttl(config.heartbeat_ttl)?;
+        socket.set_linger(config.linger)?;
+
+        // We connect as the last step because some socket options
+        // only affect subsequent connections.
         if let Some(ref endpoints) = config.connect {
             for endpoint in endpoints {
                 socket.connect(endpoint)?;
@@ -588,15 +599,6 @@ pub trait ConfigureSocket: GetSocketConfig {
                 socket.bind(endpoint)?;
             }
         }
-        if let Some(value) = config.backlog {
-            socket.set_backlog(value)?;
-        }
-        socket.set_connect_timeout(config.connect_timeout)?;
-        socket.set_heartbeat_interval(config.heartbeat_interval)?;
-        socket.set_heartbeat_timeout(config.heartbeat_timeout)?;
-        socket.set_heartbeat_ttl(config.heartbeat_ttl)?;
-        socket.set_linger(config.linger)?;
-
         Ok(())
     }
 }
