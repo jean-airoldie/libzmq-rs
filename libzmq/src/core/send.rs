@@ -203,7 +203,7 @@ pub trait SendMsg: GetRawSocket {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Client, error::ErrorKind};
+    /// use libzmq::{prelude::*, Client, ErrorKind};
     /// use std::time::Duration;
     ///
     /// let client = Client::new()?;

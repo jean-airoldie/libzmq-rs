@@ -8,14 +8,14 @@ pub use failure;
 mod core;
 pub mod ctx;
 pub mod endpoint;
-pub mod error;
+mod error;
 mod msg;
 pub mod poll;
 pub mod socket;
 mod utils;
 
 pub use ctx::Ctx;
-pub use endpoint::Endpoint;
+pub use error::{Error, ErrorKind};
 pub use msg::Msg;
 pub use poll::{Poller, NO_WAKEUP, READABLE, WRITABLE};
 pub use socket::{Client, Dish, Radio, Server};

@@ -12,7 +12,7 @@ macro_rules! impl_socket_methods {
             /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
             /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
             /// [`global context`]: ../ctx/struct.Ctx.html#method.global
-            pub fn new() -> Result<Self, crate::error::Error<()>> {
+            pub fn new() -> Result<Self, Error<()>> {
                 let inner = std::sync::Arc::new(
                     crate::core::RawSocket::new(
                         crate::core::RawSocketType::$name
@@ -34,7 +34,7 @@ macro_rules! impl_socket_methods {
             ///
             /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
             /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-            pub fn with_ctx(ctx: crate::Ctx) -> Result<Self, crate::error::Error<()>> {
+            pub fn with_ctx(ctx: crate::Ctx) -> Result<Self, crate::Error<()>> {
                 let inner = std::sync::Arc::new(
                     crate::core::RawSocket::with_ctx(
                         crate::core::RawSocketType::$name, ctx

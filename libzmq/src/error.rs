@@ -20,14 +20,13 @@ use std::{
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Client, error::ErrorKind};
+/// use libzmq::{prelude::*, *, ErrorKind::*};
 ///
 /// // This client has no peer and is therefore in mute state.
 /// let client = Client::new()?;
 ///
 /// // This means that the following call would block.
 /// if let Err(mut err) = client.try_send("msg") {
-///     use ErrorKind::*;
 ///     match err.kind() {
 ///         // This covers all the possible error scenarios for this socket type.
 ///         // Normally we would process each error differently.

@@ -23,7 +23,7 @@ use std::sync::Arc;
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Msg, Radio, Dish, error::ErrorKind};
+/// use libzmq::{prelude::*, *};
 /// use std::{thread, time::Duration};
 ///
 /// const ENDPOINT: &str = "inproc://test";
