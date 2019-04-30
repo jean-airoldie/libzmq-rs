@@ -174,7 +174,7 @@ impl<T> Poller<T> {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{*, prelude::*};
+    /// use libzmq::{Server, poll::*, error::ErrorKind};
     ///
     /// let server = Server::new()?;
     ///
@@ -257,7 +257,7 @@ impl<T> Poller<T> {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::*;
+    /// use libzmq::{poll::*, Server, error::ErrorKind};
     ///
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
