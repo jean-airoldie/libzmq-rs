@@ -15,6 +15,7 @@ pub mod socket;
 mod utils;
 
 pub use ctx::Ctx;
+pub use endpoint::Endpoint;
 pub use error::{Error, ErrorKind};
 pub use msg::Msg;
 pub use poll::{Poller, NO_WAKEUP, READABLE, WRITABLE};
