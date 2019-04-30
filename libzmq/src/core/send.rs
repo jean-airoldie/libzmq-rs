@@ -17,7 +17,7 @@ fn send(
     mut_raw_socket: *mut c_void,
     mut msg: Msg,
     no_block: bool,
-) -> Result<(), Error<Msg>> {
+) -> Result<(), Error> {
     let mut_msg_ptr = msg.as_mut_ptr();
     let rc = unsafe {
         sys::zmq_msg_send(mut_msg_ptr, mut_raw_socket, no_block as c_int)
@@ -28,7 +28,7 @@ fn send(
         let err = {
             match errno {
                 errno::EAGAIN => {
-                    Error::with_content(ErrorKind::WouldBlock, msg)
+                    Error::with_msg(ErrorKind::WouldBlock, msg)
                 }
                 errno::ENOTSUP => {
                     panic!("send is not supported by socket type")
@@ -40,15 +40,15 @@ fn send(
                     "operation cannot be completed in current socket state"
                 ),
                 errno::ETERM => {
-                    Error::with_content(ErrorKind::CtxTerminated, msg)
+                    Error::with_msg(ErrorKind::CtxTerminated, msg)
                 }
                 errno::ENOTSOCK => panic!("invalid socket"),
                 errno::EINTR => {
-                    Error::with_content(ErrorKind::Interrupted, msg)
+                    Error::with_msg(ErrorKind::Interrupted, msg)
                 }
                 errno::EFAULT => panic!("invalid message"),
                 errno::EHOSTUNREACH => {
-                    Error::with_content(ErrorKind::HostUnreachable, msg)
+                    Error::with_msg(ErrorKind::HostUnreachable, msg)
                 }
                 _ => panic!(msg_from_errno(errno)),
             }
@@ -87,7 +87,7 @@ pub trait SendMsg: GetRawSocket {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
+    fn send<M>(&self, sendable: M) -> Result<(), Error>
     where
         M: Into<Msg>,
     {
@@ -121,7 +121,7 @@ pub trait SendMsg: GetRawSocket {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn try_send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
+    fn try_send<M>(&self, sendable: M) -> Result<(), Error>
     where
         M: Into<Msg>,
     {
@@ -135,7 +135,7 @@ pub trait SendMsg: GetRawSocket {
     /// outstanding messages ØMQ shall queue in memory.
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
-    fn send_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
+    fn send_high_water_mark(&self) -> Result<Option<i32>, Error> {
         let mut_raw_socket = self.raw_socket() as *mut _;
         let limit =
             getsockopt_scalar(mut_raw_socket, SocketOption::SendHighWaterMark)?;
@@ -161,7 +161,7 @@ pub trait SendMsg: GetRawSocket {
     fn set_send_high_water_mark(
         &self,
         high_water_mark: Option<i32>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         match high_water_mark {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
@@ -184,7 +184,7 @@ pub trait SendMsg: GetRawSocket {
     /// If some timeout is specified, the [`send`] will return
     /// [`WouldBlock`] after the duration is elapsed. Otherwise,
     /// it will block until the message is sent.
-    fn send_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+    fn send_timeout(&self) -> Result<Option<Duration>, Error> {
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::SendTimeout, -1)
     }
@@ -220,7 +220,7 @@ pub trait SendMsg: GetRawSocket {
     fn set_send_timeout(
         &self,
         timeout: Option<Duration>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::SendTimeout,
@@ -264,7 +264,7 @@ pub trait ConfigureSend: GetSendConfig {
     fn apply_send_config<S: SendMsg>(
         &self,
         socket: &S,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         let config = self.send_config();
 
         socket.set_send_high_water_mark(config.send_high_water_mark)?;

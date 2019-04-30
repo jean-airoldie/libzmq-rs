@@ -196,7 +196,7 @@ impl<T> Poller<T> {
         socket: &GetRawSocket,
         user_data: T,
         flags: PollFlags,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         // This is safe since we won't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
@@ -274,7 +274,7 @@ impl<T> Poller<T> {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn remove(&mut self, socket: &GetRawSocket) -> Result<(), Error<()>> {
+    pub fn remove(&mut self, socket: &GetRawSocket) -> Result<(), Error> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
@@ -305,7 +305,7 @@ impl<T> Poller<T> {
         &mut self,
         socket: &GetRawSocket,
         flags: PollFlags,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
@@ -331,7 +331,7 @@ impl<T> Poller<T> {
         }
     }
 
-    fn wait(&mut self, timeout: i64) -> Result<PollIter<T>, Error<()>> {
+    fn wait(&mut self, timeout: i64) -> Result<PollIter<T>, Error> {
         let len = self.raw_event_vec.len();
 
         let rc = unsafe {
@@ -376,7 +376,7 @@ impl<T> Poller<T> {
     /// The poller will poll for events, returning instantly.
     ///
     /// If there are none, returns [`WouldBlock`].
-    pub fn poll(&mut self) -> Result<PollIter<T>, Error<()>> {
+    pub fn poll(&mut self) -> Result<PollIter<T>, Error> {
         self.wait(0)
     }
 
@@ -387,7 +387,7 @@ impl<T> Poller<T> {
     pub fn block(
         &mut self,
         timeout: Option<Duration>,
-    ) -> Result<PollIter<T>, Error<()>> {
+    ) -> Result<PollIter<T>, Error> {
         match timeout {
             Some(duration) => {
                 let ms = duration.as_millis();

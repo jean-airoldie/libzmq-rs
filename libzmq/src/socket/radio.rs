@@ -94,7 +94,7 @@ impl Radio {
     impl_socket_methods!(Radio);
 
     /// Returns `true` if the `no_drop` option is set.
-    pub fn no_drop(&self) -> Result<bool, Error<()>> {
+    pub fn no_drop(&self) -> Result<bool, Error> {
         getsockopt_bool(self.mut_raw_socket(), SocketOption::NoDrop)
     }
 
@@ -106,7 +106,7 @@ impl Radio {
     ///
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`send_high_water_mark`]: #method.send_high_water_mark
-    pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error<()>> {
+    pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
         setsockopt_bool(self.mut_raw_socket(), SocketOption::NoDrop, enabled)
     }
 }
@@ -139,20 +139,20 @@ impl RadioConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Radio, Error<()>> {
+    pub fn build(&self) -> Result<Radio, Error> {
         let ctx = Ctx::global().clone();
 
         self.build_with_ctx(ctx)
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error<()>> {
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error> {
         let radio = Radio::with_ctx(ctx)?;
         self.apply(&radio)?;
 
         Ok(radio)
     }
 
-    pub fn apply(&self, radio: &Radio) -> Result<(), Error<()>> {
+    pub fn apply(&self, radio: &Radio) -> Result<(), Error> {
         self.apply_socket_config(radio)?;
         self.apply_send_config(radio)?;
 

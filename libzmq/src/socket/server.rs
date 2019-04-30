@@ -116,20 +116,20 @@ impl ServerConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, Error<()>> {
+    pub fn build(&self) -> Result<Server, Error> {
         let ctx = Ctx::global().clone();
 
         self.build_with_ctx(ctx)
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error<()>> {
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error> {
         let server = Server::with_ctx(ctx)?;
         self.apply(&server)?;
 
         Ok(server)
     }
 
-    pub fn apply(&self, server: &Server) -> Result<(), Error<()>> {
+    pub fn apply(&self, server: &Server) -> Result<(), Error> {
         self.apply_socket_config(server)?;
         self.apply_send_config(server)?;
         self.apply_recv_config(server)?;

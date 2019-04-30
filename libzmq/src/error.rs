@@ -1,15 +1,15 @@
-use crate::endpoint::EndpointParseError;
+use crate::{endpoint::EndpointParseError, Msg};
 use libzmq_sys as sys;
 
 use failure::{Backtrace, Context, Fail};
 
 use std::{
     ffi,
-    fmt::{self, Debug, Display},
+    fmt::{self, Display},
     str,
 };
 
-/// An error with a kind and a content.
+/// An error with a kind and a msg.
 ///
 /// An `Error` contains a [`ErrorKind`] which gives context on the error cause,
 /// as well as `Option<T>` which is used to prevent the loss of data
@@ -32,7 +32,7 @@ use std::{
 ///         // Normally we would process each error differently.
 ///         WouldBlock | CtxTerminated | Interrupted => {
 ///             // Here we get back the message we tried to send.
-///             let msg = err.take_content().unwrap();
+///             let msg = err.take_msg().unwrap();
 ///             assert_eq!("msg", msg.to_str()?);
 ///         }
 ///         // Since `ErrorKind` is non-exhaustive, need an
@@ -47,29 +47,23 @@ use std::{
 ///
 /// [`ErrorKind`]: enum.ErrorKind.html
 #[derive(Debug)]
-pub struct Error<T>
-where
-    T: 'static + Send + Sync + Debug,
-{
+pub struct Error {
     inner: Context<ErrorKind>,
-    content: Option<T>,
+    msg: Option<Msg>,
 }
 
-impl<T> Error<T>
-where
-    T: 'static + Send + Sync + Debug,
-{
+impl Error {
     pub(crate) fn new(kind: ErrorKind) -> Self {
         Self {
             inner: Context::new(kind),
-            content: None,
+            msg: None,
         }
     }
 
-    pub(crate) fn with_content(kind: ErrorKind, content: T) -> Self {
+    pub(crate) fn with_msg(kind: ErrorKind, msg: Msg) -> Self {
         Self {
             inner: Context::new(kind),
-            content: Some(content),
+            msg: Some(msg),
         }
     }
 
@@ -78,21 +72,18 @@ where
         *self.inner.get_context()
     }
 
-    /// Returns a reference to the content held by the error.
-    pub fn content(&self) -> Option<&T> {
-        self.content.as_ref()
+    /// Returns a reference to the msg held by the error.
+    pub fn msg(&self) -> Option<&Msg> {
+        self.msg.as_ref()
     }
 
-    /// Takes the content held by the error, if any.
-    pub fn take_content(&mut self) -> Option<T> {
-        self.content.take()
+    /// Takes the msg held by the error, if any.
+    pub fn take_msg(&mut self) -> Option<Msg> {
+        self.msg.take()
     }
 }
 
-impl<T> Fail for Error<T>
-where
-    T: 'static + Send + Sync + Debug,
-{
+impl Fail for Error {
     fn cause(&self) -> Option<&Fail> {
         self.inner.cause()
     }
@@ -102,19 +93,13 @@ where
     }
 }
 
-impl<T> Display for Error<T>
-where
-    T: 'static + Send + Sync + Debug,
-{
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&self.inner, f)
     }
 }
 
-impl<T> From<EndpointParseError> for Error<T>
-where
-    T: 'static + Send + Sync + Debug,
-{
+impl From<EndpointParseError> for Error {
     fn from(_error: EndpointParseError) -> Self {
         Error::new(ErrorKind::InvalidInput {
             msg: "unable to parse endpoint",

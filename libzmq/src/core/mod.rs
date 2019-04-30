@@ -42,7 +42,7 @@ const MAX_HB_TTL: i64 = 6_553_599;
 fn connect(
     mut_raw_socket: *mut c_void,
     c_str: CString,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let rc = unsafe { sys::zmq_connect(mut_raw_socket, c_str.as_ptr()) };
 
     if rc == -1 {
@@ -71,7 +71,7 @@ fn connect(
     }
 }
 
-fn bind(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error<()>> {
+fn bind(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
     let rc = unsafe { sys::zmq_bind(mut_raw_socket, c_str.as_ptr()) };
 
     if rc == -1 {
@@ -106,7 +106,7 @@ fn bind(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error<()>> {
 fn disconnect(
     mut_raw_socket: *mut c_void,
     c_str: CString,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let rc = unsafe { sys::zmq_disconnect(mut_raw_socket, c_str.as_ptr()) };
 
     if rc == -1 {
@@ -134,7 +134,7 @@ fn disconnect(
 fn unbind(
     mut_raw_socket: *mut c_void,
     c_str: CString,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let rc = unsafe { sys::zmq_unbind(mut_raw_socket, c_str.as_ptr()) };
 
     if rc == -1 {
@@ -182,7 +182,7 @@ pub trait Socket: GetRawSocket {
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn connect<E>(&self, endpoints: E) -> Result<(), Error<()>>
+    fn connect<E>(&self, endpoints: E) -> Result<(), Error>
     where
         E: ToEndpoints,
     {
@@ -214,7 +214,7 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn disconnect<E>(&self, endpoints: E) -> Result<(), Error<()>>
+    fn disconnect<E>(&self, endpoints: E) -> Result<(), Error>
     where
         E: ToEndpoints,
     {
@@ -251,7 +251,7 @@ pub trait Socket: GetRawSocket {
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn bind<E>(&self, endpoints: E) -> Result<(), Error<()>>
+    fn bind<E>(&self, endpoints: E) -> Result<(), Error>
     where
         E: ToEndpoints,
     {
@@ -284,7 +284,7 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn unbind<E>(&self, endpoints: E) -> Result<(), Error<()>>
+    fn unbind<E>(&self, endpoints: E) -> Result<(), Error>
     where
         E: ToEndpoints,
     {
@@ -301,7 +301,7 @@ pub trait Socket: GetRawSocket {
     /// See `ZMQ_BLACKLOG` in [`zmq_getsockopt`].
     ///
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-    fn backlog(&self) -> Result<i32, Error<()>> {
+    fn backlog(&self) -> Result<i32, Error> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_scalar(mut_raw_socket, SocketOption::Backlog)
@@ -320,7 +320,7 @@ pub trait Socket: GetRawSocket {
     /// All (Connection Oriented Transports)
     ///
     /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
-    fn set_backlog(&self, value: i32) -> Result<(), Error<()>> {
+    fn set_backlog(&self, value: i32) -> Result<(), Error> {
         setsockopt_scalar(self.mut_raw_socket(), SocketOption::Backlog, value)
     }
 
@@ -331,7 +331,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// [`connect`]: #method.connect
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-    fn connect_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+    fn connect_timeout(&self) -> Result<Option<Duration>, Error> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::ConnectTimeout, -1)
@@ -350,7 +350,7 @@ pub trait Socket: GetRawSocket {
     fn set_connect_timeout(
         &self,
         maybe_duration: Option<Duration>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         if let Some(ref duration) = maybe_duration {
             assert!(
                 duration.as_millis() > 0,
@@ -367,7 +367,7 @@ pub trait Socket: GetRawSocket {
     }
 
     /// The interval between sending ZMTP heartbeats.
-    fn heartbeat_interval(&self) -> Result<Option<Duration>, Error<()>> {
+    fn heartbeat_interval(&self) -> Result<Option<Duration>, Error> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatInterval, 0)
@@ -383,7 +383,7 @@ pub trait Socket: GetRawSocket {
     fn set_heartbeat_interval(
         &self,
         maybe_duration: Option<Duration>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::HeartbeatInterval,
@@ -394,7 +394,7 @@ pub trait Socket: GetRawSocket {
 
     /// How long to wait before timing-out a connection after sending a
     /// PING ZMTP command and not receiving any traffic.
-    fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+    fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTimeout, 0)
@@ -409,7 +409,7 @@ pub trait Socket: GetRawSocket {
     fn set_heartbeat_timeout(
         &self,
         maybe_duration: Option<Duration>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::HeartbeatTimeout,
@@ -422,7 +422,7 @@ pub trait Socket: GetRawSocket {
     /// If this option and `heartbeat_interval` is not `None` the remote
     /// side shall time out the connection if it does not receive any more
     /// traffic within the TTL period.
-    fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error<()>> {
+    fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error> {
         // This is safe the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTtl, 0)
@@ -438,7 +438,7 @@ pub trait Socket: GetRawSocket {
     fn set_heartbeat_ttl(
         &self,
         maybe_duration: Option<Duration>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         if let Some(ref duration) = maybe_duration {
             let ms = duration.as_millis();
             if ms > MAX_HB_TTL as u128 {
@@ -456,7 +456,7 @@ pub trait Socket: GetRawSocket {
     }
 
     /// Returns the linger period for the socket shutdown.
-    fn linger(&self) -> Result<Option<Duration>, Error<()>> {
+    fn linger(&self) -> Result<Option<Duration>, Error> {
         // This is safe since the call does not actually mutate the socket.
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::Linger, -1)
@@ -472,7 +472,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(&self, maybe_duration: Option<Duration>) -> Result<(), Error<()>> {
+    fn set_linger(&self, maybe_duration: Option<Duration>) -> Result<(), Error> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::Linger,
@@ -575,7 +575,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     fn apply_socket_config<S: Socket>(
         &self,
         socket: &S,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         let config = self.socket_config();
 
         if let Some(value) = config.backlog {

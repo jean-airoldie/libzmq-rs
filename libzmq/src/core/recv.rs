@@ -17,7 +17,7 @@ fn recv(
     mut_raw_socket: *mut c_void,
     msg: &mut Msg,
     no_block: bool,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let rc = unsafe {
         sys::zmq_msg_recv(msg.as_mut_ptr(), mut_raw_socket, no_block as c_int)
     };
@@ -62,7 +62,7 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn recv(&self, msg: &mut Msg) -> Result<(), Error<()>> {
+    fn recv(&self, msg: &mut Msg) -> Result<(), Error> {
         recv(self.mut_raw_socket(), msg, false)
     }
 
@@ -83,7 +83,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    fn try_recv(&self, msg: &mut Msg) -> Result<(), Error<()>> {
+    fn try_recv(&self, msg: &mut Msg) -> Result<(), Error> {
         recv(self.mut_raw_socket(), msg, true)
     }
 
@@ -92,7 +92,7 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// [`recv`]: #method.recv
     /// [`Msg`]: ../msg/struct.Msg.html
-    fn recv_msg(&self) -> Result<Msg, Error<()>> {
+    fn recv_msg(&self) -> Result<Msg, Error> {
         let mut msg = Msg::new();
         self.recv(&mut msg)?;
 
@@ -104,7 +104,7 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// [`try_recv`]: #method.recv
     /// [`Msg`]: ../msg/struct.Msg.html
-    fn try_recv_msg(&self) -> Result<Msg, Error<()>> {
+    fn try_recv_msg(&self) -> Result<Msg, Error> {
         let mut msg = Msg::new();
         self.try_recv(&mut msg)?;
 
@@ -117,7 +117,7 @@ pub trait RecvMsg: GetRawSocket {
     /// incoming messages ØMQ shall queue in memory.
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
-    fn recv_high_water_mark(&self) -> Result<Option<i32>, Error<()>> {
+    fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
         let mut_raw_socket = self.raw_socket() as *mut _;
         let limit =
             getsockopt_scalar(mut_raw_socket, SocketOption::RecvHighWaterMark)?;
@@ -143,7 +143,7 @@ pub trait RecvMsg: GetRawSocket {
     fn set_recv_high_water_mark(
         &self,
         maybe_limit: Option<i32>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         match maybe_limit {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
@@ -166,7 +166,7 @@ pub trait RecvMsg: GetRawSocket {
     /// If some timeout is specified, [`recv`] will return
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
-    fn recv_timeout(&self) -> Result<Option<Duration>, Error<()>> {
+    fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
         let mut_raw_socket = self.raw_socket() as *mut _;
         getsockopt_duration(mut_raw_socket, SocketOption::RecvTimeout, -1)
     }
@@ -179,7 +179,7 @@ pub trait RecvMsg: GetRawSocket {
     fn set_recv_timeout(
         &self,
         maybe_duration: Option<Duration>,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::RecvTimeout,
@@ -223,7 +223,7 @@ pub trait ConfigureRecv: GetRecvConfig {
     fn apply_recv_config<S: RecvMsg>(
         &self,
         socket: &S,
-    ) -> Result<(), Error<()>> {
+    ) -> Result<(), Error> {
         let config = self.recv_config();
 
         socket.set_recv_high_water_mark(config.recv_high_water_mark)?;

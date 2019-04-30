@@ -57,7 +57,7 @@ fn getsockopt(
     option: SocketOption,
     mut_value_ptr: *mut c_void,
     size: &mut size_t,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let rc = unsafe {
         sys::zmq_getsockopt(mut_sock_ptr, option.into(), mut_value_ptr, size)
     };
@@ -83,7 +83,7 @@ fn getsockopt(
 pub(crate) fn getsockopt_bool(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-) -> Result<bool, Error<()>> {
+) -> Result<bool, Error> {
     let mut value = c_int::default();
     let mut size = mem::size_of::<c_int>();
     let value_ptr = &mut value as *mut c_int as *mut c_void;
@@ -96,7 +96,7 @@ pub(crate) fn getsockopt_bool(
 pub(crate) fn getsockopt_scalar<T>(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-) -> Result<T, Error<()>>
+) -> Result<T, Error>
 where
     T: Default,
 {
@@ -112,7 +112,7 @@ where
 pub(crate) fn getsockopt_bytes(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-) -> Result<Option<Vec<u8>>, Error<()>> {
+) -> Result<Option<Vec<u8>>, Error> {
     let mut size = MAX_OPTION_SIZE;
     let mut value = vec![0u8; size];
     let value_ptr = value.as_mut_ptr() as *mut c_void;
@@ -130,7 +130,7 @@ pub(crate) fn getsockopt_bytes(
 pub(crate) fn getsockopt_string(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-) -> Result<Option<String>, Error<()>> {
+) -> Result<Option<String>, Error> {
     match getsockopt_bytes(mut_sock_ptr, option)? {
         Some(bytes) => {
             let c_str = unsafe { CString::from_vec_unchecked(bytes) };
@@ -144,7 +144,7 @@ pub(crate) fn getsockopt_duration(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     none_value: i32,
-) -> Result<Option<Duration>, Error<()>> {
+) -> Result<Option<Duration>, Error> {
     let ms: i32 = getsockopt_scalar(mut_sock_ptr, option)?;
     if ms == none_value {
         Ok(None)
@@ -158,7 +158,7 @@ fn setsockopt(
     option: SocketOption,
     value_ptr: *const c_void,
     size: size_t,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let rc = unsafe {
         sys::zmq_setsockopt(mut_sock_ptr, option.into(), value_ptr, size)
     };
@@ -185,7 +185,7 @@ pub(crate) fn setsockopt_bool(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     value: bool,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let value = value as c_int;
     let size = mem::size_of::<c_int>() as size_t;
     let value_ptr = &value as *const c_int as *const c_void;
@@ -197,7 +197,7 @@ pub(crate) fn setsockopt_scalar<T>(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     value: T,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let size = mem::size_of::<T>() as size_t;
     let value_ptr = &value as *const T as *const c_void;
 
@@ -208,7 +208,7 @@ pub(crate) fn setsockopt_bytes(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     bytes: &[u8],
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     let size = bytes.len();
     let value_ptr = bytes.as_ptr() as *const c_void;
 
@@ -219,7 +219,7 @@ pub(crate) fn setsockopt_str<S>(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     maybe_string: Option<S>,
-) -> Result<(), Error<()>>
+) -> Result<(), Error>
 where
     S: AsRef<str>,
 {
@@ -236,7 +236,7 @@ where
 pub(crate) fn setsockopt_null(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     setsockopt(mut_sock_ptr, option, ptr::null(), 0)
 }
 
@@ -245,7 +245,7 @@ pub(crate) fn setsockopt_duration(
     option: SocketOption,
     maybe_duration: Option<Duration>,
     none_value: i32,
-) -> Result<(), Error<()>> {
+) -> Result<(), Error> {
     match maybe_duration {
         Some(duration) => {
             let ms = checked_duration_ms(duration)?;
@@ -255,7 +255,7 @@ pub(crate) fn setsockopt_duration(
     }
 }
 
-fn checked_duration_ms(duration: Duration) -> Result<i32, Error<()>> {
+fn checked_duration_ms(duration: Duration) -> Result<i32, Error> {
     if duration.as_millis() > i32::max_value() as u128 {
         Err(Error::new(ErrorKind::InvalidInput {
             msg: "ms in duration cannot be greater than i32::MAX",

@@ -207,7 +207,7 @@ impl Msg {
     ///
     /// [`zmq_msg_set_routing_id`]: http://api.zeromq.org/master:zmq-msg-set-routing-id
     /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
-    pub fn set_routing_id(&mut self, routing_id: u32) -> Result<(), Error<()>> {
+    pub fn set_routing_id(&mut self, routing_id: u32) -> Result<(), Error> {
         let rc = unsafe {
             sys::zmq_msg_set_routing_id(self.as_mut_ptr(), routing_id)
         };
@@ -262,7 +262,7 @@ impl Msg {
     ///
     /// # Returned Error Variants
     /// * [`InvalidInput`] (if contract is not followed)
-    pub fn set_group(&mut self, group: &str) -> Result<(), Error<()>> {
+    pub fn set_group(&mut self, group: &str) -> Result<(), Error> {
         let c_string = CString::new(group.as_bytes()).unwrap();
         let rc = unsafe {
             sys::zmq_msg_set_group(self.as_mut_ptr(), c_string.as_ptr())

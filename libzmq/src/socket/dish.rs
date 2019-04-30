@@ -45,7 +45,7 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn join<S>(&self, group: S) -> Result<(), Error<()>>
+    pub fn join<S>(&self, group: S) -> Result<(), Error>
     where
         S: AsRef<str>,
     {
@@ -88,7 +88,7 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<S>(&self, group: S) -> Result<(), Error<()>>
+    pub fn leave<S>(&self, group: S) -> Result<(), Error>
     where
         S: AsRef<str>,
     {
@@ -144,20 +144,20 @@ impl DishConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, Error<()>> {
+    pub fn build(&self) -> Result<Dish, Error> {
         let ctx = Ctx::global().clone();
 
         self.build_with_ctx(ctx)
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Dish, Error<()>> {
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Dish, Error> {
         let dish = Dish::with_ctx(ctx)?;
         self.apply(&dish)?;
 
         Ok(dish)
     }
 
-    pub fn apply(&self, dish: &Dish) -> Result<(), Error<()>> {
+    pub fn apply(&self, dish: &Dish) -> Result<(), Error> {
         self.apply_socket_config(dish)?;
         self.apply_recv_config(dish)?;
 

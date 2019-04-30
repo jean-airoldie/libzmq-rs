@@ -38,7 +38,7 @@ pub(crate) struct RawSocket {
 }
 
 impl RawSocket {
-    pub(crate) fn new(sock_type: RawSocketType) -> Result<Self, Error<()>> {
+    pub(crate) fn new(sock_type: RawSocketType) -> Result<Self, Error> {
         let ctx = Ctx::global().clone();
 
         Self::with_ctx(sock_type, ctx)
@@ -47,7 +47,7 @@ impl RawSocket {
     pub(crate) fn with_ctx(
         sock_type: RawSocketType,
         ctx: Ctx,
-    ) -> Result<Self, Error<()>> {
+    ) -> Result<Self, Error> {
         let socket = unsafe { sys::zmq_socket(ctx.as_ptr(), sock_type.into()) };
 
         if socket.is_null() {

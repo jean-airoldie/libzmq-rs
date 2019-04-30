@@ -75,20 +75,20 @@ impl ClientConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Client, Error<()>> {
+    pub fn build(&self) -> Result<Client, Error> {
         let ctx = Ctx::global().clone();
 
         self.build_with_ctx(ctx)
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error<()>> {
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error> {
         let client = Client::with_ctx(ctx)?;
         self.apply(&client)?;
 
         Ok(client)
     }
 
-    pub fn apply(&self, client: &Client) -> Result<(), Error<()>> {
+    pub fn apply(&self, client: &Client) -> Result<(), Error> {
         self.apply_socket_config(client)?;
         self.apply_send_config(client)?;
         self.apply_recv_config(client)?;
