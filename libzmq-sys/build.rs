@@ -2,6 +2,7 @@ use std::{env, path::PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-env-changed=LIBZMQ_SYS_STATIC");
+    println!("cargo:rerun-if-env-changed=LIBZMQ_SYS_DEBUG");
     println!("cargo:rerun-if-changed=build.rs");
 
     let wants_static = cfg!(feature = "static")
