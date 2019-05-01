@@ -18,7 +18,6 @@ pub use ctx::Ctx;
 pub use endpoint::Endpoint;
 pub use error::{Error, ErrorKind};
 pub use msg::Msg;
-pub use poll::{Poller, NO_WAKEUP, READABLE, WRITABLE};
 pub use socket::{Client, Dish, Radio, Server};
 pub use utils::*;
 

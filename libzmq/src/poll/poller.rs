@@ -11,9 +11,6 @@ use bitflags::bitflags;
 use std::{
     os::raw::{c_short, c_void},
     time::Duration,
-    vec,
-    slice,
-    iter
 };
 
 bitflags! {
@@ -49,13 +46,20 @@ impl<'a> Iterator for Iter<'a> {
         let raw = self.inner.inner.get(self.pos);
         self.pos += 1;
 
-        raw.map(|raw| {
-            let user_data = raw.user_data as *mut usize as usize;
-            Event {
-                token: Token(user_data),
-                flags: Flags::from_bits(raw.events).unwrap(),
+        if let Some(event) = raw {
+            // Skip empty events.
+            if event.events == 0 {
+                return self.next();
+            } else {
+                let user_data = event.user_data as *mut usize as usize;
+                Some(Event {
+                    token: Token(user_data),
+                    flags: Flags::from_bits(event.events).unwrap(),
+                })
             }
-        })
+        } else {
+            None
+        }
     }
 
     #[inline]
@@ -167,6 +171,27 @@ impl Events {
     }
 }
 
+impl<'a> IntoIterator for &'a Events {
+    type Item = Event;
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl IntoIterator for Events {
+    type Item = Event;
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            inner: self,
+            pos: 0,
+        }
+    }
+}
+
 /// A mechanism for input/output events multiplexing in a level-triggered fashion.
 ///
 /// # Example
@@ -174,14 +199,7 @@ impl Events {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{*, prelude::*};
-///
-/// // This is the arbitrary user data that we pass to the poller.
-/// // Here we pass a reference to a socket which we will use in the loop.
-/// enum Which<'a> {
-///     Server(&'a Server),
-///     Client(&'a Client),
-/// };
+/// use libzmq::{prelude::*, Client, Server, poll::*};
 ///
 /// // We initialize our sockets and connect them to each other.
 /// const ENDPOINT: &str = "inproc://test";
@@ -189,51 +207,42 @@ impl Events {
 /// let server = Server::new()?;
 /// server.bind(ENDPOINT)?;
 ///
-/// // We create an arbitrary number of clients.
-/// let clients = {
-///     let mut vec = Vec::with_capacity(3);
-///     for _ in 0..3 {
-///         let client = Client::new()?;
-///         client.connect(ENDPOINT)?;
-///         vec.push(client);
-///     }
-///     vec
-/// };
+/// let client = Client::new()?;
+/// client.connect(ENDPOINT)?;
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
-/// // In this example we will solely poll for incoming messages.
-/// poller.add(&server, Which::Server(&server), READABLE)?;
-/// for client in &clients {
-///     poller.add(client, Which::Client(client), READABLE)?;
-/// }
+/// poller.add(&server, Token(0), READABLE)?;
+/// poller.add(&client, Token(1), READABLE)?;
 ///
-/// // We send the initial request for each client.
-/// for client in &clients {
-///     client.send("ping")?;
-/// }
+/// // Initialize the client.
+/// client.send("ping")?;
+///
+/// let mut events = Events::new();
 ///
 /// // Now the client and each server will send messages back and forth.
 /// for _ in 0..100 {
-///     // This waits indefinitely until at least one event is detected. Since many
-///     // events can be detected at once, it returns an iterator.
-///     for event in poller.block(None)? {
+///     // This waits indefinitely until at least one event is detected.
+///     poller.block(&mut events, None)?;
+///     // Iterate over the detected events.
+///     for event in &events {
 ///         assert_eq!(READABLE, event.flags());
 ///         // Note that `user_data` is the `Which` that we
 ///         // passed in the `Poller::add` method.
-///         match event.user_data() {
+///         match event.token() {
 ///             // The server is ready to receive an incoming message.
-///             Which::Server(server) => {
+///             Token(0) => {
 ///                 let msg = server.recv_msg()?;
 ///                 assert_eq!("ping", msg.to_str()?);
 ///                 server.send(msg)?;
 ///             }
 ///             // One of the clients is ready to receive an incoming message.
-///             Which::Client(client) => {
+///             Token(1) => {
 ///                 let msg = client.recv_msg()?;
 ///                 assert_eq!("ping", msg.to_str()?);
 ///                 client.send(msg)?;
 ///             }
+///             _ => unimplemented!(),
 ///         }
 ///     }
 /// }
@@ -256,14 +265,14 @@ impl Poller {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{*, prelude::*};
+    /// use libzmq::{Server, poll::*, ErrorKind};
     ///
     /// let server = Server::new()?;
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, 0, NO_WAKEUP)?;
-    /// let err = poller.add(&server, 0, NO_WAKEUP).unwrap_err();
+    /// poller.add(&server, Token(0), NO_WAKEUP)?;
+    /// let err = poller.add(&server, Token(1), NO_WAKEUP).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -317,12 +326,12 @@ impl Poller {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::*;
+    /// use libzmq::{Server, poll::*, ErrorKind};
     ///
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, 0, NO_WAKEUP)?;
+    /// poller.add(&server, Token(0), NO_WAKEUP)?;
     /// poller.remove(&server)?;
     ///
     /// let err = poller.remove(&server).unwrap_err();
@@ -343,10 +352,17 @@ impl Poller {
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
 
-            match errno {
-                errno::ENOTSOCK => panic!("invalid socket"),
-                _ => panic!(msg_from_errno(errno)),
-            }
+            let err = {
+                match errno {
+                    errno::ENOTSOCK => panic!("invalid socket"),
+                    errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                        msg: "cannot remove absent socket",
+                    }),
+                    _ => panic!(msg_from_errno(errno)),
+                }
+            };
+
+            Err(err)
         } else {
             self.count -= 1;
             Ok(())
@@ -448,10 +464,7 @@ impl Default for Poller {
             panic!(msg_from_errno(unsafe { sys::zmq_errno() }));
         }
 
-        Self {
-            poller,
-            count: 0,
-        }
+        Self { poller, count: 0 }
     }
 }
 
@@ -501,79 +514,49 @@ mod test {
     fn test_poller() {
         use crate::{prelude::*, Client, Server};
 
-        // This is the arbitrary user data that we pass to the poller.
-        // Here we pass a reference to a socket which we will use in the loop.
-        enum Which<'a> {
-            Server(&'a Server),
-            Client(&'a Client),
-        };
-
         // We initialize our sockets and connect them to each other.
         const ENDPOINT: &str = "inproc://test";
 
         let server = Server::new().unwrap();
         server.bind(ENDPOINT).unwrap();
 
-        // We create an arbitrary number of clients.
-        let clients = {
-            let mut vec = Vec::with_capacity(3);
-            for _ in 0..3 {
-                let client = Client::new().unwrap();
-                client.connect(ENDPOINT).unwrap();
-                vec.push(client);
-            }
-            vec
-        };
+        let client = Client::new().unwrap();
+        client.connect(ENDPOINT).unwrap();
 
-        let mut count = 0;
-        let mut map = HashMap::new();
         // We create our poller instance.
         let mut poller = Poller::new();
-        // In this example we will solely poll for incoming messages.
-        let token = Token(count);
-        poller
-            .add(&server, token, READABLE)
-            .unwrap();
-        map.insert(token, &server);
-        count += 1;
+        poller.add(&server, Token(0), READABLE).unwrap();
+        poller.add(&client, Token(1), READABLE).unwrap();
 
-        for client in &clients {
-            let token = Token(count);
-            poller.add(client, token, READABLE).unwrap();
-            map.insert(token, &server);
-            count += 1;
-        }
-
-        // We send the initial request for each client.
-        for client in &clients {
-            client.send("ping").unwrap();
-        }
+        // Inti the client.
+        client.send("ping").unwrap();
 
         let mut events = Events::new();
 
         // Now the client and each server will send messages back and forth.
         for _ in 0..100 {
             // This waits indefinitely until at least one event is detected.
-            poller.block(&mut events, None)?;
+            poller.block(&mut events, None).unwrap();
 
             // Iterate over the detected events.
             for event in &events {
                 assert_eq!(READABLE, event.flags());
                 // Note that `user_data` is the `Which` that we
                 // passed in the `Poller::add` method.
-                match event.user_data() {
+                match event.token() {
                     // The server is ready to receive an incoming message.
-                    Which::Server(server) => {
+                    Token(0) => {
                         let msg = server.recv_msg().unwrap();
                         assert_eq!("ping", msg.to_str().unwrap());
                         server.send(msg).unwrap();
                     }
                     // One of the clients is ready to receive an incoming message.
-                    Which::Client(client) => {
+                    Token(1) => {
                         let msg = client.recv_msg().unwrap();
                         assert_eq!("ping", msg.to_str().unwrap());
                         client.send(msg).unwrap();
                     }
+                    _ => unimplemented!(),
                 }
             }
         }
