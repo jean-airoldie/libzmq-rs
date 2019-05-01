@@ -8,17 +8,17 @@ use sys::errno;
 
 use bitflags::bitflags;
 
-use hashbrown::HashMap;
-
 use std::{
     os::raw::{c_short, c_void},
     time::Duration,
     vec,
+    slice,
+    iter
 };
 
 bitflags! {
     /// The event flags that can be specified to the poller.
-    pub struct PollFlags: c_short {
+    pub struct Flags: c_short {
         /// Specifies no wakeup condition at all.
         const NO_WAKEUP = 0b00_000_000;
         /// Specifies wakeup on read readiness event.
@@ -29,56 +29,141 @@ bitflags! {
 }
 
 /// Specifies no wakeup condition at all.
-pub const NO_WAKEUP: PollFlags = PollFlags::NO_WAKEUP;
+pub const NO_WAKEUP: Flags = Flags::NO_WAKEUP;
 /// Specifies wakeup on read readiness.
-pub const READABLE: PollFlags = PollFlags::READABLE;
+pub const READABLE: Flags = Flags::READABLE;
 /// Specifies wakeup on write readiness.
-pub const WRITABLE: PollFlags = PollFlags::WRITABLE;
+pub const WRITABLE: Flags = Flags::WRITABLE;
 
-/// An iterator over a set of [`PollEvent`].
-///
-/// [`PollEvent`]: struct.PollEvent.html
 #[derive(Clone, Debug)]
-pub struct PollIter<'a, T> {
-    inner: vec::IntoIter<PollEvent<'a, T>>,
+pub struct Iter<'a> {
+    inner: &'a Events,
+    pos: usize,
 }
 
-impl<'a, T> Iterator for PollIter<'a, T> {
-    type Item = PollEvent<'a, T>;
+impl<'a> Iterator for Iter<'a> {
+    type Item = Event;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        let raw = self.inner.inner.get(self.pos);
+        self.pos += 1;
+
+        raw.map(|raw| {
+            let user_data = raw.user_data as *mut usize as usize;
+            Event {
+                token: Token(user_data),
+                flags: Flags::from_bits(raw.events).unwrap(),
+            }
+        })
     }
+
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
+        let len = self.inner.inner.len();
+        (len, Some(len))
+    }
+}
+
+#[derive(Debug)]
+pub struct IntoIter {
+    inner: Events,
+    pos: usize,
+}
+
+impl Iterator for IntoIter {
+    type Item = Event;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let raw = self.inner.inner.get(self.pos);
+        self.pos += 1;
+
+        raw.map(|raw| {
+            let user_data = raw.user_data as *mut usize as usize;
+            Event {
+                token: Token(user_data),
+                flags: Flags::from_bits(raw.events).unwrap(),
+            }
+        })
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.inner.inner.len();
+        (len, Some(len))
+    }
+}
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Token(pub usize);
+
+impl From<usize> for Token {
+    fn from(val: usize) -> Token {
+        Token(val)
+    }
+}
+
+impl From<Token> for usize {
+    fn from(val: Token) -> usize {
+        val.0
     }
 }
 
 /// An event detected by a poller.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct PollEvent<'a, T> {
-    flags: PollFlags,
-    user_data: &'a T,
+pub struct Event {
+    flags: Flags,
+    token: Token,
 }
 
-impl<'a, T> PollEvent<'a, T> {
+impl Event {
     /// Specifies the kind of event that was triggered.
     ///
     /// It will never be equal to [`NO_WAKEUP`].
     ///
     /// [`NO_WAKEUP`]: constant.NO_WAKEUP.html
-    pub fn flags(&self) -> PollFlags {
+    pub fn flags(&self) -> Flags {
         self.flags
     }
 
-    /// Returns a reference to the user data that was provided when
-    /// calling [`add`].
-    ///
-    /// [`add`]: struct.Poller.html#method.add
-    pub fn user_data(&self) -> &'a T {
-        self.user_data
+    pub fn token(&self) -> Token {
+        self.token
+    }
+}
+
+#[derive(Default, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct Events {
+    inner: Vec<sys::zmq_poller_event_t>,
+}
+
+impl Events {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            inner: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.inner.capacity()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    pub fn iter(&self) -> Iter {
+        Iter {
+            inner: &self,
+            pos: 0,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.inner.clear();
     }
 }
 
@@ -157,15 +242,12 @@ impl<'a, T> PollEvent<'a, T> {
 /// # }
 /// ```
 #[derive(Eq, PartialEq, Debug)]
-pub struct Poller<T> {
+pub struct Poller {
     poller: *mut c_void,
-    raw_event_vec: Vec<sys::zmq_poller_event_t>,
-    user_data: Vec<T>,
-    free_slots: Vec<usize>,
-    used_slots: HashMap<*mut c_void, usize>,
+    count: usize,
 }
 
-impl<T> Poller<T> {
+impl Poller {
     pub fn new() -> Self {
         Self::default()
     }
@@ -194,32 +276,14 @@ impl<T> Poller<T> {
     pub fn add(
         &mut self,
         socket: &GetRawSocket,
-        user_data: T,
-        flags: PollFlags,
+        token: Token,
+        flags: Flags,
     ) -> Result<(), Error> {
         // This is safe since we won't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
-        if self.used_slots.get(&mut_raw_socket).is_some() {
-            return Err(Error::new(ErrorKind::InvalidInput {
-                msg: "socket already added",
-            }));
-        }
-
-        let slot = {
-            match self.free_slots.pop() {
-                Some(slot) => {
-                    self.user_data[slot] = user_data;
-                    slot
-                }
-                None => {
-                    self.user_data.push(user_data);
-                    self.user_data.len() - 1
-                }
-            }
-        };
-
-        let mut_user_data = slot as *mut c_void;
+        let user_data: usize = token.into();
+        let mut_user_data = user_data as *mut usize as *mut c_void;
 
         let rc = unsafe {
             sys::zmq_poller_add(
@@ -231,8 +295,6 @@ impl<T> Poller<T> {
         };
 
         if rc == -1 {
-            self.free_slots.push(slot);
-
             let errno = unsafe { sys::zmq_errno() };
             let err = {
                 match errno {
@@ -246,9 +308,7 @@ impl<T> Poller<T> {
 
             Err(err)
         } else {
-            self.used_slots.insert(mut_raw_socket, slot);
-            self.raw_event_vec.push(sys::zmq_poller_event_t::default());
-
+            self.count += 1;
             Ok(())
         }
     }
@@ -278,12 +338,6 @@ impl<T> Poller<T> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut c_void;
 
-        if self.used_slots.get(&mut_raw_socket).is_none() {
-            return Err(Error::new(ErrorKind::InvalidInput {
-                msg: "cannot remove absent socket",
-            }));
-        }
-
         let rc = unsafe { sys::zmq_poller_remove(self.poller, mut_raw_socket) };
 
         if rc == -1 {
@@ -294,9 +348,7 @@ impl<T> Poller<T> {
                 _ => panic!(msg_from_errno(errno)),
             }
         } else {
-            let slot = self.used_slots.remove(&mut_raw_socket).unwrap();
-            self.free_slots.push(slot);
-
+            self.count -= 1;
             Ok(())
         }
     }
@@ -304,16 +356,10 @@ impl<T> Poller<T> {
     pub fn modify(
         &mut self,
         socket: &GetRawSocket,
-        flags: PollFlags,
+        flags: Flags,
     ) -> Result<(), Error> {
         // This is safe since we don't actually mutate the socket.
         let mut_raw_socket = socket.raw_socket() as *mut c_void;
-
-        if self.used_slots.get(&mut_raw_socket).is_some() {
-            return Err(Error::new(ErrorKind::InvalidInput {
-                msg: "cannot modify absent socket",
-            }));
-        }
 
         let rc = unsafe {
             sys::zmq_poller_modify(self.poller, mut_raw_socket, flags.bits())
@@ -331,14 +377,16 @@ impl<T> Poller<T> {
         }
     }
 
-    fn wait(&mut self, timeout: i64) -> Result<PollIter<T>, Error> {
-        let len = self.raw_event_vec.len();
-
+    fn wait(&mut self, events: &mut Events, timeout: i64) -> Result<(), Error> {
+        events.clear();
+        for i in 0..self.count {
+            events.inner.push(sys::zmq_poller_event_t::default());
+        }
         let rc = unsafe {
             sys::zmq_poller_wait_all(
                 self.poller,
-                self.raw_event_vec.as_mut_ptr(),
-                len as i32,
+                events.inner.as_mut_ptr(),
+                events.inner.len() as i32,
                 timeout,
             )
         };
@@ -357,27 +405,15 @@ impl<T> Poller<T> {
 
             Err(err)
         } else {
-            let mut polled = Vec::with_capacity(rc as usize);
-
-            for i in 0..rc as usize {
-                let event = self.raw_event_vec[i];
-                let flags = PollFlags::from_bits(event.events).unwrap();
-                let slot = event.user_data as usize;
-                let user_data = &self.user_data[slot];
-                polled.push(PollEvent { flags, user_data });
-            }
-
-            Ok(PollIter {
-                inner: polled.into_iter(),
-            })
+            Ok(())
         }
     }
 
     /// The poller will poll for events, returning instantly.
     ///
     /// If there are none, returns [`WouldBlock`].
-    pub fn poll(&mut self) -> Result<PollIter<T>, Error> {
-        self.wait(0)
+    pub fn poll(&mut self, events: &mut Events) -> Result<(), Error> {
+        self.wait(events, 0)
     }
 
     /// The poller will block until at least an event occurs.
@@ -386,8 +422,9 @@ impl<T> Poller<T> {
     /// duration for an event before it returns [`WouldBlock`].
     pub fn block(
         &mut self,
+        events: &mut Events,
         timeout: Option<Duration>,
-    ) -> Result<PollIter<T>, Error> {
+    ) -> Result<(), Error> {
         match timeout {
             Some(duration) => {
                 let ms = duration.as_millis();
@@ -396,14 +433,14 @@ impl<T> Poller<T> {
                         msg: "ms in timeout must be less than i64::MAX",
                     }));
                 }
-                self.wait(ms as i64)
+                self.wait(events, ms as i64)
             }
-            None => self.wait(-1),
+            None => self.wait(events, -1),
         }
     }
 }
 
-impl<T> Default for Poller<T> {
+impl Default for Poller {
     fn default() -> Self {
         let poller = unsafe { sys::zmq_poller_new() };
 
@@ -413,15 +450,12 @@ impl<T> Default for Poller<T> {
 
         Self {
             poller,
-            raw_event_vec: vec![],
-            user_data: Vec::new(),
-            free_slots: Vec::new(),
-            used_slots: HashMap::new(),
+            count: 0,
         }
     }
 }
 
-impl<T> Drop for Poller<T> {
+impl Drop for Poller {
     fn drop(&mut self) {
         let rc = unsafe { sys::zmq_poller_destroy(&mut self.poller) };
 
@@ -440,10 +474,12 @@ impl<T> Drop for Poller<T> {
 mod test {
     use super::*;
 
+    use hashbrown::HashMap;
+
     #[test]
     fn test_flags() {
-        assert_eq!(PollFlags::READABLE.bits(), sys::ZMQ_POLLIN as c_short);
-        assert_eq!(PollFlags::WRITABLE.bits(), sys::ZMQ_POLLOUT as c_short);
+        assert_eq!(READABLE.bits(), sys::ZMQ_POLLIN as c_short);
+        assert_eq!(WRITABLE.bits(), sys::ZMQ_POLLOUT as c_short);
     }
 
     #[test]
@@ -452,7 +488,7 @@ mod test {
 
         let server = Server::new().unwrap();
 
-        let mut poller = Poller::<i32>::new();
+        let mut poller = Poller::new();
         let err = poller.remove(&server).unwrap_err();
 
         match err.kind() {
@@ -489,14 +525,23 @@ mod test {
             vec
         };
 
+        let mut count = 0;
+        let mut map = HashMap::new();
         // We create our poller instance.
         let mut poller = Poller::new();
         // In this example we will solely poll for incoming messages.
+        let token = Token(count);
         poller
-            .add(&server, Which::Server(&server), READABLE)
+            .add(&server, token, READABLE)
             .unwrap();
+        map.insert(token, &server);
+        count += 1;
+
         for client in &clients {
-            poller.add(client, Which::Client(client), READABLE).unwrap();
+            let token = Token(count);
+            poller.add(client, token, READABLE).unwrap();
+            map.insert(token, &server);
+            count += 1;
         }
 
         // We send the initial request for each client.
@@ -504,11 +549,15 @@ mod test {
             client.send("ping").unwrap();
         }
 
+        let mut events = Events::new();
+
         // Now the client and each server will send messages back and forth.
         for _ in 0..100 {
-            // This waits indefinitely until at least one event is detected. Since many
-            // events can be detected at once, it returns an iterator.
-            for event in poller.block(None).unwrap() {
+            // This waits indefinitely until at least one event is detected.
+            poller.block(&mut events, None)?;
+
+            // Iterate over the detected events.
+            for event in &events {
                 assert_eq!(READABLE, event.flags());
                 // Note that `user_data` is the `Which` that we
                 // passed in the `Poller::add` method.
