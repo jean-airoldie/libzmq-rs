@@ -301,7 +301,7 @@ impl<T> Poller<T> {
         }
     }
 
-    pub fn modify<S>(
+    pub fn modify(
         &mut self,
         socket: &GetRawSocket,
         flags: PollFlags,
