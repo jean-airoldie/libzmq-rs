@@ -2,7 +2,7 @@ use crate::{core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::sync::Arc;
+use std::{os::raw::c_void, sync::Arc};
 
 /// A `Server` socket is a socket used for advanced request-reply messaging.
 ///
@@ -11,14 +11,14 @@ use std::sync::Arc;
 /// A `Server` socket talks to a set of [`Server`] sockets. The [`Server`] must
 /// first initiate the conversation, which generates a [`routing_id`] associated
 /// with the connection. Each message received from a `Server` will have this
-/// [`routing_id`]. To send messages back to the client, you must
+/// [`routing_id`]. To send messages back to the server, you must
 /// [`set_routing_id`] on the messages. If the [`routing_id`] is not specified, or
-/// does not refer to a connected client peer, the send call will fail with
+/// does not refer to a connected server peer, the send call will fail with
 /// [`HostUnreachable`].
 ///
 /// # Mute State
 /// When a `Server` socket enters the mute state due to having reached the high
-/// water mark for all clients, or if there are no clients at
+/// water mark for all servers, or if there are no servers at
 /// all, then any `send` operations on the socket shall block until the mute
 /// state ends or at least one downstream node becomes available for sending;
 /// messages are not discarded.
@@ -86,12 +86,53 @@ pub struct Server {
 }
 
 impl Server {
-    impl_socket_methods!(Server);
+    /// Create a `Server` socket from the [`global context`]
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    pub fn new() -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::new(RawSocketType::Server)?);
+
+        Ok(Self { inner })
+    }
+
+    /// Create a `Server` socket from a specific context.
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    pub fn with_ctx(ctx: Ctx) -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Server, ctx)?);
+
+        Ok(Self { inner })
+    }
+
+    /// Returns a reference to the context of the socket.
+    pub fn ctx(&self) -> &crate::Ctx {
+        &self.inner.ctx
+    }
 }
 
-impl_get_raw_socket_trait!(Server);
-impl Socket for Server {}
+impl GetRawSocket for Server {
+    fn raw_socket(&self) -> *const c_void {
+        self.inner.socket
+    }
 
+    // This is safe as long as it is only used by libzmq.
+    fn mut_raw_socket(&self) -> *mut c_void {
+        self.inner.socket as *mut _
+    }
+}
+
+impl Socket for Server {}
 impl SendMsg for Server {}
 impl RecvMsg for Server {}
 
@@ -101,6 +142,13 @@ unsafe impl Sync for Server {}
 /// A builder for a `Server`.
 ///
 /// Especially helpfull in config files.
+///
+/// # Example
+/// ```
+/// use libzmq::socket::ServerConfig;
+///
+/// let server = ServerConfig::new().build();
+/// ```
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ServerConfig {
     #[serde(flatten)]
@@ -130,19 +178,86 @@ impl ServerConfig {
     }
 
     pub fn apply(&self, server: &Server) -> Result<(), Error> {
-        self.apply_socket_config(server)?;
-        self.apply_send_config(server)?;
-        self.apply_recv_config(server)?;
+        self.socket_config.apply(server)?;
+        self.send_config.apply(server)?;
+        self.recv_config.apply(server)?;
 
         Ok(())
     }
 }
 
-impl_get_socket_config_trait!(ServerConfig);
+impl GetSocketConfig for ServerConfig {
+    fn socket_config(&self) -> &SocketConfig {
+        &self.socket_config
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        &mut self.socket_config
+    }
+}
+
 impl ConfigureSocket for ServerConfig {}
 
-impl_get_send_config_trait!(ServerConfig);
+impl GetRecvConfig for ServerConfig {
+    fn recv_config(&self) -> &RecvConfig {
+        &self.recv_config
+    }
+
+    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+        &mut self.recv_config
+    }
+}
+
+impl ConfigureRecv for ServerConfig {}
+
+impl GetSendConfig for ServerConfig {
+    fn send_config(&self) -> &SendConfig {
+        &self.send_config
+    }
+
+    fn mut_send_config(&mut self) -> &mut SendConfig {
+        &mut self.send_config
+    }
+}
+
 impl ConfigureSend for ServerConfig {}
 
-impl_get_recv_config_trait!(ServerConfig);
-impl ConfigureRecv for ServerConfig {}
+pub struct ServerBuilder {
+    inner: ServerConfig,
+}
+
+impl GetSocketConfig for ServerBuilder {
+    fn socket_config(&self) -> &SocketConfig {
+        self.inner.socket_config()
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        self.inner.mut_socket_config()
+    }
+}
+
+impl BuildSocket for ServerBuilder {}
+
+impl GetSendConfig for ServerBuilder {
+    fn send_config(&self) -> &SendConfig {
+        self.inner.send_config()
+    }
+
+    fn mut_send_config(&mut self) -> &mut SendConfig {
+        self.inner.mut_send_config()
+    }
+}
+
+impl BuildSend for ServerBuilder {}
+
+impl GetRecvConfig for ServerBuilder {
+    fn recv_config(&self) -> &RecvConfig {
+        self.inner.recv_config()
+    }
+
+    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+        self.inner.mut_recv_config()
+    }
+}
+
+impl BuildRecv for ServerBuilder {}

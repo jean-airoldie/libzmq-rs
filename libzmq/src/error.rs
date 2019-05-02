@@ -4,10 +4,10 @@ use libzmq_sys as sys;
 use failure::{Backtrace, Context, Fail};
 
 use std::{
+    convert::Infallible,
     ffi,
     fmt::{self, Display},
     str,
-    convert::Infallible,
 };
 
 /// An error with a kind and a msg.
@@ -101,7 +101,7 @@ impl Display for Error {
 }
 
 impl From<EndpointParseError> for Error {
-    fn from(error: EndpointParseError) -> Self {
+    fn from(_error: EndpointParseError) -> Self {
         Error::new(ErrorKind::InvalidInput {
             msg: "invalid endpoint",
         })
@@ -109,7 +109,7 @@ impl From<EndpointParseError> for Error {
 }
 
 impl From<GroupError> for Error {
-    fn from(error: GroupError) -> Self {
+    fn from(_error: GroupError) -> Self {
         Error::new(ErrorKind::InvalidInput {
             msg: "invalid group",
         })
@@ -117,7 +117,7 @@ impl From<GroupError> for Error {
 }
 
 impl From<Infallible> for Error {
-    fn from(error: Infallible) -> Self {
+    fn from(_error: Infallible) -> Self {
         unreachable!()
     }
 }

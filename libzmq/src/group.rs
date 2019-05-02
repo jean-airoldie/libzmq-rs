@@ -1,15 +1,9 @@
-use crate::{core::*, error::*, Ctx};
-use libzmq_sys as sys;
-use sys::errno;
-
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::{
-    convert::{TryFrom, TryInto},
-    ffi::CString,
+    convert::TryFrom,
     fmt, str,
-    sync::Arc,
 };
 
 pub const MAX_GROUP_SIZE: usize = 15;

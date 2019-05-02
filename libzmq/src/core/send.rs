@@ -27,9 +27,7 @@ fn send(
         let errno = unsafe { sys::zmq_errno() };
         let err = {
             match errno {
-                errno::EAGAIN => {
-                    Error::with_msg(ErrorKind::WouldBlock, msg)
-                }
+                errno::EAGAIN => Error::with_msg(ErrorKind::WouldBlock, msg),
                 errno::ENOTSUP => {
                     panic!("send is not supported by socket type")
                 }
@@ -39,13 +37,9 @@ fn send(
                 errno::EFSM => panic!(
                     "operation cannot be completed in current socket state"
                 ),
-                errno::ETERM => {
-                    Error::with_msg(ErrorKind::CtxTerminated, msg)
-                }
+                errno::ETERM => Error::with_msg(ErrorKind::CtxTerminated, msg),
                 errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EINTR => {
-                    Error::with_msg(ErrorKind::Interrupted, msg)
-                }
+                errno::EINTR => Error::with_msg(ErrorKind::Interrupted, msg),
                 errno::EFAULT => panic!("invalid message"),
                 errno::EHOSTUNREACH => {
                     Error::with_msg(ErrorKind::HostUnreachable, msg)
@@ -217,10 +211,7 @@ pub trait SendMsg: GetRawSocket {
     /// #     Ok(())
     /// # }
     /// ```
-    fn set_send_timeout(
-        &self,
-        timeout: Option<Duration>,
-    ) -> Result<(), Error> {
+    fn set_send_timeout(&self, timeout: Option<Duration>) -> Result<(), Error> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::SendTimeout,
@@ -239,6 +230,15 @@ pub struct SendConfig {
     send_timeout: Option<Duration>,
 }
 
+impl SendConfig {
+    pub(crate) fn apply<S: SendMsg>(&self, socket: &S) -> Result<(), Error> {
+        socket.set_send_high_water_mark(self.send_high_water_mark)?;
+        socket.set_send_timeout(self.send_timeout)?;
+
+        Ok(())
+    }
+}
+
 #[doc(hidden)]
 pub trait GetSendConfig: private::Sealed {
     fn send_config(&self) -> &SendConfig;
@@ -246,30 +246,26 @@ pub trait GetSendConfig: private::Sealed {
     fn mut_send_config(&mut self) -> &mut SendConfig;
 }
 
-/// Allows for configuration of `send` socket options.
-pub trait ConfigureSend: GetSendConfig + Sized {
-    fn send_high_water_mark(mut self, hwm: i32) -> Self {
+pub trait ConfigureSend: GetSendConfig {
+    fn send_high_water_mark(&self) -> Option<i32> {
+        self.send_config().send_high_water_mark
+    }
+
+    fn send_timeout(&self) -> Option<Duration> {
+        self.send_config().send_timeout
+    }
+}
+
+pub trait BuildSend: GetSendConfig + Sized {
+    fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
         let mut config = self.mut_send_config();
         config.send_high_water_mark = Some(hwm);
         self
     }
 
-    fn send_timeout(mut self, timeout: Option<Duration>) -> Self {
+    fn send_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
         let mut config = self.mut_send_config();
         config.send_timeout = timeout;
         self
-    }
-
-    #[doc(hidden)]
-    fn apply_send_config<S: SendMsg>(
-        &self,
-        socket: &S,
-    ) -> Result<(), Error> {
-        let config = self.send_config();
-
-        socket.set_send_high_water_mark(config.send_high_water_mark)?;
-        socket.set_send_timeout(config.send_timeout)?;
-
-        Ok(())
     }
 }

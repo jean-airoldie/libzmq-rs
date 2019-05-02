@@ -395,7 +395,7 @@ impl Poller {
 
     fn wait(&mut self, events: &mut Events, timeout: i64) -> Result<(), Error> {
         events.clear();
-        for i in 0..self.count {
+        for _i in 0..self.count {
             events.inner.push(sys::zmq_poller_event_t::default());
         }
         let rc = unsafe {
@@ -486,8 +486,6 @@ impl Drop for Poller {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    use hashbrown::HashMap;
 
     #[test]
     fn test_flags() {

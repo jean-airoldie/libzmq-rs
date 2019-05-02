@@ -6,7 +6,7 @@ use crate::{
 
 use serde::{Deserialize, Serialize};
 
-use std::sync::Arc;
+use std::{os::raw::c_void, sync::Arc};
 
 /// A `Radio` socket is used by a publisher to distribute data to [`Radio`]
 /// sockets.
@@ -91,7 +91,39 @@ pub struct Radio {
 }
 
 impl Radio {
-    impl_socket_methods!(Radio);
+    /// Create a `Radio` socket from the [`global context`]
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    pub fn new() -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::new(RawSocketType::Radio)?);
+
+        Ok(Self { inner })
+    }
+
+    /// Create a `Radio` socket from a specific context.
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    pub fn with_ctx(ctx: Ctx) -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Radio, ctx)?);
+
+        Ok(Self { inner })
+    }
+
+    /// Returns a reference to the context of the socket.
+    pub fn ctx(&self) -> &crate::Ctx {
+        &self.inner.ctx
+    }
 
     /// Returns `true` if the `no_drop` option is set.
     pub fn no_drop(&self) -> Result<bool, Error> {
@@ -111,9 +143,18 @@ impl Radio {
     }
 }
 
-impl_get_raw_socket_trait!(Radio);
-impl Socket for Radio {}
+impl GetRawSocket for Radio {
+    fn raw_socket(&self) -> *const c_void {
+        self.inner.socket
+    }
 
+    // This is safe as long as it is only used by libzmq.
+    fn mut_raw_socket(&self) -> *mut c_void {
+        self.inner.socket as *mut _
+    }
+}
+
+impl Socket for Radio {}
 impl SendMsg for Radio {}
 
 unsafe impl Send for Radio {}
@@ -153,8 +194,8 @@ impl RadioConfig {
     }
 
     pub fn apply(&self, radio: &Radio) -> Result<(), Error> {
-        self.apply_socket_config(radio)?;
-        self.apply_send_config(radio)?;
+        self.socket_config.apply(radio)?;
+        self.send_config.apply(radio)?;
 
         if let Some(enabled) = self.no_drop {
             radio.set_no_drop(enabled)?;
@@ -164,8 +205,54 @@ impl RadioConfig {
     }
 }
 
-impl_get_socket_config_trait!(RadioConfig);
+impl GetSocketConfig for RadioConfig {
+    fn socket_config(&self) -> &SocketConfig {
+        &self.socket_config
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        &mut self.socket_config
+    }
+}
+
 impl ConfigureSocket for RadioConfig {}
 
-impl_get_send_config_trait!(RadioConfig);
+impl GetSendConfig for RadioConfig {
+    fn send_config(&self) -> &SendConfig {
+        &self.send_config
+    }
+
+    fn mut_send_config(&mut self) -> &mut SendConfig {
+        &mut self.send_config
+    }
+}
+
 impl ConfigureSend for RadioConfig {}
+
+pub struct RadioBuilder {
+    inner: RadioConfig,
+}
+
+impl GetSocketConfig for RadioBuilder {
+    fn socket_config(&self) -> &SocketConfig {
+        self.inner.socket_config()
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        self.inner.mut_socket_config()
+    }
+}
+
+impl BuildSocket for RadioBuilder {}
+
+impl GetSendConfig for RadioBuilder {
+    fn send_config(&self) -> &SendConfig {
+        self.inner.send_config()
+    }
+
+    fn mut_send_config(&mut self) -> &mut SendConfig {
+        self.inner.mut_send_config()
+    }
+}
+
+impl BuildSend for RadioBuilder {}

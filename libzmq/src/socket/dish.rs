@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     convert::{TryFrom, TryInto},
     ffi::CString,
+    os::raw::c_void,
     str,
     sync::Arc,
 };
@@ -34,8 +35,39 @@ pub struct Dish {
 }
 
 impl Dish {
-    impl_socket_methods!(Dish);
+    /// Create a `Dish` socket from the [`global context`]
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    pub fn new() -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::new(RawSocketType::Dish)?);
 
+        Ok(Self { inner })
+    }
+
+    /// Create a `Dish` socket from a specific context.
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    pub fn with_ctx(ctx: Ctx) -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dish, ctx)?);
+
+        Ok(Self { inner })
+    }
+
+    /// Returns a reference to the context of the socket.
+    pub fn ctx(&self) -> &crate::Ctx {
+        &self.inner.ctx
+    }
     /// Joins the specified group.
     ///
     /// # Usage Contract
@@ -125,9 +157,18 @@ impl Dish {
     }
 }
 
-impl_get_raw_socket_trait!(Dish);
-impl Socket for Dish {}
+impl GetRawSocket for Dish {
+    fn raw_socket(&self) -> *const c_void {
+        self.inner.socket
+    }
 
+    // This is safe as long as it is only used by libzmq.
+    fn mut_raw_socket(&self) -> *mut c_void {
+        self.inner.socket as *mut _
+    }
+}
+
+impl Socket for Dish {}
 impl RecvMsg for Dish {}
 
 unsafe impl Send for Dish {}
@@ -174,8 +215,8 @@ impl DishConfig {
     }
 
     pub fn apply(&self, dish: &Dish) -> Result<(), Error> {
-        self.apply_socket_config(dish)?;
-        self.apply_recv_config(dish)?;
+        self.socket_config.apply(dish)?;
+        self.recv_config.apply(dish)?;
 
         if let Some(ref groups) = self.groups {
             for group in groups {
@@ -187,8 +228,54 @@ impl DishConfig {
     }
 }
 
-impl_get_socket_config_trait!(DishConfig);
+impl GetSocketConfig for DishConfig {
+    fn socket_config(&self) -> &SocketConfig {
+        &self.socket_config
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        &mut self.socket_config
+    }
+}
+
 impl ConfigureSocket for DishConfig {}
 
-impl_get_recv_config_trait!(DishConfig);
+impl GetRecvConfig for DishConfig {
+    fn recv_config(&self) -> &RecvConfig {
+        &self.recv_config
+    }
+
+    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+        &mut self.recv_config
+    }
+}
+
 impl ConfigureRecv for DishConfig {}
+
+pub struct DishBuilder {
+    inner: DishConfig,
+}
+
+impl GetSocketConfig for DishBuilder {
+    fn socket_config(&self) -> &SocketConfig {
+        self.inner.socket_config()
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        self.inner.mut_socket_config()
+    }
+}
+
+impl BuildSocket for DishBuilder {}
+
+impl GetRecvConfig for DishBuilder {
+    fn recv_config(&self) -> &RecvConfig {
+        self.inner.recv_config()
+    }
+
+    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+        self.inner.mut_recv_config()
+    }
+}
+
+impl BuildRecv for DishBuilder {}

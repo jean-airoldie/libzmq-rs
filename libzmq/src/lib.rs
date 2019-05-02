@@ -9,16 +9,16 @@ mod core;
 pub mod ctx;
 pub mod endpoint;
 mod error;
+pub mod group;
 mod msg;
 pub mod poll;
 pub mod socket;
 mod utils;
-pub mod group;
 
 pub use ctx::Ctx;
 pub use endpoint::Endpoint;
-pub use group::Group;
 pub use error::{Error, ErrorKind};
+pub use group::Group;
 pub use msg::Msg;
 pub use socket::{Client, Dish, Radio, Server};
 pub use utils::*;

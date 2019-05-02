@@ -2,7 +2,7 @@ use crate::{core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::sync::Arc;
+use std::{os::raw::c_void, sync::Arc};
 
 /// A `Client` socket is used for advanced request-reply messaging.
 ///
@@ -38,12 +38,53 @@ pub struct Client {
 }
 
 impl Client {
-    impl_socket_methods!(Client);
+    /// Create a `Client` socket from the [`global context`]
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    pub fn new() -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::new(RawSocketType::Client)?);
+
+        Ok(Self { inner })
+    }
+
+    /// Create a `Client` socket from a specific context.
+    ///
+    /// # Returned Error Variants
+    /// * [`CtxTerminated`]
+    /// * [`SocketLimit`]
+    ///
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    pub fn with_ctx(ctx: Ctx) -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Client, ctx)?);
+
+        Ok(Self { inner })
+    }
+
+    /// Returns a reference to the context of the socket.
+    pub fn ctx(&self) -> &crate::Ctx {
+        &self.inner.ctx
+    }
 }
 
-impl_get_raw_socket_trait!(Client);
-impl Socket for Client {}
+impl GetRawSocket for Client {
+    fn raw_socket(&self) -> *const c_void {
+        self.inner.socket
+    }
 
+    // This is safe as long as it is only used by libzmq.
+    fn mut_raw_socket(&self) -> *mut c_void {
+        self.inner.socket as *mut _
+    }
+}
+
+impl Socket for Client {}
 impl SendMsg for Client {}
 impl RecvMsg for Client {}
 
@@ -89,19 +130,86 @@ impl ClientConfig {
     }
 
     pub fn apply(&self, client: &Client) -> Result<(), Error> {
-        self.apply_socket_config(client)?;
-        self.apply_send_config(client)?;
-        self.apply_recv_config(client)?;
+        self.socket_config.apply(client)?;
+        self.send_config.apply(client)?;
+        self.recv_config.apply(client)?;
 
         Ok(())
     }
 }
 
-impl_get_socket_config_trait!(ClientConfig);
+impl GetSocketConfig for ClientConfig {
+    fn socket_config(&self) -> &SocketConfig {
+        &self.socket_config
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        &mut self.socket_config
+    }
+}
+
 impl ConfigureSocket for ClientConfig {}
 
-impl_get_send_config_trait!(ClientConfig);
+impl GetRecvConfig for ClientConfig {
+    fn recv_config(&self) -> &RecvConfig {
+        &self.recv_config
+    }
+
+    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+        &mut self.recv_config
+    }
+}
+
+impl ConfigureRecv for ClientConfig {}
+
+impl GetSendConfig for ClientConfig {
+    fn send_config(&self) -> &SendConfig {
+        &self.send_config
+    }
+
+    fn mut_send_config(&mut self) -> &mut SendConfig {
+        &mut self.send_config
+    }
+}
+
 impl ConfigureSend for ClientConfig {}
 
-impl_get_recv_config_trait!(ClientConfig);
-impl ConfigureRecv for ClientConfig {}
+pub struct ClientBuilder {
+    inner: ClientConfig,
+}
+
+impl GetSocketConfig for ClientBuilder {
+    fn socket_config(&self) -> &SocketConfig {
+        self.inner.socket_config()
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        self.inner.mut_socket_config()
+    }
+}
+
+impl BuildSocket for ClientBuilder {}
+
+impl GetSendConfig for ClientBuilder {
+    fn send_config(&self) -> &SendConfig {
+        self.inner.send_config()
+    }
+
+    fn mut_send_config(&mut self) -> &mut SendConfig {
+        self.inner.mut_send_config()
+    }
+}
+
+impl BuildSend for ClientBuilder {}
+
+impl GetRecvConfig for ClientBuilder {
+    fn recv_config(&self) -> &RecvConfig {
+        self.inner.recv_config()
+    }
+
+    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+        self.inner.mut_recv_config()
+    }
+}
+
+impl BuildRecv for ClientBuilder {}

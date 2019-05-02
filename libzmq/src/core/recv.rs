@@ -198,6 +198,15 @@ pub struct RecvConfig {
     recv_timeout: Option<Duration>,
 }
 
+impl RecvConfig {
+    pub(crate) fn apply<S: RecvMsg>(&self, socket: &S) -> Result<(), Error> {
+        socket.set_recv_high_water_mark(self.recv_high_water_mark)?;
+        socket.set_recv_timeout(self.recv_timeout)?;
+
+        Ok(())
+    }
+}
+
 #[doc(hidden)]
 pub trait GetRecvConfig: private::Sealed {
     fn recv_config(&self) -> &RecvConfig;
@@ -205,30 +214,26 @@ pub trait GetRecvConfig: private::Sealed {
     fn mut_recv_config(&mut self) -> &mut RecvConfig;
 }
 
-/// Allows for configuration of `recv` socket options.
-pub trait ConfigureRecv: GetRecvConfig + Sized {
-    fn recv_high_water_mark(mut self, hwm: i32) -> Self {
+pub trait ConfigureRecv: GetRecvConfig {
+    fn recv_high_water_mark(&self) -> Option<i32> {
+        self.recv_config().recv_high_water_mark
+    }
+
+    fn recv_timeout(&self) -> Option<Duration> {
+        self.recv_config().recv_timeout
+    }
+}
+
+pub trait BuildRecv: GetRecvConfig {
+    fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
         let mut config = self.mut_recv_config();
         config.recv_high_water_mark = Some(hwm);
         self
     }
 
-    fn recv_timeout(mut self, timeout: Option<Duration>) -> Self {
+    fn recv_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
         let mut config = self.mut_recv_config();
         config.recv_timeout = timeout;
         self
-    }
-
-    #[doc(hidden)]
-    fn apply_recv_config<S: RecvMsg>(
-        &self,
-        socket: &S,
-    ) -> Result<(), Error> {
-        let config = self.recv_config();
-
-        socket.set_recv_high_water_mark(config.recv_high_water_mark)?;
-        socket.set_recv_timeout(config.recv_timeout)?;
-
-        Ok(())
     }
 }

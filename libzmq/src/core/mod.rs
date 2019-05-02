@@ -12,17 +12,25 @@ pub use send::*;
 
 /// Prevent users from implementing the AsRawSocket trait.
 mod private {
+    use super::*;
     use crate::socket::*;
 
     pub trait Sealed {}
+    impl Sealed for SocketConfig {}
+    impl Sealed for SendConfig {}
+    impl Sealed for RecvConfig {}
     impl Sealed for Client {}
     impl Sealed for ClientConfig {}
+    impl Sealed for ClientBuilder {}
     impl Sealed for Server {}
     impl Sealed for ServerConfig {}
+    impl Sealed for ServerBuilder {}
     impl Sealed for Radio {}
     impl Sealed for RadioConfig {}
+    impl Sealed for RadioBuilder {}
     impl Sealed for Dish {}
     impl Sealed for DishConfig {}
+    impl Sealed for DishBuilder {}
 }
 
 use crate::{
@@ -502,6 +510,33 @@ pub struct SocketConfig {
     linger: Option<Duration>,
 }
 
+impl SocketConfig {
+    pub(crate) fn apply<S: Socket>(&self, socket: &S) -> Result<(), Error> {
+        if let Some(value) = self.backlog {
+            socket.set_backlog(value)?;
+        }
+        socket.set_connect_timeout(self.connect_timeout)?;
+        socket.set_heartbeat_interval(self.heartbeat_interval)?;
+        socket.set_heartbeat_timeout(self.heartbeat_timeout)?;
+        socket.set_heartbeat_ttl(self.heartbeat_ttl)?;
+        socket.set_linger(self.linger)?;
+
+        // We connect as the last step because some socket options
+        // only affect subsequent connections.
+        if let Some(ref endpoints) = self.connect {
+            for endpoint in endpoints {
+                socket.connect(endpoint)?;
+            }
+        }
+        if let Some(ref endpoints) = self.bind {
+            for endpoint in endpoints {
+                socket.bind(endpoint)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[doc(hidden)]
 pub trait GetSocketConfig: private::Sealed {
     fn socket_config(&self) -> &SocketConfig;
@@ -509,9 +544,42 @@ pub trait GetSocketConfig: private::Sealed {
     fn mut_socket_config(&mut self) -> &mut SocketConfig;
 }
 
-/// Allows for configuration of common socket options.
-pub trait ConfigureSocket: GetSocketConfig + Sized {
-    fn connect<E>(mut self, endpoints: E) -> Self
+pub trait ConfigureSocket: GetSocketConfig {
+    fn connect(&self) -> Option<&[Endpoint]> {
+        self.socket_config().connect.as_ref().map(|v| v.as_slice())
+    }
+
+    fn bind(&self) -> Option<&[Endpoint]> {
+        self.socket_config().bind.as_ref().map(|v| v.as_slice())
+    }
+
+    fn backlog(&self) -> Option<i32> {
+        self.socket_config().backlog
+    }
+
+    fn connect_timeout(&self) -> Option<Duration> {
+        self.socket_config().connect_timeout
+    }
+
+    fn heartbeat_interval(&self) -> Option<Duration> {
+        self.socket_config().heartbeat_interval
+    }
+
+    fn heartbeat_timeout(&self) -> Option<Duration> {
+        self.socket_config().heartbeat_timeout
+    }
+
+    fn heartbeat_ttl(&self) -> Option<Duration> {
+        self.socket_config().heartbeat_ttl
+    }
+
+    fn linger(&self) -> Option<Duration> {
+        self.socket_config().linger
+    }
+}
+
+pub trait BuildSocket: GetSocketConfig + Sized {
+    fn connect<E>(&mut self, endpoints: E) -> &mut Self
     where
         E: IntoIterator<Item = Endpoint>,
     {
@@ -521,7 +589,7 @@ pub trait ConfigureSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn bind<E>(mut self, endpoints: E) -> Self
+    fn bind<E>(&mut self, endpoints: E) -> &mut Self
     where
         E: IntoIterator<Item = Endpoint>,
     {
@@ -531,67 +599,48 @@ pub trait ConfigureSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn backlog(mut self, len: i32) -> Self {
+    fn backlog(&mut self, len: i32) -> &mut Self {
         let mut config = self.mut_socket_config();
         config.backlog = Some(len);
         self
     }
 
-    fn connect_timeout(mut self, maybe_duration: Option<Duration>) -> Self {
+    fn connect_timeout(
+        &mut self,
+        maybe_duration: Option<Duration>,
+    ) -> &mut Self {
         let mut config = self.mut_socket_config();
         config.connect_timeout = maybe_duration;
         self
     }
 
-    fn heartbeat_interval(mut self, maybe_duration: Option<Duration>) -> Self {
+    fn heartbeat_interval(
+        &mut self,
+        maybe_duration: Option<Duration>,
+    ) -> &mut Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_interval = maybe_duration;
         self
     }
 
-    fn heartbeat_timeout(mut self, maybe_duration: Option<Duration>) -> Self {
+    fn heartbeat_timeout(
+        &mut self,
+        maybe_duration: Option<Duration>,
+    ) -> &mut Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_timeout = maybe_duration;
         self
     }
 
-    fn heartbeat_ttl(mut self, maybe_duration: Option<Duration>) -> Self {
+    fn heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_ttl = maybe_duration;
         self
     }
 
-    fn linger(mut self, maybe_duration: Option<Duration>) -> Self {
+    fn linger(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
         let mut config = self.mut_socket_config();
         config.linger = maybe_duration;
         self
-    }
-
-    #[doc(hidden)]
-    fn apply_socket_config<S: Socket>(&self, socket: &S) -> Result<(), Error> {
-        let config = self.socket_config();
-
-        if let Some(value) = config.backlog {
-            socket.set_backlog(value)?;
-        }
-        socket.set_connect_timeout(config.connect_timeout)?;
-        socket.set_heartbeat_interval(config.heartbeat_interval)?;
-        socket.set_heartbeat_timeout(config.heartbeat_timeout)?;
-        socket.set_heartbeat_ttl(config.heartbeat_ttl)?;
-        socket.set_linger(config.linger)?;
-
-        // We connect as the last step because some socket options
-        // only affect subsequent connections.
-        if let Some(ref endpoints) = config.connect {
-            for endpoint in endpoints {
-                socket.connect(endpoint)?;
-            }
-        }
-        if let Some(ref endpoints) = config.bind {
-            for endpoint in endpoints {
-                socket.bind(endpoint)?;
-            }
-        }
-        Ok(())
     }
 }
