@@ -1,4 +1,4 @@
-use crate::{endpoint::EndpointParseError, socket::GroupError, Msg};
+use crate::{endpoint::EndpointParseError, group::GroupError, Msg};
 use libzmq_sys as sys;
 
 use failure::{Backtrace, Context, Fail};

@@ -13,6 +13,7 @@ mod msg;
 pub mod poll;
 pub mod socket;
 mod utils;
+pub mod group;
 
 pub use ctx::Ctx;
 pub use endpoint::Endpoint;
