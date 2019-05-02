@@ -220,6 +220,12 @@ pub struct ServerBuilder {
     inner: ServerConfig,
 }
 
+impl ServerBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl GetSocketConfig for ServerBuilder {
     fn socket_config(&self) -> &SocketConfig {
         self.inner.socket_config()

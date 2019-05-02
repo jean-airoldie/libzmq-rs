@@ -172,6 +172,12 @@ pub struct ClientBuilder {
     inner: ClientConfig,
 }
 
+impl ClientBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl GetSocketConfig for ClientBuilder {
     fn socket_config(&self) -> &SocketConfig {
         self.inner.socket_config()

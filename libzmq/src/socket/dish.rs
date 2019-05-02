@@ -257,6 +257,12 @@ pub struct DishBuilder {
     inner: DishConfig,
 }
 
+impl DishBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl GetSocketConfig for DishBuilder {
     fn socket_config(&self) -> &SocketConfig {
         self.inner.socket_config()

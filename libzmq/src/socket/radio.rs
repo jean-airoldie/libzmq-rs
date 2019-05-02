@@ -234,6 +234,12 @@ pub struct RadioBuilder {
     inner: RadioConfig,
 }
 
+impl RadioBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl GetSocketConfig for RadioBuilder {
     fn socket_config(&self) -> &SocketConfig {
         self.inner.socket_config()
