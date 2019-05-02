@@ -176,6 +176,14 @@ impl ClientBuilder {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn build(&self) -> Result<Client, Error> {
+        self.inner.build()
+    }
+
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error> {
+        self.inner.build_with_ctx(ctx)
+    }
 }
 
 impl GetSocketConfig for ClientBuilder {

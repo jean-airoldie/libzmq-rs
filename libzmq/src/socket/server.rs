@@ -224,6 +224,14 @@ impl ServerBuilder {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn build(&self) -> Result<Server, Error> {
+        self.inner.build()
+    }
+
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error> {
+        self.inner.build_with_ctx(ctx)
+    }
 }
 
 impl GetSocketConfig for ServerBuilder {

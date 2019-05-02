@@ -238,6 +238,14 @@ impl RadioBuilder {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn build(&self) -> Result<Radio, Error> {
+        self.inner.build()
+    }
+
+    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error> {
+        self.inner.build_with_ctx(ctx)
+    }
 }
 
 impl GetSocketConfig for RadioBuilder {
