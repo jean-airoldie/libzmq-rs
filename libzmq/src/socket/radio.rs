@@ -160,7 +160,7 @@ impl SendMsg for Radio {}
 unsafe impl Send for Radio {}
 unsafe impl Sync for Radio {}
 
-/// A builder for a `Radio`.
+/// A configuration for a `Radio`.
 ///
 /// Especially helpfull in config files.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -229,6 +229,7 @@ impl GetSendConfig for RadioConfig {
 
 impl ConfigureSend for RadioConfig {}
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RadioBuilder {
     inner: RadioConfig,
 }

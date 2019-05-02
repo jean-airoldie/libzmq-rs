@@ -91,16 +91,9 @@ impl RecvMsg for Client {}
 unsafe impl Send for Client {}
 unsafe impl Sync for Client {}
 
-/// A builder for a `Client`.
+/// A configuration for a `Client`.
 ///
 /// Especially helpfull in config files.
-///
-/// # Example
-/// ```
-/// use libzmq::socket::ClientConfig;
-///
-/// let client = ClientConfig::new().build();
-/// ```
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClientConfig {
     #[serde(flatten)]
@@ -174,6 +167,7 @@ impl GetSendConfig for ClientConfig {
 
 impl ConfigureSend for ClientConfig {}
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClientBuilder {
     inner: ClientConfig,
 }

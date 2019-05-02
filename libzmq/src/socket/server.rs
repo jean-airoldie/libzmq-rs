@@ -139,16 +139,9 @@ impl RecvMsg for Server {}
 unsafe impl Send for Server {}
 unsafe impl Sync for Server {}
 
-/// A builder for a `Server`.
+/// A configuration for a `Server`.
 ///
 /// Especially helpfull in config files.
-///
-/// # Example
-/// ```
-/// use libzmq::socket::ServerConfig;
-///
-/// let server = ServerConfig::new().build();
-/// ```
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ServerConfig {
     #[serde(flatten)]
@@ -222,6 +215,7 @@ impl GetSendConfig for ServerConfig {
 
 impl ConfigureSend for ServerConfig {}
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ServerBuilder {
     inner: ServerConfig,
 }

@@ -1,10 +1,7 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{
-    convert::TryFrom,
-    fmt, str,
-};
+use std::{convert::TryFrom, fmt, str};
 
 pub const MAX_GROUP_SIZE: usize = 15;
 

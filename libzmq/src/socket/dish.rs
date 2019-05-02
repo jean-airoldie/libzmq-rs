@@ -174,7 +174,7 @@ impl RecvMsg for Dish {}
 unsafe impl Send for Dish {}
 unsafe impl Sync for Dish {}
 
-/// A builder for a `Dish`.
+/// A configuration for a `Dish`.
 ///
 /// Especially helpfull in config files.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -252,6 +252,7 @@ impl GetRecvConfig for DishConfig {
 
 impl ConfigureRecv for DishConfig {}
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DishBuilder {
     inner: DishConfig,
 }
