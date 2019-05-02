@@ -39,10 +39,7 @@ use std::{ffi::CString, os::raw::c_void, time::Duration};
 
 const MAX_HB_TTL: i64 = 6_553_599;
 
-fn connect(
-    mut_raw_socket: *mut c_void,
-    c_str: CString,
-) -> Result<(), Error> {
+fn connect(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
     let rc = unsafe { sys::zmq_connect(mut_raw_socket, c_str.as_ptr()) };
 
     if rc == -1 {
@@ -131,10 +128,7 @@ fn disconnect(
     }
 }
 
-fn unbind(
-    mut_raw_socket: *mut c_void,
-    c_str: CString,
-) -> Result<(), Error> {
+fn unbind(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
     let rc = unsafe { sys::zmq_unbind(mut_raw_socket, c_str.as_ptr()) };
 
     if rc == -1 {
@@ -472,7 +466,10 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(&self, maybe_duration: Option<Duration>) -> Result<(), Error> {
+    fn set_linger(
+        &self,
+        maybe_duration: Option<Duration>,
+    ) -> Result<(), Error> {
         setsockopt_duration(
             self.mut_raw_socket(),
             SocketOption::Linger,
@@ -514,14 +511,22 @@ pub trait GetSocketConfig: private::Sealed {
 
 /// Allows for configuration of common socket options.
 pub trait ConfigureSocket: GetSocketConfig + Sized {
-    fn connect(mut self, endpoints: Vec<Endpoint>) -> Self {
+    fn connect<E>(mut self, endpoints: E) -> Self
+    where
+        E: IntoIterator<Item = Endpoint>,
+    {
         let mut config = self.mut_socket_config();
+        let endpoints = endpoints.into_iter().collect();
         config.connect = Some(endpoints);
         self
     }
 
-    fn bind(mut self, endpoints: Vec<Endpoint>) -> Self {
+    fn bind<E>(mut self, endpoints: E) -> Self
+    where
+        E: IntoIterator<Item = Endpoint>,
+    {
         let mut config = self.mut_socket_config();
+        let endpoints = endpoints.into_iter().collect();
         config.bind = Some(endpoints);
         self
     }
@@ -532,28 +537,19 @@ pub trait ConfigureSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn connect_timeout(
-        mut self,
-        maybe_duration: Option<Duration>,
-    ) -> Self {
+    fn connect_timeout(mut self, maybe_duration: Option<Duration>) -> Self {
         let mut config = self.mut_socket_config();
         config.connect_timeout = maybe_duration;
         self
     }
 
-    fn heartbeat_interval(
-        mut self,
-        maybe_duration: Option<Duration>,
-    ) -> Self {
+    fn heartbeat_interval(mut self, maybe_duration: Option<Duration>) -> Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_interval = maybe_duration;
         self
     }
 
-    fn heartbeat_timeout(
-        mut self,
-        maybe_duration: Option<Duration>,
-    ) -> Self {
+    fn heartbeat_timeout(mut self, maybe_duration: Option<Duration>) -> Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_timeout = maybe_duration;
         self
@@ -572,10 +568,7 @@ pub trait ConfigureSocket: GetSocketConfig + Sized {
     }
 
     #[doc(hidden)]
-    fn apply_socket_config<S: Socket>(
-        &self,
-        socket: &S,
-    ) -> Result<(), Error> {
+    fn apply_socket_config<S: Socket>(&self, socket: &S) -> Result<(), Error> {
         let config = self.socket_config();
 
         if let Some(value) = config.backlog {

@@ -1,4 +1,4 @@
-use crate::{core::*, error::*, Ctx, group::*};
+use crate::{core::*, error::*, group::*, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -164,7 +164,11 @@ impl DishConfig {
         Ok(dish)
     }
 
-    pub fn groups(mut self, groups: Vec<Group>) -> Self {
+    pub fn groups<G>(mut self, groups: G) -> Self
+    where
+        G: IntoIterator<Item = Group>,
+    {
+        let groups = groups.into_iter().collect();
         self.groups = Some(groups);
         self
     }
