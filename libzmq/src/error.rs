@@ -1,4 +1,4 @@
-use crate::{endpoint::EndpointParseError, Msg};
+use crate::{endpoint::EndpointParseError, socket::GroupError, Msg};
 use libzmq_sys as sys;
 
 use failure::{Backtrace, Context, Fail};
@@ -7,6 +7,7 @@ use std::{
     ffi,
     fmt::{self, Display},
     str,
+    convert::Infallible,
 };
 
 /// An error with a kind and a msg.
@@ -100,10 +101,24 @@ impl Display for Error {
 }
 
 impl From<EndpointParseError> for Error {
-    fn from(_error: EndpointParseError) -> Self {
+    fn from(error: EndpointParseError) -> Self {
         Error::new(ErrorKind::InvalidInput {
-            msg: "unable to parse endpoint",
+            msg: "invalid endpoint",
         })
+    }
+}
+
+impl From<GroupError> for Error {
+    fn from(error: GroupError) -> Self {
+        Error::new(ErrorKind::InvalidInput {
+            msg: "invalid group",
+        })
+    }
+}
+
+impl From<Infallible> for Error {
+    fn from(error: Infallible) -> Self {
+        unreachable!()
     }
 }
 

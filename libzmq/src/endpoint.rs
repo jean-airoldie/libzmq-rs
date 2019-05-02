@@ -282,7 +282,7 @@ impl Serialize for Endpoint {
 }
 
 impl<'de> Deserialize<'de> for Endpoint {
-    fn deserialize<D>(deserializer: D) -> Result<Endpoint, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {

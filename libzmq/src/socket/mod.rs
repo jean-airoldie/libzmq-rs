@@ -8,6 +8,6 @@ mod radio;
 mod server;
 
 pub use client::{Client, ClientConfig};
-pub use dish::{Dish, DishConfig};
+pub use dish::{Dish, DishConfig, Group, GroupError};
 pub use radio::{Radio, RadioConfig};
 pub use server::{Server, ServerConfig};

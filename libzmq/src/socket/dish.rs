@@ -2,9 +2,95 @@ use crate::{core::*, error::*, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
-use serde::{Deserialize, Serialize};
+use failure::Fail;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{ffi::CString, sync::Arc};
+use std::{
+    convert::{TryFrom, TryInto},
+    ffi::CString,
+    fmt, str,
+    sync::Arc,
+};
+
+pub const MAX_GROUP_SIZE: usize = 15;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Fail, Hash)]
+#[fail(display = "group cannot exceed 15 char")]
+pub struct GroupError(());
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Group {
+    inner: String,
+}
+
+impl Group {
+    pub fn as_str(&self) -> &str {
+        self.inner.as_str()
+    }
+}
+
+impl Into<String> for Group {
+    fn into(self) -> String {
+        self.inner
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Group {
+    type Error = GroupError;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Group::try_from(value.to_owned())
+    }
+}
+
+impl TryFrom<String> for Group {
+    type Error = GroupError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.len() > MAX_GROUP_SIZE {
+            Err(GroupError(()))
+        } else {
+            Ok(Group { inner: value })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a String> for Group {
+    type Error = GroupError;
+    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
+        Group::try_from(value.to_owned())
+    }
+}
+
+impl str::FromStr for Group {
+    type Err = GroupError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Group::try_from(s)
+    }
+}
+
+impl fmt::Display for Group {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl Serialize for Group {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_with::rust::display_fromstr::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Group {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        serde_with::rust::display_fromstr::deserialize(deserializer)
+    }
+}
 
 /// A `Dish` socket is used by a subscriber to subscribe to groups distributed
 /// by a [`Radio`].
@@ -45,11 +131,13 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn join<S>(&self, group: S) -> Result<(), Error>
+    pub fn join<G>(&self, group: G) -> Result<(), Error>
     where
-        S: AsRef<str>,
+        Group: TryFrom<G>,
+        Error: From<<Group as TryFrom<G>>::Error>
     {
-        let c_str = CString::new(group.as_ref()).unwrap();
+        let group = Group::try_from(group)?;
+        let c_str = CString::new(group.as_str()).unwrap();
         let rc =
             unsafe { sys::zmq_join(self.mut_raw_socket(), c_str.as_ptr()) };
 
@@ -88,11 +176,13 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<S>(&self, group: S) -> Result<(), Error>
+    pub fn leave<G>(&self, group: G) -> Result<(), Error>
     where
-        S: AsRef<str>,
+        Group: TryFrom<G>,
+        Error: From<<Group as TryFrom<G>>::Error>
     {
-        let c_str = CString::new(group.as_ref()).unwrap();
+        let group: Group = group.try_into()?;
+        let c_str = CString::new(group.as_str()).unwrap();
         let rc =
             unsafe { sys::zmq_leave(self.mut_raw_socket(), c_str.as_ptr()) };
 
@@ -100,9 +190,7 @@ impl Dish {
             let errno = unsafe { sys::zmq_errno() };
             let err = {
                 match errno {
-                    errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                        msg: "invalid group",
-                    }),
+                    errno::EINVAL => panic!("Invalid group"),
                     errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                     errno::EINTR => Error::new(ErrorKind::Interrupted),
                     errno::ENOTSOCK => panic!("invalid socket"),
@@ -136,7 +224,7 @@ pub struct DishConfig {
     #[serde(flatten)]
     recv_config: RecvConfig,
     #[serde(flatten)]
-    groups: Option<Vec<String>>,
+    groups: Option<Vec<Group>>,
 }
 
 impl DishConfig {
@@ -157,13 +245,18 @@ impl DishConfig {
         Ok(dish)
     }
 
+    pub fn groups(&mut self, groups: Vec<Group>) -> &mut Self {
+        self.groups = Some(groups);
+        self
+    }
+
     pub fn apply(&self, dish: &Dish) -> Result<(), Error> {
         self.apply_socket_config(dish)?;
         self.apply_recv_config(dish)?;
 
         if let Some(ref groups) = self.groups {
             for group in groups {
-                dish.join(group)?;
+                dish.join(group.to_owned())?;
             }
         }
 
