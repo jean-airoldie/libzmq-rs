@@ -164,7 +164,7 @@ impl DishConfig {
         Ok(dish)
     }
 
-    pub fn groups(&mut self, groups: Vec<Group>) -> &mut Self {
+    pub fn groups(mut self, groups: Vec<Group>) -> Self {
         self.groups = Some(groups);
         self
     }

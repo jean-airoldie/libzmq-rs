@@ -247,14 +247,14 @@ pub trait GetSendConfig: private::Sealed {
 }
 
 /// Allows for configuration of `send` socket options.
-pub trait ConfigureSend: GetSendConfig {
-    fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
+pub trait ConfigureSend: GetSendConfig + Sized {
+    fn send_high_water_mark(mut self, hwm: i32) -> Self {
         let mut config = self.mut_send_config();
         config.send_high_water_mark = Some(hwm);
         self
     }
 
-    fn send_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
+    fn send_timeout(mut self, timeout: Option<Duration>) -> Self {
         let mut config = self.mut_send_config();
         config.send_timeout = timeout;
         self

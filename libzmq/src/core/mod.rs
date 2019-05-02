@@ -513,59 +513,59 @@ pub trait GetSocketConfig: private::Sealed {
 }
 
 /// Allows for configuration of common socket options.
-pub trait ConfigureSocket: GetSocketConfig {
-    fn connect(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+pub trait ConfigureSocket: GetSocketConfig + Sized {
+    fn connect(mut self, endpoints: Vec<Endpoint>) -> Self {
         let mut config = self.mut_socket_config();
         config.connect = Some(endpoints);
         self
     }
 
-    fn bind(&mut self, endpoints: Vec<Endpoint>) -> &mut Self {
+    fn bind(mut self, endpoints: Vec<Endpoint>) -> Self {
         let mut config = self.mut_socket_config();
         config.bind = Some(endpoints);
         self
     }
 
-    fn backlog(&mut self, len: i32) -> &mut Self {
+    fn backlog(mut self, len: i32) -> Self {
         let mut config = self.mut_socket_config();
         config.backlog = Some(len);
         self
     }
 
     fn connect_timeout(
-        &mut self,
+        mut self,
         maybe_duration: Option<Duration>,
-    ) -> &mut Self {
+    ) -> Self {
         let mut config = self.mut_socket_config();
         config.connect_timeout = maybe_duration;
         self
     }
 
     fn heartbeat_interval(
-        &mut self,
+        mut self,
         maybe_duration: Option<Duration>,
-    ) -> &mut Self {
+    ) -> Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_interval = maybe_duration;
         self
     }
 
     fn heartbeat_timeout(
-        &mut self,
+        mut self,
         maybe_duration: Option<Duration>,
-    ) -> &mut Self {
+    ) -> Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_timeout = maybe_duration;
         self
     }
 
-    fn heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
+    fn heartbeat_ttl(mut self, maybe_duration: Option<Duration>) -> Self {
         let mut config = self.mut_socket_config();
         config.heartbeat_ttl = maybe_duration;
         self
     }
 
-    fn linger(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
+    fn linger(mut self, maybe_duration: Option<Duration>) -> Self {
         let mut config = self.mut_socket_config();
         config.linger = maybe_duration;
         self

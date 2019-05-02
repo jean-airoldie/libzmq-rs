@@ -206,14 +206,14 @@ pub trait GetRecvConfig: private::Sealed {
 }
 
 /// Allows for configuration of `recv` socket options.
-pub trait ConfigureRecv: GetRecvConfig {
-    fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
+pub trait ConfigureRecv: GetRecvConfig + Sized {
+    fn recv_high_water_mark(mut self, hwm: i32) -> Self {
         let mut config = self.mut_recv_config();
         config.recv_high_water_mark = Some(hwm);
         self
     }
 
-    fn recv_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
+    fn recv_timeout(mut self, timeout: Option<Duration>) -> Self {
         let mut config = self.mut_recv_config();
         config.recv_timeout = timeout;
         self
