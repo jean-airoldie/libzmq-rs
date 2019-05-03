@@ -426,6 +426,9 @@ impl Ctx {
 
     /// Terminate the context.
     ///
+    /// This will deadlock your program if you are not carefull. You should
+    /// probably we using [`shutdown`] instead.
+    ///
     /// Any blocking operations currently in progress on
     /// sockets open within this context shall return immediately with a
     /// [`CtxTerminated`] error. Any additional operations of
@@ -444,6 +447,7 @@ impl Ctx {
     /// Returns the error msg.
     ///
     /// [`CtxTerminated`]: ../error/enum.ErrorKind.html#variant.CtxTerminated
+    /// [`shutdown`]: #method.shutdown
     /// [`here`]: http://api.zeromq.org/master:zmq-ctx-term
     pub fn terminate(&self) -> Result<(), String> {
         self.raw.terminate()

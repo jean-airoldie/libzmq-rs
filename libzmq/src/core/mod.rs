@@ -544,48 +544,92 @@ pub trait GetSocketConfig: private::Sealed {
     fn mut_socket_config(&mut self) -> &mut SocketConfig;
 }
 
+impl GetSocketConfig for SocketConfig {
+    fn socket_config(&self) -> &SocketConfig {
+        self
+    }
+
+    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+        self
+    }
+}
+
 pub trait ConfigureSocket: GetSocketConfig {
     fn connect(&self) -> Option<&[Endpoint]> {
         self.socket_config().connect.as_ref().map(|v| v.as_slice())
+    }
+
+    fn set_connect(&mut self, maybe_endpoints: Option<Vec<Endpoint>>) {
+        self.mut_socket_config().connect = maybe_endpoints;
     }
 
     fn bind(&self) -> Option<&[Endpoint]> {
         self.socket_config().bind.as_ref().map(|v| v.as_slice())
     }
 
+    fn set_bind(&mut self, maybe_endpoints: Option<Vec<Endpoint>>) {
+        self.mut_socket_config().bind = maybe_endpoints;
+    }
+
     fn backlog(&self) -> Option<i32> {
         self.socket_config().backlog
+    }
+
+    fn set_backlog(&mut self, maybe_backlog: Option<i32>) {
+        self.mut_socket_config().backlog = maybe_backlog;
     }
 
     fn connect_timeout(&self) -> Option<Duration> {
         self.socket_config().connect_timeout
     }
 
+    fn set_connect_timeout(&mut self, maybe_duration: Option<Duration>) {
+        self.mut_socket_config().connect_timeout = maybe_duration;
+    }
+
     fn heartbeat_interval(&self) -> Option<Duration> {
         self.socket_config().heartbeat_interval
+    }
+
+    fn set_heartbeat_interval(&mut self, maybe_duration: Option<Duration>) {
+        self.mut_socket_config().heartbeat_interval = maybe_duration;
     }
 
     fn heartbeat_timeout(&self) -> Option<Duration> {
         self.socket_config().heartbeat_timeout
     }
 
+    fn set_heartbeat_timeout(&mut self, maybe_duration: Option<Duration>) {
+        self.mut_socket_config().heartbeat_timeout = maybe_duration;
+    }
+
     fn heartbeat_ttl(&self) -> Option<Duration> {
         self.socket_config().heartbeat_ttl
+    }
+
+    fn set_heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) {
+        self.mut_socket_config().heartbeat_ttl = maybe_duration;
     }
 
     fn linger(&self) -> Option<Duration> {
         self.socket_config().linger
     }
+
+    fn set_linger(&mut self, maybe_duration: Option<Duration>) {
+        self.mut_socket_config().linger = maybe_duration;
+    }
+
 }
+
+impl ConfigureSocket for SocketConfig {}
 
 pub trait BuildSocket: GetSocketConfig + Sized {
     fn connect<E>(&mut self, endpoints: E) -> &mut Self
     where
         E: IntoIterator<Item = Endpoint>,
     {
-        let mut config = self.mut_socket_config();
-        let endpoints = endpoints.into_iter().collect();
-        config.connect = Some(endpoints);
+        let endpoints: Vec<Endpoint> = endpoints.into_iter().collect();
+        self.mut_socket_config().set_connect(Some(endpoints));
         self
     }
 
@@ -593,15 +637,13 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     where
         E: IntoIterator<Item = Endpoint>,
     {
-        let mut config = self.mut_socket_config();
-        let endpoints = endpoints.into_iter().collect();
-        config.bind = Some(endpoints);
+        let endpoints: Vec<Endpoint> = endpoints.into_iter().collect();
+        self.mut_socket_config().set_bind(Some(endpoints));
         self
     }
 
     fn backlog(&mut self, len: i32) -> &mut Self {
-        let mut config = self.mut_socket_config();
-        config.backlog = Some(len);
+        self.mut_socket_config().set_backlog(Some(len));
         self
     }
 
@@ -609,8 +651,7 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        let mut config = self.mut_socket_config();
-        config.connect_timeout = maybe_duration;
+        self.mut_socket_config().set_connect_timeout(maybe_duration);
         self
     }
 
@@ -618,8 +659,7 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        let mut config = self.mut_socket_config();
-        config.heartbeat_interval = maybe_duration;
+        self.mut_socket_config().set_heartbeat_interval(maybe_duration);
         self
     }
 
@@ -627,20 +667,17 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        let mut config = self.mut_socket_config();
-        config.heartbeat_timeout = maybe_duration;
+        self.mut_socket_config().set_heartbeat_timeout(maybe_duration);
         self
     }
 
     fn heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        let mut config = self.mut_socket_config();
-        config.heartbeat_ttl = maybe_duration;
+        self.mut_socket_config().set_heartbeat_ttl(maybe_duration);
         self
     }
 
     fn linger(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        let mut config = self.mut_socket_config();
-        config.linger = maybe_duration;
+        self.mut_socket_config().set_linger(maybe_duration);
         self
     }
 }
