@@ -1,4 +1,7 @@
-use crate::error::{msg_from_errno, Error, ErrorKind};
+use crate::{
+    error::{msg_from_errno, Error, ErrorKind},
+    Group,
+};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -11,6 +14,7 @@ use std::{
     os::raw::c_void,
     ptr, slice,
     str::{self, Utf8Error},
+    convert::{TryFrom, TryInto},
 };
 
 /// A message owned by ØMQ.
@@ -229,7 +233,7 @@ impl Msg {
     }
 
     /// The group property on the message.
-    pub fn group(&self) -> Option<&str> {
+    pub fn group(&self) -> Option<&Group> {
         // This is safe we don't actually mutate the msg.
         let mut_msg_ptr = self.as_ptr() as *mut _;
         let char_ptr = unsafe { sys::zmq_msg_group(mut_msg_ptr) };
@@ -237,7 +241,8 @@ impl Msg {
         if char_ptr.is_null() {
             None
         } else {
-            Some(unsafe { CStr::from_ptr(char_ptr).to_str().unwrap() })
+            let c_str = unsafe { CStr::from_ptr(char_ptr).to_str().unwrap() };
+            Some(Group::from_str_unchecked(c_str))
         }
     }
 
@@ -262,8 +267,13 @@ impl Msg {
     ///
     /// # Returned Error Variants
     /// * [`InvalidInput`] (if contract is not followed)
-    pub fn set_group(&mut self, group: &str) -> Result<(), Error> {
-        let c_string = CString::new(group.as_bytes()).unwrap();
+    pub fn set_group<'a, G>(&mut self, group: G) -> Result<(), Error>
+    where
+        &'a Group: TryFrom<G>,
+        Error: From<<&'a Group as TryFrom<G>>::Error>,
+    {
+        let group: &Group = group.try_into()?;
+        let c_string = CString::new(group.as_str().as_bytes()).unwrap();
         let rc = unsafe {
             sys::zmq_msg_set_group(self.as_mut_ptr(), c_string.as_ptr())
         };

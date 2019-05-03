@@ -1,4 +1,4 @@
-use crate::{endpoint::EndpointParseError, group::GroupError, Msg};
+use crate::{endpoint::EndpointParseError, group::GroupParseError, Msg};
 use libzmq_sys as sys;
 
 use failure::{Backtrace, Context, Fail};
@@ -108,10 +108,10 @@ impl From<EndpointParseError> for Error {
     }
 }
 
-impl From<GroupError> for Error {
-    fn from(_error: GroupError) -> Self {
+impl From<GroupParseError> for Error {
+    fn from(_error: GroupParseError) -> Self {
         Error::new(ErrorKind::InvalidInput {
-            msg: "invalid group",
+            msg: "unable to parse group",
         })
     }
 }

@@ -18,7 +18,7 @@ mod utils;
 pub use ctx::Ctx;
 pub use endpoint::Endpoint;
 pub use error::{Error, ErrorKind};
-pub use group::Group;
+pub use group::{Group, GroupOwned};
 pub use msg::Msg;
 pub use socket::{Client, Dish, Radio, Server};
 pub use utils::*;

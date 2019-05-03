@@ -1,71 +1,212 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{convert::TryFrom, fmt, str};
+use std::{
+    borrow::Borrow,
+    borrow::ToOwned,
+    convert::TryFrom,
+    fmt,
+    hash::{Hash, Hasher},
+    mem, str,
+    ops,
+};
 
 pub const MAX_GROUP_SIZE: usize = 15;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Fail, Hash)]
 #[fail(display = "group cannot exceed 15 char")]
-pub struct GroupError(());
+pub struct GroupParseError(());
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq)]
 pub struct Group {
-    inner: String,
+    inner: str,
 }
 
 impl Group {
+    pub(crate) fn from_str_unchecked(s: &str) -> &Group {
+        unsafe { mem::transmute(s) }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.inner
+    }
+}
+
+impl Hash for Group {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
+}
+
+impl fmt::Debug for Group {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, formatter)
+    }
+}
+
+impl AsRef<Group> for Group {
+    fn as_ref(&self) -> &Group {
+        &self
+    }
+}
+
+impl<'a> From<&'a GroupOwned> for &'a Group {
+    fn from(s: &'a GroupOwned) -> Self {
+        s.as_ref()
+    }
+}
+
+impl ToOwned for Group {
+    type Owned = GroupOwned;
+
+    fn to_owned(&self) -> Self::Owned {
+        GroupOwned {
+            inner: self.inner.to_owned(),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a str> for &'a Group {
+    type Error = GroupParseError;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        if value.len() > MAX_GROUP_SIZE {
+            Err(GroupParseError(()))
+        } else {
+            Ok(Group::from_str_unchecked(value))
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a String> for &'a Group {
+    type Error = GroupParseError;
+    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
+    }
+}
+
+impl PartialEq<str> for Group {
+    fn eq(&self, other: &str) -> bool {
+        *self == *Group::from_str_unchecked(other)
+    }
+}
+
+impl PartialEq<Group> for str {
+    fn eq(&self, other: &Group) -> bool {
+        *other == *Group::from_str_unchecked(self)
+    }
+}
+
+impl ops::Deref for Group {
+    type Target = str;
+
+    #[inline]
+    fn deref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+
+impl<'a> fmt::Display for &'a Group {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", &self.inner)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GroupOwned {
+    inner: String,
+}
+
+impl GroupOwned {
     pub fn as_str(&self) -> &str {
         self.inner.as_str()
     }
 }
 
-impl Into<String> for Group {
+impl Into<String> for GroupOwned {
     fn into(self) -> String {
         self.inner
     }
 }
 
-impl<'a> TryFrom<&'a str> for Group {
-    type Error = GroupError;
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        Group::try_from(value.to_owned())
+impl Borrow<Group> for GroupOwned {
+    fn borrow(&self) -> &Group {
+        Group::from_str_unchecked(self.as_str())
     }
 }
 
-impl TryFrom<String> for Group {
-    type Error = GroupError;
+impl<'a, T: ?Sized + AsRef<Group>> From<&'a T> for GroupOwned {
+    fn from(s: &'a T) -> Self {
+        s.as_ref().to_owned()
+    }
+}
+
+impl AsRef<Group> for GroupOwned {
+    fn as_ref(&self) -> &Group {
+        &self.borrow()
+    }
+}
+
+impl TryFrom<String> for GroupOwned {
+    type Error = GroupParseError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if value.len() > MAX_GROUP_SIZE {
-            Err(GroupError(()))
+            Err(GroupParseError(()))
         } else {
-            Ok(Group { inner: value })
+            Ok(Self { inner: value })
         }
     }
 }
 
-impl<'a> TryFrom<&'a String> for Group {
-    type Error = GroupError;
-    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
-        Group::try_from(value.to_owned())
-    }
-}
-
-impl str::FromStr for Group {
-    type Err = GroupError;
+impl str::FromStr for GroupOwned {
+    type Err = GroupParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Group::try_from(s)
+        Self::try_from(s.to_owned())
     }
 }
 
-impl fmt::Display for Group {
+impl fmt::Display for GroupOwned {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.inner)
     }
 }
 
-impl Serialize for Group {
+impl ops::Deref for GroupOwned {
+    type Target = Group;
+
+    #[inline]
+    fn deref(&self) -> &Group {
+        &self.as_ref()
+    }
+}
+
+impl PartialEq<str> for GroupOwned {
+    fn eq(&self, other: &str) -> bool {
+        &**self == other
+    }
+}
+
+impl PartialEq<GroupOwned> for str {
+    fn eq(&self, other: &GroupOwned) -> bool {
+        &**other == self
+    }
+}
+
+impl<'a> PartialEq<&'a str> for GroupOwned {
+    fn eq(&self, other: &&'a str) -> bool {
+        **self == **other
+    }
+}
+
+impl<'a> PartialEq<GroupOwned> for &'a str {
+    fn eq(&self, other: &GroupOwned) -> bool {
+        **other == **self
+    }
+}
+
+impl Serialize for GroupOwned {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -74,7 +215,7 @@ impl Serialize for Group {
     }
 }
 
-impl<'de> Deserialize<'de> for Group {
+impl<'de> Deserialize<'de> for GroupOwned {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

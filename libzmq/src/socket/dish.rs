@@ -1,4 +1,4 @@
-use crate::{core::*, error::*, group::*, Ctx};
+use crate::{core::*, error::*, Group, GroupOwned, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -82,12 +82,12 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn join<G>(&self, group: G) -> Result<(), Error>
+    pub fn join<'a, G>(&self, group: G) -> Result<(), Error>
     where
-        Group: TryFrom<G>,
-        Error: From<<Group as TryFrom<G>>::Error>,
+        &'a Group: TryFrom<G> + Sized,
+        Error: From<<&'a Group as TryFrom<G>>::Error>,
     {
-        let group = Group::try_from(group)?;
+        let group: &Group = group.try_into()?;
         let c_str = CString::new(group.as_str()).unwrap();
         let rc =
             unsafe { sys::zmq_join(self.mut_raw_socket(), c_str.as_ptr()) };
@@ -127,12 +127,12 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<G>(&self, group: G) -> Result<(), Error>
+    pub fn leave<'a, G>(&self, group: G) -> Result<(), Error>
     where
-        Group: TryFrom<G>,
-        Error: From<<Group as TryFrom<G>>::Error>,
+        &'a Group: TryFrom<G>,
+        Error: From<<&'a Group as TryFrom<G>>::Error>,
     {
-        let group: Group = group.try_into()?;
+        let group: &Group = group.try_into()?;
         let c_str = CString::new(group.as_str()).unwrap();
         let rc =
             unsafe { sys::zmq_leave(self.mut_raw_socket(), c_str.as_ptr()) };
@@ -184,7 +184,7 @@ pub struct DishConfig {
     #[serde(flatten)]
     recv_config: RecvConfig,
     #[serde(flatten)]
-    groups: Option<Vec<Group>>,
+    groups: Option<Vec<GroupOwned>>,
 }
 
 impl DishConfig {
@@ -205,12 +205,13 @@ impl DishConfig {
         Ok(dish)
     }
 
-    pub fn groups(&self) -> Option<&[Group]> {
+    pub fn groups(&self) -> Option<&[GroupOwned]> {
         self.groups.as_ref().map(|g| g.as_slice())
     }
 
-    pub fn set_groups(mut self, maybe_groups: Option<Vec<Group>>) {
-        self.groups = maybe_groups;
+    pub fn set_groups<G>(mut self, maybe_groups: Option<Vec<G>>) where G: Into<GroupOwned> {
+        let groups = maybe_groups.map(|g| g.into_iter().map(|g| g.into()).collect());
+        self.groups = groups;
     }
 
     pub fn apply(&self, dish: &Dish) -> Result<(), Error> {
@@ -219,7 +220,7 @@ impl DishConfig {
 
         if let Some(ref groups) = self.groups {
             for group in groups {
-                dish.join(group.to_owned())?;
+                dish.join(group)?;
             }
         }
 
