@@ -205,13 +205,12 @@ impl DishConfig {
         Ok(dish)
     }
 
-    pub fn groups<G>(mut self, groups: G) -> Self
-    where
-        G: IntoIterator<Item = Group>,
-    {
-        let groups = groups.into_iter().collect();
-        self.groups = Some(groups);
-        self
+    pub fn groups(&self) -> Option<&[Group]> {
+        self.groups.as_ref().map(|g| g.as_slice())
+    }
+
+    pub fn set_groups(mut self, maybe_groups: Option<Vec<Group>>) {
+        self.groups = maybe_groups;
     }
 
     pub fn apply(&self, dish: &Dish) -> Result<(), Error> {
