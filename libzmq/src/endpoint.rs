@@ -3,7 +3,7 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{fmt, iter, slice, str, vec};
+use std::{fmt, iter, slice, str, vec, convert::TryFrom};
 
 /// For the moment this is simply a wrapper around a `String`.
 ///
@@ -337,6 +337,28 @@ impl str::FromStr for Endpoint {
                 msg: "malformed endpoint".to_string(),
             })
         }
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Endpoint {
+    type Error = EndpointParseError;
+    fn try_from(s: &'a str) -> Result<Self, EndpointParseError> {
+        use std::str::FromStr;
+        Self::from_str(s)
+    }
+}
+
+impl TryFrom<String> for Endpoint {
+    type Error = EndpointParseError;
+    fn try_from(s: String) ->  Result<Self, EndpointParseError> {
+        Self::try_from(s.as_str())
+    }
+}
+
+impl<'a> TryFrom<&'a String> for Endpoint {
+    type Error = EndpointParseError;
+    fn try_from(s: &'a String) ->  Result<Self, EndpointParseError> {
+        Self::try_from(s.as_str())
     }
 }
 
