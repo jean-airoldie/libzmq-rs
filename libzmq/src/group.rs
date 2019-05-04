@@ -7,8 +7,7 @@ use std::{
     convert::TryFrom,
     fmt,
     hash::{Hash, Hasher},
-    mem, str,
-    ops,
+    mem, ops, str,
 };
 
 pub const MAX_GROUP_SIZE: usize = 15;
@@ -106,7 +105,6 @@ impl ops::Deref for Group {
     }
 }
 
-
 impl<'a> fmt::Display for &'a Group {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", &self.inner)
@@ -124,6 +122,12 @@ impl GroupOwned {
     }
 }
 
+impl<'a> From<&'a Group> for GroupOwned {
+    fn from(s: &'a Group) -> Self {
+        s.to_owned()
+    }
+}
+
 impl Into<String> for GroupOwned {
     fn into(self) -> String {
         self.inner
@@ -133,12 +137,6 @@ impl Into<String> for GroupOwned {
 impl Borrow<Group> for GroupOwned {
     fn borrow(&self) -> &Group {
         Group::from_str_unchecked(self.as_str())
-    }
-}
-
-impl<'a, T: ?Sized + AsRef<Group>> From<&'a T> for GroupOwned {
-    fn from(s: &'a T) -> Self {
-        s.as_ref().to_owned()
     }
 }
 
@@ -155,6 +153,32 @@ impl TryFrom<String> for GroupOwned {
             Err(GroupParseError(()))
         } else {
             Ok(Self { inner: value })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a String> for GroupOwned {
+    type Error = GroupParseError;
+    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
+        if value.len() > MAX_GROUP_SIZE {
+            Err(GroupParseError(()))
+        } else {
+            Ok(Self {
+                inner: value.to_owned(),
+            })
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a str> for GroupOwned {
+    type Error = GroupParseError;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        if value.len() > MAX_GROUP_SIZE {
+            Err(GroupParseError(()))
+        } else {
+            Ok(Self {
+                inner: value.to_owned(),
+            })
         }
     }
 }

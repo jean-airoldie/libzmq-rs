@@ -1,4 +1,4 @@
-use crate::{core::*, error::*, Group, GroupOwned, Ctx};
+use crate::{core::*, error::*, Ctx, Group, GroupOwned};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -209,8 +209,11 @@ impl DishConfig {
         self.groups.as_ref().map(|g| g.as_slice())
     }
 
-    pub fn set_groups<G>(mut self, maybe_groups: Option<Vec<G>>) where G: Into<GroupOwned> {
-        let groups = maybe_groups.map(|g| g.into_iter().map(|g| g.into()).collect());
+    pub fn set_groups<I>(mut self, maybe_groups: Option<I>)
+    where
+        I: IntoIterator<Item = GroupOwned>,
+    {
+        let groups = maybe_groups.map(|g| g.into_iter().collect());
         self.groups = groups;
     }
 
