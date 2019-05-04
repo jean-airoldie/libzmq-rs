@@ -209,7 +209,7 @@ impl DishConfig {
         self.groups.as_ref().map(|g| g.as_slice())
     }
 
-    pub fn set_groups<I>(mut self, maybe_groups: Option<I>)
+    pub fn set_groups<I>(&mut self, maybe_groups: Option<I>)
     where
         I: IntoIterator<Item = GroupOwned>,
     {
