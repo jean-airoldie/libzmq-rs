@@ -545,7 +545,7 @@ impl GetSocketConfig for SocketConfig {
 
 pub trait ConfigureSocket: GetSocketConfig {
     fn connect(&self) -> Option<&[Endpoint]> {
-        self.socket_config().connect.as_ref().map(|v| v.as_slice())
+        self.socket_config().connect.as_ref().map(Vec::as_slice)
     }
 
     fn set_connect<E>(&mut self, maybe_endpoints: Option<E>)
@@ -558,7 +558,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     }
 
     fn bind(&self) -> Option<&[Endpoint]> {
-        self.socket_config().bind.as_ref().map(|v| v.as_slice())
+        self.socket_config().bind.as_ref().map(Vec::as_slice)
     }
 
     fn set_bind<E>(&mut self, maybe_endpoints: Option<E>)

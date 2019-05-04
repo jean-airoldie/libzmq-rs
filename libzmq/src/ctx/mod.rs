@@ -87,7 +87,7 @@ impl RawCtx {
         let rc = unsafe { sys::zmq_ctx_shutdown(self.ctx) };
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
-            return Err(msg_from_errno(errno));
+            Err(msg_from_errno(errno))
         } else {
             Ok(())
         }

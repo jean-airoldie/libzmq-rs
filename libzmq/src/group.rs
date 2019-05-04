@@ -6,8 +6,7 @@ use std::{
     borrow::ToOwned,
     convert::TryFrom,
     fmt,
-    hash::{Hash, Hasher},
-    mem, ops, str,
+    ops, str,
 };
 
 pub const MAX_GROUP_SIZE: usize = 15;
@@ -16,25 +15,18 @@ pub const MAX_GROUP_SIZE: usize = 15;
 #[fail(display = "group cannot exceed 15 char")]
 pub struct GroupParseError(());
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Hash)]
 pub struct Group {
     inner: str,
 }
 
 impl Group {
     pub(crate) fn from_str_unchecked(s: &str) -> &Group {
-        unsafe { mem::transmute(s) }
+        unsafe { &*(s as *const str as *const Group) }
     }
 
     pub fn as_str(&self) -> &str {
         &self.inner
-    }
-}
-
-impl Hash for Group {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
     }
 }
 

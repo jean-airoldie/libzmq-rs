@@ -9,12 +9,12 @@ use libc::size_t;
 use log::error;
 
 use std::{
+    convert::{TryFrom, TryInto},
     ffi::{self, CStr, CString},
     fmt,
     os::raw::c_void,
     ptr, slice,
     str::{self, Utf8Error},
-    convert::{TryFrom, TryInto},
 };
 
 /// A message owned by ØMQ.

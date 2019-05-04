@@ -3,7 +3,7 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{fmt, iter, slice, str, vec, convert::TryFrom, option};
+use std::{convert::TryFrom, fmt, option, str};
 
 /// For the moment this is simply a wrapper around a `String`.
 ///
@@ -350,14 +350,14 @@ impl<'a> TryFrom<&'a str> for Endpoint {
 
 impl TryFrom<String> for Endpoint {
     type Error = EndpointParseError;
-    fn try_from(s: String) ->  Result<Self, EndpointParseError> {
+    fn try_from(s: String) -> Result<Self, EndpointParseError> {
         Self::try_from(s.as_str())
     }
 }
 
 impl<'a> TryFrom<&'a String> for Endpoint {
     type Error = EndpointParseError;
-    fn try_from(s: &'a String) ->  Result<Self, EndpointParseError> {
+    fn try_from(s: &'a String) -> Result<Self, EndpointParseError> {
         Self::try_from(s.as_str())
     }
 }
