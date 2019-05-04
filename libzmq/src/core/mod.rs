@@ -34,7 +34,7 @@ mod private {
 }
 
 use crate::{
-    endpoint::{Endpoint, ToEndpoints},
+    endpoint::Endpoint,
     error::{msg_from_errno, Error, ErrorKind},
 };
 use libzmq_sys as sys;
@@ -184,15 +184,13 @@ pub trait Socket: GetRawSocket {
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn connect<E>(&self, endpoints: E) -> Result<(), Error>
+    fn connect<E>(&self, endpoint: E) -> Result<(), Error>
     where
-        E: ToEndpoints,
+        E: AsRef<Endpoint>,
     {
-        for endpoint in endpoints.to_endpoints()? {
-            let c_str = CString::new(endpoint.to_string()).unwrap();
-            connect(self.mut_raw_socket(), c_str)?;
-        }
-        Ok(())
+        let endpoint = endpoint.as_ref();
+        let c_str = CString::new(endpoint.to_string()).unwrap();
+        connect(self.mut_raw_socket(), c_str)
     }
 
     /// Disconnect the socket from the endpoint.
@@ -216,16 +214,13 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn disconnect<E>(&self, endpoints: E) -> Result<(), Error>
+    fn disconnect<E>(&self, endpoint: E) -> Result<(), Error>
     where
-        E: ToEndpoints,
+        E: AsRef<Endpoint>,
     {
-        for endpoint in endpoints.to_endpoints()? {
-            let c_str = CString::new(endpoint.to_string()).unwrap();
-            disconnect(self.mut_raw_socket(), c_str)?;
-        }
-
-        Ok(())
+        let endpoint = endpoint.as_ref();
+        let c_str = CString::new(endpoint.to_string()).unwrap();
+        disconnect(self.mut_raw_socket(), c_str)
     }
 
     /// Binds the socket to a local [`endpoint`] and then accepts incoming
@@ -253,16 +248,13 @@ pub trait Socket: GetRawSocket {
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn bind<E>(&self, endpoints: E) -> Result<(), Error>
+    fn bind<E>(&self, endpoint: E) -> Result<(), Error>
     where
-        E: ToEndpoints,
+        E: AsRef<Endpoint>,
     {
-        for endpoint in endpoints.to_endpoints()? {
-            let c_str = CString::new(endpoint.to_string()).unwrap();
-            bind(self.mut_raw_socket(), c_str)?;
-        }
-
-        Ok(())
+        let endpoint = endpoint.as_ref();
+        let c_str = CString::new(endpoint.to_string()).unwrap();
+        bind(self.mut_raw_socket(), c_str)
     }
 
     /// Unbinds the socket from the endpoint.
@@ -286,16 +278,13 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn unbind<E>(&self, endpoints: E) -> Result<(), Error>
+    fn unbind<E>(&self, endpoint: E) -> Result<(), Error>
     where
-        E: ToEndpoints,
+        E: AsRef<Endpoint>,
     {
-        for endpoint in endpoints.to_endpoints()? {
-            let c_str = CString::new(endpoint.to_string()).unwrap();
-            unbind(self.mut_raw_socket(), c_str)?;
-        }
-
-        Ok(())
+        let endpoint = endpoint.as_ref();
+        let c_str = CString::new(endpoint.to_string()).unwrap();
+        unbind(self.mut_raw_socket(), c_str)
     }
 
     /// Retrieve the maximum length of the queue of outstanding peer connections.
@@ -559,16 +548,26 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config().connect.as_ref().map(|v| v.as_slice())
     }
 
-    fn set_connect(&mut self, maybe_endpoints: Option<Vec<Endpoint>>) {
-        self.mut_socket_config().connect = maybe_endpoints;
+    fn set_connect<E>(&mut self, maybe_endpoints: Option<E>)
+    where
+        E: IntoIterator<Item = Endpoint>,
+    {
+        let maybe_vec: Option<Vec<Endpoint>> =
+            maybe_endpoints.map(|e| e.into_iter().collect());
+        self.mut_socket_config().connect = maybe_vec;
     }
 
     fn bind(&self) -> Option<&[Endpoint]> {
         self.socket_config().bind.as_ref().map(|v| v.as_slice())
     }
 
-    fn set_bind(&mut self, maybe_endpoints: Option<Vec<Endpoint>>) {
-        self.mut_socket_config().bind = maybe_endpoints;
+    fn set_bind<E>(&mut self, maybe_endpoints: Option<E>)
+    where
+        E: IntoIterator<Item = Endpoint>,
+    {
+        let maybe_vec: Option<Vec<Endpoint>> =
+            maybe_endpoints.map(|e| e.into_iter().collect());
+        self.mut_socket_config().bind = maybe_vec;
     }
 
     fn backlog(&self) -> Option<i32> {
@@ -618,7 +617,6 @@ pub trait ConfigureSocket: GetSocketConfig {
     fn set_linger(&mut self, maybe_duration: Option<Duration>) {
         self.mut_socket_config().linger = maybe_duration;
     }
-
 }
 
 impl ConfigureSocket for SocketConfig {}
@@ -628,7 +626,6 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     where
         E: IntoIterator<Item = Endpoint>,
     {
-        let endpoints: Vec<Endpoint> = endpoints.into_iter().collect();
         self.mut_socket_config().set_connect(Some(endpoints));
         self
     }
@@ -637,7 +634,6 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     where
         E: IntoIterator<Item = Endpoint>,
     {
-        let endpoints: Vec<Endpoint> = endpoints.into_iter().collect();
         self.mut_socket_config().set_bind(Some(endpoints));
         self
     }
@@ -659,7 +655,8 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        self.mut_socket_config().set_heartbeat_interval(maybe_duration);
+        self.mut_socket_config()
+            .set_heartbeat_interval(maybe_duration);
         self
     }
 
@@ -667,7 +664,8 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        self.mut_socket_config().set_heartbeat_timeout(maybe_duration);
+        self.mut_socket_config()
+            .set_heartbeat_timeout(maybe_duration);
         self
     }
 

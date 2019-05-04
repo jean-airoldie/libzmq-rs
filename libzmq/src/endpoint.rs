@@ -3,7 +3,7 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{fmt, iter, slice, str, vec, convert::TryFrom};
+use std::{fmt, iter, slice, str, vec, convert::TryFrom, option};
 
 /// For the moment this is simply a wrapper around a `String`.
 ///
@@ -368,46 +368,11 @@ impl AsRef<Endpoint> for Endpoint {
     }
 }
 
-/// A trait objects which can be converted or resolved to one or more Endpoint.
-pub trait ToEndpoints {
-    type Iter: Iterator<Item = Endpoint>;
+impl IntoIterator for Endpoint {
+    type Item = Endpoint;
+    type IntoIter = option::IntoIter<Endpoint>;
 
-    fn to_endpoints(&self) -> Result<Self::Iter, EndpointParseError>;
-}
-
-impl ToEndpoints for Endpoint {
-    type Iter = vec::IntoIter<Endpoint>;
-    fn to_endpoints(&self) -> Result<Self::Iter, EndpointParseError> {
-        Ok(vec![self.clone()].into_iter())
-    }
-}
-
-impl<'a> ToEndpoints for &'a [Endpoint] {
-    type Iter = iter::Cloned<slice::Iter<'a, Endpoint>>;
-    fn to_endpoints(&self) -> Result<Self::Iter, EndpointParseError> {
-        Ok(self.iter().cloned())
-    }
-}
-
-impl ToEndpoints for str {
-    type Iter = vec::IntoIter<Endpoint>;
-    fn to_endpoints(&self) -> Result<Self::Iter, EndpointParseError> {
-        let endpoint: Endpoint = self.parse()?;
-        Ok(vec![endpoint].into_iter())
-    }
-}
-
-impl ToEndpoints for String {
-    type Iter = vec::IntoIter<Endpoint>;
-    fn to_endpoints(&self) -> Result<Self::Iter, EndpointParseError> {
-        let endpoint: Endpoint = self.parse()?;
-        Ok(vec![endpoint].into_iter())
-    }
-}
-
-impl<T: ToEndpoints + ?Sized> ToEndpoints for &T {
-    type Iter = T::Iter;
-    fn to_endpoints(&self) -> Result<Self::Iter, EndpointParseError> {
-        (**self).to_endpoints()
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
     }
 }

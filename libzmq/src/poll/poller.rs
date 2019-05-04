@@ -199,16 +199,17 @@ impl IntoIterator for Events {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Client, Server, poll::*};
+/// use libzmq::{prelude::*, Client, Server, Endpoint, poll::*};
+/// use std::convert::TryInto;
 ///
 /// // We initialize our sockets and connect them to each other.
-/// const ENDPOINT: &str = "inproc://test";
+/// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
 ///
 /// let server = Server::new()?;
-/// server.bind(ENDPOINT)?;
+/// server.bind(&endpoint)?;
 ///
 /// let client = Client::new()?;
-/// client.connect(ENDPOINT)?;
+/// client.connect(&endpoint)?;
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
@@ -510,16 +511,17 @@ mod test {
 
     #[test]
     fn test_poller() {
-        use crate::{prelude::*, Client, Server};
+        use crate::{prelude::*, Client, Server, Endpoint};
+        use std::convert::TryInto;
 
         // We initialize our sockets and connect them to each other.
-        const ENDPOINT: &str = "inproc://test";
+        let endpoint: Endpoint = "inproc://test".try_into().unwrap();
 
         let server = Server::new().unwrap();
-        server.bind(ENDPOINT).unwrap();
+        server.bind(&endpoint).unwrap();
 
         let client = Client::new().unwrap();
-        client.connect(ENDPOINT).unwrap();
+        client.connect(&endpoint).unwrap();
 
         // We create our poller instance.
         let mut poller = Poller::new();

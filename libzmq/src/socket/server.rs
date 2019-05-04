@@ -39,14 +39,15 @@ use std::{os::raw::c_void, sync::Arc};
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
+/// use std::convert::TryInto;
 ///
-/// const ENDPOINT: &str = "inproc://test";
+/// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
 ///
 /// let client = Client::new()?;
 /// let server = Server::new()?;
 ///
-/// client.connect(ENDPOINT)?;
-/// server.bind(ENDPOINT)?;
+/// client.connect(&endpoint)?;
+/// server.bind(endpoint)?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.
 /// client.send("request")?;
