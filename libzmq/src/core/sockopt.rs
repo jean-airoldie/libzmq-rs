@@ -9,6 +9,7 @@ use std::{
     os::raw::c_void,
     time::Duration,
     {mem, ptr, str},
+    borrow::Borrow,
 };
 
 // This is the value `czmq` uses.
@@ -221,13 +222,13 @@ pub(crate) fn setsockopt_str<S>(
     maybe_string: Option<S>,
 ) -> Result<(), Error>
 where
-    S: AsRef<str>,
+    S: Borrow<str>,
 {
     match maybe_string {
         Some(string) => {
             // No need to add a terminating zero byte.
             // http://api.zeromq.org/master:zmq-setsockopt
-            setsockopt_bytes(mut_sock_ptr, option, string.as_ref().as_bytes())
+            setsockopt_bytes(mut_sock_ptr, option, string.borrow().as_bytes())
         }
         None => setsockopt_null(mut_sock_ptr, option),
     }

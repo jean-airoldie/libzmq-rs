@@ -362,12 +362,6 @@ impl<'a> TryFrom<&'a String> for Endpoint {
     }
 }
 
-impl AsRef<Endpoint> for Endpoint {
-    fn as_ref(&self) -> &Endpoint {
-        self
-    }
-}
-
 impl<'a> From<&'a Endpoint> for Endpoint {
     fn from(e: &'a Endpoint) -> Endpoint {
         e.to_owned()

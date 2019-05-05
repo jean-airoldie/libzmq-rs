@@ -1,7 +1,7 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{borrow::Borrow, borrow::ToOwned, convert::TryFrom, fmt, ops, str};
+use std::{borrow::{Borrow, ToOwned}, convert::TryFrom, fmt, ops, str};
 
 pub const MAX_GROUP_SIZE: usize = 15;
 
@@ -27,12 +27,6 @@ impl Group {
 impl fmt::Debug for Group {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.inner, formatter)
-    }
-}
-
-impl AsRef<Group> for Group {
-    fn as_ref(&self) -> &Group {
-        &self
     }
 }
 
@@ -82,6 +76,12 @@ impl PartialEq<Group> for str {
     }
 }
 
+impl AsRef<str> for Group {
+    fn as_ref(&self) -> &str {
+        self.borrow()
+    }
+}
+
 impl ops::Deref for Group {
     type Target = str;
 
@@ -111,18 +111,6 @@ impl<'a> From<&'a Group> for GroupOwned {
 impl From<GroupOwned> for String {
     fn from(g: GroupOwned) -> String {
         g.inner
-    }
-}
-
-impl Borrow<Group> for GroupOwned {
-    fn borrow(&self) -> &Group {
-        Group::from_str_unchecked(self.as_str())
-    }
-}
-
-impl AsRef<Group> for GroupOwned {
-    fn as_ref(&self) -> &Group {
-        &self.borrow()
     }
 }
 
@@ -177,12 +165,24 @@ impl fmt::Display for GroupOwned {
     }
 }
 
+impl Borrow<Group> for GroupOwned {
+    fn borrow(&self) -> &Group {
+        Group::from_str_unchecked(self.as_str())
+    }
+}
+
+impl AsRef<Group> for GroupOwned {
+    fn as_ref(&self) -> &Group {
+        self.borrow()
+    }
+}
+
 impl ops::Deref for GroupOwned {
     type Target = Group;
 
     #[inline]
     fn deref(&self) -> &Group {
-        &self.as_ref()
+        self.as_ref()
     }
 }
 
