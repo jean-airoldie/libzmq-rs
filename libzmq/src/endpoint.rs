@@ -368,9 +368,24 @@ impl AsRef<Endpoint> for Endpoint {
     }
 }
 
+impl<'a> Into<Endpoint> for &'a Endpoint {
+    fn into(self) -> Endpoint {
+        self.clone()
+    }
+}
+
 impl IntoIterator for Endpoint {
     type Item = Endpoint;
     type IntoIter = option::IntoIter<Endpoint>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Endpoint {
+    type Item = &'a Endpoint;
+    type IntoIter = option::IntoIter<&'a Endpoint>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()

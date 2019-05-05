@@ -46,7 +46,7 @@ use std::sync::Arc;
 /// let client = Client::new()?;
 /// let server = Server::new()?;
 ///
-/// client.connect(endpoint.clone())?;
+/// client.connect(&endpoint)?;
 /// server.bind(endpoint)?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.

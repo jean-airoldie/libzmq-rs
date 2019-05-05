@@ -181,11 +181,13 @@ pub trait Socket: GetRawSocket {
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn connect<E>(&self, endpoints: E) -> Result<(), Error>
+    fn connect<I, E>(&self, endpoints: I) -> Result<(), Error>
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         for endpoint in endpoints.into_iter() {
+            let endpoint: Endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
             let raw_socket = self.raw_socket();
             connect(raw_socket.as_mut_ptr(), c_str)?;
@@ -211,7 +213,7 @@ pub trait Socket: GetRawSocket {
     /// let client = Client::new()?;
     /// assert!(client.connected().is_empty());
     ///
-    /// client.connect(endpoint.clone())?;
+    /// client.connect(&endpoint)?;
     /// assert!(client.connected().contains(&endpoint));
     ///
     /// client.disconnect(endpoint)?;
@@ -245,11 +247,13 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn disconnect<E>(&self, endpoints: E) -> Result<(), Error>
+    fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error>
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         for endpoint in endpoints.into_iter() {
+            let endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
             let raw_socket = self.raw_socket();
             disconnect(raw_socket.as_mut_ptr(), c_str)?;
@@ -260,43 +264,6 @@ pub trait Socket: GetRawSocket {
             connected.remove(position);
         }
         Ok(())
-    }
-
-    /// Returns a `MutexGuard` containing a all the endpoints currently
-    /// bound to.
-    /// Example
-    /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Radio, Endpoint};
-    /// use std::convert::TryFrom;
-    ///
-    /// let first = Endpoint::try_from("inproc://test1")?;
-    /// let second = Endpoint::try_from("inproc://test2")?;
-    ///
-    /// let radio = Radio::new()?;
-    /// assert!(radio.bound().is_empty());
-    ///
-    /// radio.bind(vec![first.clone(), second.clone()])?;
-    /// {
-    ///     let bound = radio.bound();
-    ///     assert!(bound.contains(&first));
-    ///     assert!(bound.contains(&second));
-    /// }
-    ///
-    /// radio.unbind(first.clone())?;
-    /// {
-    ///     let bound = radio.bound();
-    ///     assert!(!bound.contains(&first));
-    ///     assert!(bound.contains(&second));
-    /// }
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    fn bound(&self) -> MutexGuard<Vec<Endpoint>> {
-        self.raw_socket().bound().lock().unwrap()
     }
 
     /// Binds the socket to a local [`endpoint`] and then accepts incoming
@@ -324,11 +291,13 @@ pub trait Socket: GetRawSocket {
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn bind<E>(&self, endpoints: E) -> Result<(), Error>
+    fn bind<I, E>(&self, endpoints: I) -> Result<(), Error>
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         for endpoint in endpoints.into_iter() {
+            let endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
             let raw_socket = self.raw_socket();
             bind(self.raw_socket().as_mut_ptr(), c_str)?;
@@ -336,6 +305,43 @@ pub trait Socket: GetRawSocket {
             raw_socket.bound().lock().unwrap().push(endpoint);
         }
         Ok(())
+    }
+
+    /// Returns a `MutexGuard` containing a all the endpoints currently
+    /// bound to.
+    /// Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Radio, Endpoint};
+    /// use std::convert::TryFrom;
+    ///
+    /// let first = Endpoint::try_from("inproc://test1")?;
+    /// let second = Endpoint::try_from("inproc://test2")?;
+    ///
+    /// let radio = Radio::new()?;
+    /// assert!(radio.bound().is_empty());
+    ///
+    /// radio.bind(vec![&first, &second])?;
+    /// {
+    ///     let bound = radio.bound();
+    ///     assert!(bound.contains(&first));
+    ///     assert!(bound.contains(&second));
+    /// }
+    ///
+    /// radio.unbind(&first)?;
+    /// {
+    ///     let bound = radio.bound();
+    ///     assert!(!bound.contains(&first));
+    ///     assert!(bound.contains(&second));
+    /// }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    fn bound(&self) -> MutexGuard<Vec<Endpoint>> {
+        self.raw_socket().bound().lock().unwrap()
     }
 
     /// Unbinds the socket from the endpoint.
@@ -359,11 +365,13 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn unbind<E>(&self, endpoints: E) -> Result<(), Error>
+    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error>
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         for endpoint in endpoints.into_iter() {
+            let endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
             let raw_socket = self.raw_socket();
             unbind(self.raw_socket().as_mut_ptr(), c_str)?;
@@ -647,12 +655,13 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config().connect.as_ref().map(Vec::as_slice)
     }
 
-    fn set_connect<E>(&mut self, maybe_endpoints: Option<E>)
+    fn set_connect<I, E>(&mut self, maybe_endpoints: Option<I>)
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().collect());
+            maybe_endpoints.map(|e| e.into_iter().map(|e| e.into()).collect());
         self.socket_config_mut().connect = maybe_vec;
     }
 
@@ -660,12 +669,13 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config().bind.as_ref().map(Vec::as_slice)
     }
 
-    fn set_bind<E>(&mut self, maybe_endpoints: Option<E>)
+    fn set_bind<I, E>(&mut self, maybe_endpoints: Option<I>)
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().collect());
+            maybe_endpoints.map(|e| e.into_iter().map(|e| e.into()).collect());
         self.socket_config_mut().bind = maybe_vec;
     }
 
@@ -721,17 +731,19 @@ pub trait ConfigureSocket: GetSocketConfig {
 impl ConfigureSocket for SocketConfig {}
 
 pub trait BuildSocket: GetSocketConfig + Sized {
-    fn connect<E>(&mut self, endpoints: E) -> &mut Self
+    fn connect<I, E>(&mut self, endpoints: I) -> &mut Self
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         self.socket_config_mut().set_connect(Some(endpoints));
         self
     }
 
-    fn bind<E>(&mut self, endpoints: E) -> &mut Self
+    fn bind<I, E>(&mut self, endpoints: I) -> &mut Self
     where
-        E: IntoIterator<Item = Endpoint>,
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
     {
         self.socket_config_mut().set_bind(Some(endpoints));
         self

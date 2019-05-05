@@ -40,8 +40,8 @@ use std::sync::Arc;
 ///
 ///
 /// // We connect them.
-/// radio.bind(endpoint.clone())?;
-/// first.connect(endpoint.clone())?;
+/// radio.bind(&endpoint)?;
+/// first.connect(&endpoint)?;
 /// second.connect(endpoint)?;
 ///
 /// // Each dish will only receive messages from that group.
