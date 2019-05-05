@@ -483,3 +483,9 @@ impl Default for Ctx {
         Self { raw }
     }
 }
+
+impl<'a> Into<Ctx> for &'a Ctx {
+    fn into(self) -> Ctx {
+        self.clone()
+    }
+}

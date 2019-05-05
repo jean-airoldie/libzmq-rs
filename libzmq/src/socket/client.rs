@@ -2,7 +2,7 @@ use crate::{core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{sync::Arc};
+use std::sync::Arc;
 
 /// A `Client` socket is used for advanced request-reply messaging.
 ///
@@ -61,7 +61,11 @@ impl Client {
     ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx(ctx: Ctx) -> Result<Self, Error> {
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Client, ctx)?);
 
         Ok(Self { inner })
@@ -105,12 +109,14 @@ impl ClientConfig {
     }
 
     pub fn build(&self) -> Result<Client, Error> {
-        let ctx = Ctx::global().clone();
-
-        self.build_with_ctx(ctx)
+        self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx: Ctx = ctx.into();
         let client = Client::with_ctx(ctx)?;
         self.apply(&client)?;
 
@@ -176,7 +182,10 @@ impl ClientBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Client, Error> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error>
+    where
+        C: Into<Ctx>,
+    {
         self.inner.build_with_ctx(ctx)
     }
 }

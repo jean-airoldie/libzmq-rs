@@ -114,7 +114,11 @@ impl Radio {
     ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx(ctx: Ctx) -> Result<Self, Error> {
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Radio, ctx)?);
 
         Ok(Self { inner })
@@ -180,12 +184,14 @@ impl RadioConfig {
     }
 
     pub fn build(&self) -> Result<Radio, Error> {
-        let ctx = Ctx::global().clone();
-
-        self.build_with_ctx(ctx)
+        self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx: Ctx = ctx.into();
         let radio = Radio::with_ctx(ctx)?;
         self.apply(&radio)?;
 
@@ -242,7 +248,10 @@ impl RadioBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Radio, Error> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error>
+    where
+        C: Into<Ctx>,
+    {
         self.inner.build_with_ctx(ctx)
     }
 }

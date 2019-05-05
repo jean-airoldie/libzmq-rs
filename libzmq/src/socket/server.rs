@@ -110,7 +110,11 @@ impl Server {
     ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx(ctx: Ctx) -> Result<Self, Error> {
+    pub fn with_ctx<C>(ctx: C) -> Result<Server, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Server, ctx)?);
 
         Ok(Self { inner })
@@ -154,12 +158,14 @@ impl ServerConfig {
     }
 
     pub fn build(&self) -> Result<Server, Error> {
-        let ctx = Ctx::global().clone();
-
-        self.build_with_ctx(ctx)
+        self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx: Ctx = ctx.into();
         let server = Server::with_ctx(ctx)?;
         self.apply(&server)?;
 
@@ -225,7 +231,10 @@ impl ServerBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx(&self, ctx: Ctx) -> Result<Server, Error> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error>
+    where
+        C: Into<Ctx>,
+    {
         self.inner.build_with_ctx(ctx)
     }
 }
