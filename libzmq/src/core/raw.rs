@@ -21,9 +21,9 @@ pub(crate) enum RawSocketType {
     Dish,
 }
 
-impl Into<c_int> for RawSocketType {
-    fn into(self) -> c_int {
-        match self {
+impl From<RawSocketType> for c_int {
+    fn from(r: RawSocketType) -> c_int {
+        match r {
             RawSocketType::Client => sys::ZMQ_CLIENT as c_int,
             RawSocketType::Server => sys::ZMQ_SERVER as c_int,
             RawSocketType::Radio => sys::ZMQ_RADIO as c_int,

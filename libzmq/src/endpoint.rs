@@ -368,9 +368,9 @@ impl AsRef<Endpoint> for Endpoint {
     }
 }
 
-impl<'a> Into<Endpoint> for &'a Endpoint {
-    fn into(self) -> Endpoint {
-        self.clone()
+impl<'a> From<&'a Endpoint> for Endpoint {
+    fn from(e: &'a Endpoint) -> Endpoint {
+        e.to_owned()
     }
 }
 

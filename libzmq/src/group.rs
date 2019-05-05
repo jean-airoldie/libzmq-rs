@@ -108,9 +108,9 @@ impl<'a> From<&'a Group> for GroupOwned {
     }
 }
 
-impl Into<String> for GroupOwned {
-    fn into(self) -> String {
-        self.inner
+impl From<GroupOwned> for String {
+    fn from(g: GroupOwned) -> String {
+        g.inner
     }
 }
 

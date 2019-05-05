@@ -28,9 +28,9 @@ enum RawCtxOption {
     Blocky,
 }
 
-impl Into<c_int> for RawCtxOption {
-    fn into(self) -> c_int {
-        match self {
+impl From<RawCtxOption> for c_int {
+    fn from(r: RawCtxOption) -> c_int {
+        match r {
             RawCtxOption::IOThreads => sys::ZMQ_IO_THREADS as c_int,
             RawCtxOption::MaxSockets => sys::ZMQ_MAX_SOCKETS as c_int,
             RawCtxOption::MaxMsgSize => sys::ZMQ_MAX_MSGSZ as c_int,
@@ -484,8 +484,8 @@ impl Default for Ctx {
     }
 }
 
-impl<'a> Into<Ctx> for &'a Ctx {
-    fn into(self) -> Ctx {
-        self.clone()
+impl<'a> From<&'a Ctx> for Ctx {
+    fn from(c: &'a Ctx) -> Ctx {
+        c.to_owned()
     }
 }

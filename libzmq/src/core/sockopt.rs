@@ -31,9 +31,9 @@ pub(crate) enum SocketOption {
     Linger,
 }
 
-impl Into<c_int> for SocketOption {
-    fn into(self) -> c_int {
-        match self {
+impl From<SocketOption> for c_int {
+    fn from(s: SocketOption) -> c_int {
+        match s {
             SocketOption::Backlog => sys::ZMQ_BACKLOG as c_int,
             SocketOption::ConnectTimeout => sys::ZMQ_CONNECT_TIMEOUT as c_int,
             SocketOption::FileDescriptor => sys::ZMQ_FD as c_int,
