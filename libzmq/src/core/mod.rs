@@ -276,10 +276,10 @@ pub trait Socket: GetRawSocket {
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
-            disconnect(raw_socket.as_mut_ptr(), c_str).map_err(|err| Error::with_content(err.kind(), count))?;
+            disconnect(raw_socket.as_mut_ptr(), c_str)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            let position =
-                guard.iter().position(|e| e == &endpoint).unwrap();
+            let position = guard.iter().position(|e| e == &endpoint).unwrap();
             guard.remove(position);
             count += 1;
         }
@@ -643,7 +643,10 @@ pub struct SocketConfig {
 }
 
 impl SocketConfig {
-    pub(crate) fn apply<S: Socket>(&self, socket: &S) -> Result<(), failure::Error> {
+    pub(crate) fn apply<S: Socket>(
+        &self,
+        socket: &S,
+    ) -> Result<(), failure::Error> {
         if let Some(value) = self.backlog {
             socket.set_backlog(value)?;
         }

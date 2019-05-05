@@ -6,9 +6,9 @@ use failure::{Backtrace, Context, Fail};
 use std::{
     convert::Infallible,
     ffi,
+    fmt::Debug,
     fmt::{self, Display},
     str,
-    fmt::Debug,
 };
 
 /// An error with a kind and a msg.
@@ -89,7 +89,10 @@ impl<T> Error<T> {
     }
 }
 
-impl<T> Fail for Error<T> where T: 'static + Debug + Sync + Send {
+impl<T> Fail for Error<T>
+where
+    T: 'static + Debug + Sync + Send,
+{
     fn cause(&self) -> Option<&Fail> {
         self.inner.cause()
     }

@@ -171,7 +171,8 @@ impl Dish {
 
         for group in groups.into_iter() {
             let group = group.into();
-            join(self.raw_socket().as_mut_ptr(), &group).map_err(|err| Error::with_content(err.kind(), count))?;
+            join(self.raw_socket().as_mut_ptr(), &group)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
 
             guard.push(group);
             count += 1;
@@ -254,7 +255,8 @@ impl Dish {
 
         for group in groups.into_iter() {
             let group = group.into();
-            leave(self.raw_socket().as_mut_ptr(), &group).map_err(|err| Error::with_content(err.kind(), count))?;
+            leave(self.raw_socket().as_mut_ptr(), &group)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
 
             let position = guard.iter().position(|g| g == &group).unwrap();
             guard.remove(position);
