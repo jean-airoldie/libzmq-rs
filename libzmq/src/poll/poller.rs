@@ -53,7 +53,7 @@ impl<'a> Iterator for Iter<'a> {
             } else {
                 let user_data = event.user_data as *mut usize as usize;
                 Some(Event {
-                    token: Token(user_data),
+                    id: Id(user_data),
                     flags: Flags::from_bits(event.events).unwrap(),
                 })
             }
@@ -86,7 +86,7 @@ impl Iterator for IntoIter {
         raw.map(|raw| {
             let user_data = raw.user_data as *mut usize as usize;
             Event {
-                token: Token(user_data),
+                id: Id(user_data),
                 flags: Flags::from_bits(raw.events).unwrap(),
             }
         })
@@ -99,16 +99,16 @@ impl Iterator for IntoIter {
     }
 }
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Token(pub usize);
+pub struct Id(pub usize);
 
-impl From<usize> for Token {
-    fn from(val: usize) -> Token {
-        Token(val)
+impl From<usize> for Id {
+    fn from(val: usize) -> Id {
+        Id(val)
     }
 }
 
-impl From<Token> for usize {
-    fn from(val: Token) -> usize {
+impl From<Id> for usize {
+    fn from(val: Id) -> usize {
         val.0
     }
 }
@@ -117,7 +117,7 @@ impl From<Token> for usize {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event {
     flags: Flags,
-    token: Token,
+    id: Id,
 }
 
 impl Event {
@@ -130,8 +130,8 @@ impl Event {
         self.flags
     }
 
-    pub fn token(&self) -> Token {
-        self.token
+    pub fn id(&self) -> Id {
+        self.id
     }
 }
 
@@ -213,8 +213,8 @@ impl IntoIterator for Events {
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
-/// poller.add(&server, Token(0), READABLE)?;
-/// poller.add(&client, Token(1), READABLE)?;
+/// poller.add(&server, Id(0), READABLE)?;
+/// poller.add(&client, Id(1), READABLE)?;
 ///
 /// // Initialize the client.
 /// client.send("ping")?;
@@ -227,23 +227,23 @@ impl IntoIterator for Events {
 ///     poller.block(&mut events, None)?;
 ///     // Iterate over the detected events.
 ///     for event in &events {
-///         assert_eq!(READABLE, event.flags());
-///         // Note that `user_data` is the `Which` that we
-///         // passed in the `Poller::add` method.
-///         match event.token() {
-///             // The server is ready to receive an incoming message.
-///             Token(0) => {
-///                 let msg = server.recv_msg()?;
-///                 assert_eq!("ping", msg.to_str()?);
-///                 server.send(msg)?;
+///         // Guard against spurious wakeups.
+///         if event.flags() != NO_WAKEUP {
+///             match event.id() {
+///                 // The server is ready to receive an incoming message.
+///                 Id(0) => {
+///                     let msg = server.recv_msg()?;
+///                     assert_eq!("ping", msg.to_str()?);
+///                     server.send(msg)?;
+///                 }
+///                 // One of the clients is ready to receive an incoming message.
+///                 Id(1) => {
+///                     let msg = client.recv_msg()?;
+///                     assert_eq!("ping", msg.to_str()?);
+///                     client.send(msg)?;
+///                 }
+///                 _ => unimplemented!(),
 ///             }
-///             // One of the clients is ready to receive an incoming message.
-///             Token(1) => {
-///                 let msg = client.recv_msg()?;
-///                 assert_eq!("ping", msg.to_str()?);
-///                 client.send(msg)?;
-///             }
-///             _ => unimplemented!(),
 ///         }
 ///     }
 /// }
@@ -272,8 +272,8 @@ impl Poller {
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, Token(0), NO_WAKEUP)?;
-    /// let err = poller.add(&server, Token(1), NO_WAKEUP).unwrap_err();
+    /// poller.add(&server, Id(0), NO_WAKEUP)?;
+    /// let err = poller.add(&server, Id(1), NO_WAKEUP).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -286,12 +286,12 @@ impl Poller {
     pub fn add(
         &mut self,
         socket: &GetRawSocket,
-        token: Token,
+        id: Id,
         flags: Flags,
     ) -> Result<(), Error> {
         let socket_mut_ptr = socket.raw_socket().as_mut_ptr();
 
-        let user_data: usize = token.into();
+        let user_data: usize = id.into();
         let user_data = user_data as *mut usize as *mut c_void;
 
         let rc = unsafe {
@@ -331,7 +331,7 @@ impl Poller {
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, Token(0), NO_WAKEUP)?;
+    /// poller.add(&server, Id(0), NO_WAKEUP)?;
     /// poller.remove(&server)?;
     ///
     /// let err = poller.remove(&server).unwrap_err();
@@ -522,8 +522,8 @@ mod test {
 
         // We create our poller instance.
         let mut poller = Poller::new();
-        poller.add(&server, Token(0), READABLE).unwrap();
-        poller.add(&client, Token(1), READABLE).unwrap();
+        poller.add(&server, Id(0), READABLE).unwrap();
+        poller.add(&client, Id(1), READABLE).unwrap();
 
         // Inti the client.
         client.send("ping").unwrap();
@@ -540,15 +540,15 @@ mod test {
                 assert_eq!(READABLE, event.flags());
                 // Note that `user_data` is the `Which` that we
                 // passed in the `Poller::add` method.
-                match event.token() {
+                match event.id() {
                     // The server is ready to receive an incoming message.
-                    Token(0) => {
+                    Id(0) => {
                         let msg = server.recv_msg().unwrap();
                         assert_eq!("ping", msg.to_str().unwrap());
                         server.send(msg).unwrap();
                     }
                     // One of the clients is ready to receive an incoming message.
-                    Token(1) => {
+                    Id(1) => {
                         let msg = client.recv_msg().unwrap();
                         assert_eq!("ping", msg.to_str().unwrap());
                         client.send(msg).unwrap();

@@ -13,8 +13,8 @@ use std::{
 /// An error with a kind and a msg.
 ///
 /// An `Error` contains a [`ErrorKind`] which gives context on the error cause,
-/// as well as `Option<T>` which is used to prevent the loss of data
-/// in case of a failed function call.
+/// as well as an `Option<Msg> which may be used to prevent the loss of data
+/// in case of a failed `send` function call.
 ///
 /// # Usage example
 /// ```

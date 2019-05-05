@@ -102,12 +102,6 @@ pub struct GroupOwned {
     inner: String,
 }
 
-impl GroupOwned {
-    pub fn as_str(&self) -> &str {
-        self.inner.as_str()
-    }
-}
-
 impl<'a> From<&'a Group> for GroupOwned {
     fn from(s: &'a Group) -> Self {
         s.to_owned()

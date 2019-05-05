@@ -57,7 +57,10 @@ impl Dish {
     ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error> where C: Into<Ctx> {
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
         let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dish, ctx)?);
 
@@ -191,7 +194,10 @@ impl DishConfig {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error> where C: Into<Ctx> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error>
+    where
+        C: Into<Ctx>,
+    {
         let ctx: Ctx = ctx.into();
         let dish = Dish::with_ctx(ctx)?;
         self.apply(&dish)?;
@@ -263,7 +269,10 @@ impl DishBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error> where C: Into<Ctx> {
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error>
+    where
+        C: Into<Ctx>,
+    {
         self.inner.build_with_ctx(ctx)
     }
 }

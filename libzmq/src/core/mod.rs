@@ -661,7 +661,7 @@ pub trait ConfigureSocket: GetSocketConfig {
         E: Into<Endpoint>,
     {
         let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().map(|e| e.into()).collect());
+            maybe_endpoints.map(|e| e.into_iter().map(Into::into).collect());
         self.socket_config_mut().connect = maybe_vec;
     }
 
@@ -675,7 +675,7 @@ pub trait ConfigureSocket: GetSocketConfig {
         E: Into<Endpoint>,
     {
         let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().map(|e| e.into()).collect());
+            maybe_endpoints.map(|e| e.into_iter().map(Into::into).collect());
         self.socket_config_mut().bind = maybe_vec;
     }
 
