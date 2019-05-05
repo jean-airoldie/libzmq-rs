@@ -9,6 +9,28 @@ pub const MAX_GROUP_SIZE: usize = 15;
 #[fail(display = "group cannot exceed 15 char")]
 pub struct GroupParseError(());
 
+/// A `str` slice that is a valid ØMQ group identifier.
+///
+/// Namely, the length this group identifier must not exceed [`MAX_GROUP_SIZE`].
+///
+/// # Example
+/// ```
+/// #
+/// # use failure::Error;
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::Group;
+/// use std::convert::TryInto;
+///
+/// let group: &Group = "some group".try_into()?;
+///
+/// let result: Result<&Group, _> = "a group more than 15 char".try_into();
+/// assert!(result.is_err());
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
 #[derive(PartialEq, Eq, Hash)]
 pub struct Group {
     inner: str,
@@ -97,6 +119,25 @@ impl<'a> fmt::Display for &'a Group {
     }
 }
 
+/// An owned `String` that is a valid ØMQ group identifier.
+///
+/// Namely, the length this group identifier must not exceed [`MAX_GROUP_SIZE`].
+///
+/// # Example
+/// ```
+/// #
+/// # use failure::Error;
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::GroupOwned;
+/// use std::convert::TryInto;
+///
+/// let string = "abc".to_owned();
+/// let group: GroupOwned = string.try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+/// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GroupOwned {
     inner: String,
