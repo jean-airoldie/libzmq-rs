@@ -82,6 +82,22 @@ impl Dish {
     /// * [`Interrupted`]
     /// * [`InvalidInput`] (if contract is not followed)
     ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Dish, Group};
+    /// use std::convert::TryInto;
+    ///
+    /// let group: &Group = "some group".try_into()?;
+    /// let dish = Dish::new()?;
+    /// dish.join(group)?;
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
@@ -127,6 +143,24 @@ impl Dish {
     /// * [`Interrupted`]
     /// * [`InvalidInput`] (if contract is not followed)
     ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Dish, GroupOwned};
+    /// use std::convert::TryInto;
+    ///
+    /// let group: GroupOwned = "some group".to_owned().try_into()?;
+    ///
+    /// let dish = Dish::new()?;
+    ///
+    /// dish.join(&group)?;
+    /// dish.leave(&group)?;
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput

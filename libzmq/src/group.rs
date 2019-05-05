@@ -54,7 +54,7 @@ impl fmt::Debug for Group {
 
 impl<'a> From<&'a GroupOwned> for &'a Group {
     fn from(s: &'a GroupOwned) -> Self {
-        s.as_ref()
+        s.borrow()
     }
 }
 
@@ -132,7 +132,9 @@ impl<'a> fmt::Display for &'a Group {
 /// use std::convert::TryInto;
 ///
 /// let string = "abc".to_owned();
+///
 /// let group: GroupOwned = string.try_into()?;
+/// assert_eq!(group.as_str(), "abc");
 /// #
 /// #     Ok(())
 /// # }
@@ -208,7 +210,7 @@ impl fmt::Display for GroupOwned {
 
 impl Borrow<Group> for GroupOwned {
     fn borrow(&self) -> &Group {
-        Group::from_str_unchecked(self.as_str())
+        Group::from_str_unchecked(self.inner.as_str())
     }
 }
 
@@ -223,7 +225,7 @@ impl ops::Deref for GroupOwned {
 
     #[inline]
     fn deref(&self) -> &Group {
-        self.as_ref()
+        self.borrow()
     }
 }
 
