@@ -1,4 +1,4 @@
-use crate::{core::*, error::*, Ctx, Group, GroupOwned};
+use crate::{core::*, error::*, Ctx, GroupOwned};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use std::{
     convert::{TryFrom, TryInto},
-    ffi::{CString, c_void},
+    ffi::{c_void, CString},
     str,
-    sync::{Arc, Mutex, MutexGuard, LockResult},
+    sync::{Arc, LockResult, Mutex, MutexGuard},
 };
 
 fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
@@ -118,7 +118,10 @@ impl Dish {
         let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dish, ctx)?);
 
-        Ok(Self { inner, groups: Arc::default() })
+        Ok(Self {
+            inner,
+            groups: Arc::default(),
+        })
     }
 
     /// Returns a reference to the context of the socket.

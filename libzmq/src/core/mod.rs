@@ -160,23 +160,25 @@ fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
 
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
-    /// Connects the socket to an [`endpoint`] and then accepts incoming connections
-    /// on that [`endpoint`].
+    /// Schedules a connection to one or more [`endpoints`] and then accepts
+    /// incoming connections.
     ///
-    /// The socket actually connects a few instants after the `connect` call
-    /// (usually less than a millisecond).
+    /// Since ØMQ handles all connections behind the curtain, one cannot know
+    /// exactly when the connection is truly established a blocking `send`
+    /// or `recv` call is made on that connection.
     ///
     /// See [`zmq_connect`].
     ///
     /// # Usage Contract
-    /// TODO
+    /// * The endpoint must be valid (Endpoint does not do any validation atm).
+    /// * The endpoint's protocol must be supported by the socket..
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if contract not followed)
+    /// * [`InvalidInput`] (if endpoint is invalid)
     /// * [`IncompatTransport`]
     /// * [`CtxTerminated`]
     ///
-    /// [`endpoint`]: #endpoint
+    /// [`endpoints`]: #endpoint
     /// [`zmq_connect`]: http://api.zeromq.org/master:zmq-connect
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
@@ -235,12 +237,13 @@ pub trait Socket: GetRawSocket {
     /// See [`zmq_disconnect`].
     ///
     /// # Usage Contract
-    /// TODO
+    /// * The endpoint must be valid (Endpoint does not do any validation atm).
+    /// * The endpoint must be already connected to.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if contract not followed)
-    /// * [`CtxTerminated`]
+    /// * [`InvalidInput`] (if endpoint is invalid)
     /// * [`NotFound`] (if endpoint not connected to)
+    /// * [`CtxTerminated`]
     ///
     /// [`zmq_disconnect`]: http://api.zeromq.org/master:zmq-disconnect
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
@@ -266,22 +269,26 @@ pub trait Socket: GetRawSocket {
         Ok(())
     }
 
-    /// Binds the socket to a local [`endpoint`] and then accepts incoming
-    /// connections.
+    /// Schedules a bind to one or more [`endpoints`] and then accepts
+    /// incoming connections.
     ///
-    /// The socket actually binds a few instants after the `bind` call
-    /// (usually less than a millisecond).
+    /// Since ØMQ handles all connections behind the curtain, one cannot know
+    /// exactly when the connection is truly established a blocking `send`
+    /// or `recv` call is made on that connection.
     ///
     /// See [`zmq_bind`].
     ///
     /// # Usage Contract
-    /// TODO
+    /// * The endpoint must be valid (Endpoint does not do any validation atm).
+    /// * The transport must be supported by socket type.
+    /// * The endpoint must not be in use.
+    /// * The endpoint must be local.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if usage contract not followed)
-    /// * [`IncompatTransport`]
-    /// * [`AddrInUse`]
-    /// * [`AddrNotAvailable`]
+    /// * [`InvalidInput`] (if endpoint is invalid)
+    /// * [`IncompatTransport`] (if transport is not supported)
+    /// * [`AddrInUse`] (if addr already in use)
+    /// * [`AddrNotAvailable`] (if not local)
     /// * [`CtxTerminated`]
     ///
     /// [`endpoint`]: #endpoint
@@ -353,7 +360,8 @@ pub trait Socket: GetRawSocket {
     /// See [`zmq_unbind`].
     ///
     /// # Usage Contract
-    /// TODO
+    /// * The endpoint must be valid (Endpoint does not do any validation atm).
+    /// * The endpoint must be currently bound.
     ///
     /// # Returned Errors
     /// * [`InvalidInput`] (if usage contract not followed)

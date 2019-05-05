@@ -1,14 +1,21 @@
 use criterion::{black_box, Benchmark, Criterion, Throughput};
 
+use libzmq::{prelude::*, *};
+
 use rand::{distributions::Standard, Rng};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
+use lazy_static::lazy_static;
 
-use libzmq::{prelude::*, *};
+use std::convert::TryInto;
 
 const MSG_AMOUNT: usize = 1_000_000;
-const ENDPOINT: &str = "inproc://test";
 const MSG_SIZE_BYTES: [usize; 3] = [10, 50, 100];
+
+lazy_static! {
+    static ref ENDPOINT: Endpoint = "inproc://bench".try_into().unwrap();
+}
+
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
     let mut rng: Isaac64Rng = SeedableRng::seed_from_u64(123490814327);
@@ -33,9 +40,9 @@ pub(crate) fn bench(c: &mut Criterion) {
             })
             .with_function("server-client", move |b| {
                 let producer = Server::new().unwrap();
-                producer.bind(ENDPOINT).unwrap();
+                producer.bind(&*ENDPOINT).unwrap();
                 let consumer = Client::new().unwrap();
-                consumer.connect(ENDPOINT).unwrap();
+                consumer.connect(&*ENDPOINT).unwrap();
 
                 consumer.send("").unwrap();
                 let mut msg = producer.recv_msg().unwrap();
@@ -52,14 +59,14 @@ pub(crate) fn bench(c: &mut Criterion) {
                     }
                 });
 
-                producer.unbind(ENDPOINT).unwrap();
-                consumer.disconnect(ENDPOINT).unwrap();
+                producer.unbind(&*ENDPOINT).unwrap();
+                consumer.disconnect(&*ENDPOINT).unwrap();
             })
             .with_function("radio", move |b| {
                 let producer = Radio::new().unwrap();
-                producer.bind(ENDPOINT).unwrap();
+                producer.bind(&*ENDPOINT).unwrap();
                 let consumer = Dish::new().unwrap();
-                consumer.connect(ENDPOINT).unwrap();
+                consumer.connect(&*ENDPOINT).unwrap();
 
                 let mut msg = Msg::new();
 
@@ -73,7 +80,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                     }
                 });
 
-                producer.unbind(ENDPOINT).unwrap();
+                producer.unbind(&*ENDPOINT).unwrap();
             })
             .with_function("mscp", move |b| {
                 use std::sync::mpsc::channel;

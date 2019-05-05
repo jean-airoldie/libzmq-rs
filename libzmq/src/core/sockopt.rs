@@ -5,11 +5,11 @@ use sys::errno;
 use libc::{c_int, size_t};
 
 use std::{
+    borrow::Borrow,
     ffi::CString,
     os::raw::c_void,
     time::Duration,
     {mem, ptr, str},
-    borrow::Borrow,
 };
 
 // This is the value `czmq` uses.
