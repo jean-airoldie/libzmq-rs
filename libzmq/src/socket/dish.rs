@@ -20,7 +20,7 @@ fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
         let err = {
             match errno {
                 errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid group",
+                    msg: "cannot join group twice",
                 }),
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
@@ -44,7 +44,9 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
         let errno = unsafe { sys::zmq_errno() };
         let err = {
             match errno {
-                errno::EINVAL => panic!("Invalid group"),
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "cannot leave a group that wasn't joined",
+                }),
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
                 errno::ENOTSOCK => panic!("invalid socket"),
@@ -126,13 +128,12 @@ impl Dish {
     /// Joins the specified group.
     ///
     /// # Usage Contract
-    /// * The group `str` must be at most 15 characters.
-    /// * Each group can be subscribed at most once.
+    /// * Each group can be joined at most once.
     ///
     /// # Returned Error Variants
     /// * [`CtxTerminated`]
     /// * [`Interrupted`]
-    /// * [`InvalidInput`] (if contract is not followed)
+    /// * [`InvalidInput`] (if group was already joined)
     ///
     /// # Example
     /// ```
@@ -195,13 +196,12 @@ impl Dish {
     /// Leave the specified group.
     ///
     /// # Usage Contract
-    /// * The group `str` must be at most 15 characters.
     /// * The group must be already joined.
     ///
     /// # Returned Error Variants
     /// * [`CtxTerminated`]
     /// * [`Interrupted`]
-    /// * [`InvalidInput`] (if contract is not followed)
+    /// * [`InvalidInput`] (if group not already joined)
     ///
     /// # Example
     /// ```
