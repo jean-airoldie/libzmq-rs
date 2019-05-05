@@ -157,11 +157,11 @@ impl ServerConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, Error> {
+    pub fn build(&self) -> Result<Server, failure::Error> {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -172,7 +172,7 @@ impl ServerConfig {
         Ok(server)
     }
 
-    pub fn apply(&self, server: &Server) -> Result<(), Error> {
+    pub fn apply(&self, server: &Server) -> Result<(), failure::Error> {
         self.socket_config.apply(server)?;
         self.send_config.apply(server)?;
         self.recv_config.apply(server)?;
@@ -227,11 +227,11 @@ impl ServerBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, Error> {
+    pub fn build(&self) -> Result<Server, failure::Error> {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
     where
         C: Into<Ctx>,
     {

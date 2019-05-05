@@ -127,7 +127,12 @@ impl Dish {
     pub fn ctx(&self) -> &crate::Ctx {
         self.inner.ctx()
     }
-    /// Joins the specified group.
+    /// Joins the specified group(s).
+    ///
+    /// When any of the connection attempt fail, the `Error` will contain the position
+    /// of the iterator before the failure. This represents the number of
+    /// groups that were joined before the failure.
+    ///
     ///
     /// # Usage Contract
     /// * Each group can be joined at most once.
@@ -156,15 +161,20 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn join<I, G>(&self, groups: I) -> Result<(), Error>
+    pub fn join<I, G>(&self, groups: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = G>,
         G: Into<GroupOwned>,
     {
+        let mut count = 0;
+        let mut guard = self.groups.lock().unwrap();
+
         for group in groups.into_iter() {
             let group = group.into();
-            join(self.raw_socket().as_mut_ptr(), &group)?;
-            self.groups.lock().unwrap().push(group);
+            join(self.raw_socket().as_mut_ptr(), &group).map_err(|err| Error::with_content(err.kind(), count))?;
+
+            guard.push(group);
+            count += 1;
         }
         Ok(())
     }
@@ -195,7 +205,11 @@ impl Dish {
         self.groups.lock().unwrap()
     }
 
-    /// Leave the specified group.
+    /// Leave the specified group(s).
+    ///
+    /// When any of the connection attempt fail, the `Error` will contain the position
+    /// of the iterator before the failure. This represents the number of
+    /// groups that were leaved before the failure.
     ///
     /// # Usage Contract
     /// * The group must be already joined.
@@ -230,17 +244,21 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<I, G>(&self, groups: I) -> Result<(), Error>
+    pub fn leave<I, G>(&self, groups: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = G>,
         G: Into<GroupOwned>,
     {
+        let mut count = 0;
+        let mut guard = self.groups.lock().unwrap();
+
         for group in groups.into_iter() {
             let group = group.into();
-            leave(self.raw_socket().as_mut_ptr(), &group)?;
-            let mut groups = self.groups.lock().unwrap();
-            let position = groups.iter().position(|g| g == &group).unwrap();
-            groups.remove(position);
+            leave(self.raw_socket().as_mut_ptr(), &group).map_err(|err| Error::with_content(err.kind(), count))?;
+
+            let position = guard.iter().position(|g| g == &group).unwrap();
+            guard.remove(position);
+            count += 1;
         }
         Ok(())
     }
@@ -276,11 +294,11 @@ impl DishConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, Error> {
+    pub fn build(&self) -> Result<Dish, failure::Error> {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -303,7 +321,7 @@ impl DishConfig {
         self.groups = groups;
     }
 
-    pub fn apply(&self, dish: &Dish) -> Result<(), Error> {
+    pub fn apply(&self, dish: &Dish) -> Result<(), failure::Error> {
         self.socket_config.apply(dish)?;
         self.recv_config.apply(dish)?;
 
@@ -351,11 +369,11 @@ impl DishBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, Error> {
+    pub fn build(&self) -> Result<Dish, failure::Error> {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
     where
         C: Into<Ctx>,
     {

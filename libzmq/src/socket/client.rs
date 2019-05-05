@@ -61,7 +61,7 @@ impl Client {
     ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -108,11 +108,11 @@ impl ClientConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Client, Error> {
+    pub fn build(&self) -> Result<Client, failure::Error> {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -123,7 +123,7 @@ impl ClientConfig {
         Ok(client)
     }
 
-    pub fn apply(&self, client: &Client) -> Result<(), Error> {
+    pub fn apply(&self, client: &Client) -> Result<(), failure::Error> {
         self.socket_config.apply(client)?;
         self.send_config.apply(client)?;
         self.recv_config.apply(client)?;
@@ -178,11 +178,11 @@ impl ClientBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Client, Error> {
+    pub fn build(&self) -> Result<Client, failure::Error> {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, failure::Error>
     where
         C: Into<Ctx>,
     {

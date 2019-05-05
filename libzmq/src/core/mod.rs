@@ -160,12 +160,16 @@ fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
 
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
-    /// Schedules a connection to one or more [`endpoints`] and then accepts
+    /// Schedules a connection to one or more [`Endpoints`] and then accepts
     /// incoming connections.
     ///
     /// Since ØMQ handles all connections behind the curtain, one cannot know
     /// exactly when the connection is truly established a blocking `send`
     /// or `recv` call is made on that connection.
+    ///
+    /// When any of the connection attempt fail, the `Error` will contain the position
+    /// of the iterator before the failure. This represents the number of
+    /// connections that succeeded before the failure.
     ///
     /// See [`zmq_connect`].
     ///
@@ -178,23 +182,28 @@ pub trait Socket: GetRawSocket {
     /// * [`IncompatTransport`]
     /// * [`CtxTerminated`]
     ///
-    /// [`endpoints`]: #endpoint
+    /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_connect`]: http://api.zeromq.org/master:zmq-connect
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn connect<I, E>(&self, endpoints: I) -> Result<(), Error>
+    fn connect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
+        let mut count = 0;
+        let raw_socket = self.raw_socket();
+        let mut guard = raw_socket.connected().lock().unwrap();
+
         for endpoint in endpoints.into_iter() {
             let endpoint: Endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
-            let raw_socket = self.raw_socket();
-            connect(raw_socket.as_mut_ptr(), c_str)?;
+            connect(raw_socket.as_mut_ptr(), c_str)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            raw_socket.connected().lock().unwrap().push(endpoint);
+            guard.push(endpoint);
+            count += 1;
         }
         Ok(())
     }
@@ -228,11 +237,15 @@ pub trait Socket: GetRawSocket {
         self.raw_socket().connected().lock().unwrap()
     }
 
-    /// Disconnect the socket from the endpoint.
+    /// Disconnect the socket from one or more [`Endpoints`].
     ///
     /// Any outstanding messages physically received from the network but not
     /// yet received by the application are discarded. The behaviour for
     /// discarding messages depends on the value of [`linger`].
+    ///
+    /// When any of the connection attempt fail, the `Error` will contain the position
+    /// of the iterator before the failure. This represents the number of
+    /// disconnections that succeeded before the failure.
     ///
     /// See [`zmq_disconnect`].
     ///
@@ -245,36 +258,44 @@ pub trait Socket: GetRawSocket {
     /// * [`NotFound`] (if endpoint not connected to)
     /// * [`CtxTerminated`]
     ///
+    /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_disconnect`]: http://api.zeromq.org/master:zmq-disconnect
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error>
+    fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
+        let mut count = 0;
+        let raw_socket = self.raw_socket();
+        let mut guard = raw_socket.connected().lock().unwrap();
+
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
-            let raw_socket = self.raw_socket();
-            disconnect(raw_socket.as_mut_ptr(), c_str)?;
+            disconnect(raw_socket.as_mut_ptr(), c_str).map_err(|err| Error::with_content(err.kind(), count))?;
 
-            let mut connected = raw_socket.connected().lock().unwrap();
             let position =
-                connected.iter().position(|e| e == &endpoint).unwrap();
-            connected.remove(position);
+                guard.iter().position(|e| e == &endpoint).unwrap();
+            guard.remove(position);
+            count += 1;
         }
         Ok(())
     }
 
-    /// Schedules a bind to one or more [`endpoints`] and then accepts
+    /// Schedules a bind to one or more [`Endpoints`] and then accepts
     /// incoming connections.
     ///
     /// Since ØMQ handles all connections behind the curtain, one cannot know
     /// exactly when the connection is truly established a blocking `send`
     /// or `recv` call is made on that connection.
+    ///
+    /// When any of the connection attempt fail, the `Error` will contain the position
+    /// of the iterator before the failure. This represents the number of
+    /// binds that succeeded before the failure.
     ///
     /// See [`zmq_bind`].
     ///
@@ -291,29 +312,31 @@ pub trait Socket: GetRawSocket {
     /// * [`AddrNotAvailable`] (if not local)
     /// * [`CtxTerminated`]
     ///
-    /// [`endpoint`]: #endpoint
+    /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_bind`]: http://api.zeromq.org/master:zmq-bind
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn bind<I, E>(&self, endpoints: I) -> Result<(), Error>
+    fn bind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
+        let mut count = 0;
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
             let c_str = CString::new(endpoint.to_string()).unwrap();
             let raw_socket = self.raw_socket();
-            bind(self.raw_socket().as_mut_ptr(), c_str)?;
+            bind(self.raw_socket().as_mut_ptr(), c_str)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
 
             raw_socket.bound().lock().unwrap().push(endpoint);
+            count += 1;
         }
         Ok(())
     }
-
     /// Returns a `MutexGuard` containing a all the endpoints currently
     /// bound to.
     /// Example
@@ -351,13 +374,17 @@ pub trait Socket: GetRawSocket {
         self.raw_socket().bound().lock().unwrap()
     }
 
-    /// Unbinds the socket from the endpoint.
+    /// Unbinds the socket from one or more [`Endpoints`].
     ///
     /// Any outstanding messages physically received from the network but not
     /// yet received by the application are discarded. The behaviour for
     /// discarding messages depends on the value of [`linger`].
     ///
     /// See [`zmq_unbind`].
+    ///
+    /// When any of the connection attempt fail, the `Error` will contain the position
+    /// of the iterator before the failure. This represents the number of
+    /// unbinds that succeeded before the failure.
     ///
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
@@ -368,6 +395,7 @@ pub trait Socket: GetRawSocket {
     /// * [`CtxTerminated`]
     /// * [`NotFound`] (if endpoint was not bound to)
     ///
+    /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
@@ -615,7 +643,7 @@ pub struct SocketConfig {
 }
 
 impl SocketConfig {
-    pub(crate) fn apply<S: Socket>(&self, socket: &S) -> Result<(), Error> {
+    pub(crate) fn apply<S: Socket>(&self, socket: &S) -> Result<(), failure::Error> {
         if let Some(value) = self.backlog {
             socket.set_backlog(value)?;
         }

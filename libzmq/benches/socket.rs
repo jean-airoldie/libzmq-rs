@@ -2,10 +2,10 @@ use criterion::{black_box, Benchmark, Criterion, Throughput};
 
 use libzmq::{prelude::*, *};
 
+use lazy_static::lazy_static;
 use rand::{distributions::Standard, Rng};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
-use lazy_static::lazy_static;
 
 use std::convert::TryInto;
 
@@ -15,7 +15,6 @@ const MSG_SIZE_BYTES: [usize; 3] = [10, 50, 100];
 lazy_static! {
     static ref ENDPOINT: Endpoint = "inproc://bench".try_into().unwrap();
 }
-
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
     let mut rng: Isaac64Rng = SeedableRng::seed_from_u64(123490814327);

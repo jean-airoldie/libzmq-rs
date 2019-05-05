@@ -17,7 +17,7 @@ fn send(
     socket_ptr: *mut c_void,
     mut msg: Msg,
     no_block: bool,
-) -> Result<(), Error> {
+) -> Result<(), Error<Msg>> {
     let rc = unsafe {
         sys::zmq_msg_send(msg.as_mut_ptr(), socket_ptr, no_block as c_int)
     };
@@ -26,7 +26,9 @@ fn send(
         let errno = unsafe { sys::zmq_errno() };
         let err = {
             match errno {
-                errno::EAGAIN => Error::with_msg(ErrorKind::WouldBlock, msg),
+                errno::EAGAIN => {
+                    Error::with_content(ErrorKind::WouldBlock, msg)
+                }
                 errno::ENOTSUP => {
                     panic!("send is not supported by socket type")
                 }
@@ -36,12 +38,16 @@ fn send(
                 errno::EFSM => panic!(
                     "operation cannot be completed in current socket state"
                 ),
-                errno::ETERM => Error::with_msg(ErrorKind::CtxTerminated, msg),
+                errno::ETERM => {
+                    Error::with_content(ErrorKind::CtxTerminated, msg)
+                }
                 errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EINTR => Error::with_msg(ErrorKind::Interrupted, msg),
+                errno::EINTR => {
+                    Error::with_content(ErrorKind::Interrupted, msg)
+                }
                 errno::EFAULT => panic!("invalid message"),
                 errno::EHOSTUNREACH => {
-                    Error::with_msg(ErrorKind::HostUnreachable, msg)
+                    Error::with_content(ErrorKind::HostUnreachable, msg)
                 }
                 _ => panic!(msg_from_errno(errno)),
             }
@@ -80,7 +86,7 @@ pub trait SendMsg: GetRawSocket {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn send<M>(&self, sendable: M) -> Result<(), Error>
+    fn send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
     where
         M: Into<Msg>,
     {
@@ -114,7 +120,7 @@ pub trait SendMsg: GetRawSocket {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn try_send<M>(&self, sendable: M) -> Result<(), Error>
+    fn try_send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
     where
         M: Into<Msg>,
     {

@@ -185,11 +185,11 @@ impl RadioConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Radio, Error> {
+    pub fn build(&self) -> Result<Radio, failure::Error> {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -200,7 +200,7 @@ impl RadioConfig {
         Ok(radio)
     }
 
-    pub fn apply(&self, radio: &Radio) -> Result<(), Error> {
+    pub fn apply(&self, radio: &Radio) -> Result<(), failure::Error> {
         self.socket_config.apply(radio)?;
         self.send_config.apply(radio)?;
 
@@ -246,11 +246,11 @@ impl RadioBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Radio, Error> {
+    pub fn build(&self) -> Result<Radio, failure::Error> {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, failure::Error>
     where
         C: Into<Ctx>,
     {
