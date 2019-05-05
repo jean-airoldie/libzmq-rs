@@ -5,10 +5,9 @@ use sys::errno;
 use serde::{Deserialize, Serialize};
 
 use std::{
-    convert::{TryFrom, TryInto},
     ffi::{c_void, CString},
     str,
-    sync::{Arc, LockResult, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
@@ -157,7 +156,7 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn join<'a, I, G>(&self, groups: I) -> Result<(), Error>
+    pub fn join<I, G>(&self, groups: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = G>,
         G: Into<GroupOwned>,
@@ -231,7 +230,7 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<'a, I, G>(&self, groups: I) -> Result<(), Error>
+    pub fn leave<I, G>(&self, groups: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = G>,
         G: Into<GroupOwned>,

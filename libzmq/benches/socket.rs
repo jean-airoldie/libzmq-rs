@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 
 use std::convert::TryInto;
 
-const MSG_AMOUNT: usize = 1_000_000;
+const MSG_AMOUNT: usize = 100_000;
 const MSG_SIZE_BYTES: [usize; 3] = [10, 50, 100];
 
 lazy_static! {
@@ -76,7 +76,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                         let mut data: Msg = data.into();
                         data.set_group("group").unwrap();
                         producer.send(data).unwrap();
-                        consumer.recv(&mut msg).unwrap();
+                        let _ = consumer.try_recv(&mut msg);
                     }
                 });
 
@@ -97,7 +97,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                 });
             })
             .throughput(Throughput::Bytes((MSG_AMOUNT * msg_size) as u32))
-            .sample_size(10),
+            .sample_size(30),
         );
     }
 }
