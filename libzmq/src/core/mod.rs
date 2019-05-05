@@ -43,12 +43,12 @@ use sys::errno;
 
 use serde::{Deserialize, Serialize};
 
-use std::{ffi::CString, os::raw::c_void, time::Duration};
+use std::{ffi::CString, os::raw::c_void, sync::MutexGuard, time::Duration};
 
 const MAX_HB_TTL: i64 = 6_553_599;
 
-fn connect(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_connect(mut_raw_socket, c_str.as_ptr()) };
+fn connect(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_connect(socket_ptr, c_str.as_ptr()) };
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
@@ -76,8 +76,8 @@ fn connect(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
     }
 }
 
-fn bind(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_bind(mut_raw_socket, c_str.as_ptr()) };
+fn bind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_bind(socket_ptr, c_str.as_ptr()) };
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
@@ -108,11 +108,8 @@ fn bind(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
     }
 }
 
-fn disconnect(
-    mut_raw_socket: *mut c_void,
-    c_str: CString,
-) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_disconnect(mut_raw_socket, c_str.as_ptr()) };
+fn disconnect(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_disconnect(socket_ptr, c_str.as_ptr()) };
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
@@ -136,8 +133,8 @@ fn disconnect(
     }
 }
 
-fn unbind(mut_raw_socket: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_unbind(mut_raw_socket, c_str.as_ptr()) };
+fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_unbind(socket_ptr, c_str.as_ptr()) };
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
@@ -184,13 +181,47 @@ pub trait Socket: GetRawSocket {
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn connect<E>(&self, endpoint: E) -> Result<(), Error>
+    fn connect<E>(&self, endpoints: E) -> Result<(), Error>
     where
-        E: AsRef<Endpoint>,
+        E: IntoIterator<Item = Endpoint>,
     {
-        let endpoint = endpoint.as_ref();
-        let c_str = CString::new(endpoint.to_string()).unwrap();
-        connect(self.mut_raw_socket(), c_str)
+        for endpoint in endpoints.into_iter() {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let raw_socket = self.raw_socket();
+            connect(raw_socket.as_mut_ptr(), c_str)?;
+
+            raw_socket.connected().lock().unwrap().push(endpoint);
+        }
+        Ok(())
+    }
+
+    /// Returns a `MutexGuard` containing all the endpoints the socket is
+    /// currently connected to.
+    ///
+    /// Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Client, Endpoint};
+    /// use std::convert::TryFrom;
+    ///
+    /// let endpoint = Endpoint::try_from("inproc://test")?;
+    ///
+    /// let client = Client::new()?;
+    /// assert!(client.connected().is_empty());
+    ///
+    /// client.connect(endpoint.clone())?;
+    /// assert!(client.connected().contains(&endpoint));
+    ///
+    /// client.disconnect(endpoint)?;
+    /// assert!(client.connected().is_empty());
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    fn connected(&self) -> MutexGuard<Vec<Endpoint>> {
+        self.raw_socket().connected().lock().unwrap()
     }
 
     /// Disconnect the socket from the endpoint.
@@ -214,13 +245,58 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn disconnect<E>(&self, endpoint: E) -> Result<(), Error>
+    fn disconnect<E>(&self, endpoints: E) -> Result<(), Error>
     where
-        E: AsRef<Endpoint>,
+        E: IntoIterator<Item = Endpoint>,
     {
-        let endpoint = endpoint.as_ref();
-        let c_str = CString::new(endpoint.to_string()).unwrap();
-        disconnect(self.mut_raw_socket(), c_str)
+        for endpoint in endpoints.into_iter() {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let raw_socket = self.raw_socket();
+            disconnect(raw_socket.as_mut_ptr(), c_str)?;
+
+            let mut connected = raw_socket.connected().lock().unwrap();
+            let position =
+                connected.iter().position(|e| e == &endpoint).unwrap();
+            connected.remove(position);
+        }
+        Ok(())
+    }
+
+    /// Returns a `MutexGuard` containing a all the endpoints currently
+    /// bound to.
+    /// Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Radio, Endpoint};
+    /// use std::convert::TryFrom;
+    ///
+    /// let first = Endpoint::try_from("inproc://test1")?;
+    /// let second = Endpoint::try_from("inproc://test2")?;
+    ///
+    /// let radio = Radio::new()?;
+    /// assert!(radio.bound().is_empty());
+    ///
+    /// radio.bind(vec![first.clone(), second.clone()])?;
+    /// {
+    ///     let bound = radio.bound();
+    ///     assert!(bound.contains(&first));
+    ///     assert!(bound.contains(&second));
+    /// }
+    ///
+    /// radio.unbind(first.clone())?;
+    /// {
+    ///     let bound = radio.bound();
+    ///     assert!(!bound.contains(&first));
+    ///     assert!(bound.contains(&second));
+    /// }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    fn bound(&self) -> MutexGuard<Vec<Endpoint>> {
+        self.raw_socket().bound().lock().unwrap()
     }
 
     /// Binds the socket to a local [`endpoint`] and then accepts incoming
@@ -248,13 +324,18 @@ pub trait Socket: GetRawSocket {
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    fn bind<E>(&self, endpoint: E) -> Result<(), Error>
+    fn bind<E>(&self, endpoints: E) -> Result<(), Error>
     where
-        E: AsRef<Endpoint>,
+        E: IntoIterator<Item = Endpoint>,
     {
-        let endpoint = endpoint.as_ref();
-        let c_str = CString::new(endpoint.to_string()).unwrap();
-        bind(self.mut_raw_socket(), c_str)
+        for endpoint in endpoints.into_iter() {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let raw_socket = self.raw_socket();
+            bind(self.raw_socket().as_mut_ptr(), c_str)?;
+
+            raw_socket.bound().lock().unwrap().push(endpoint);
+        }
+        Ok(())
     }
 
     /// Unbinds the socket from the endpoint.
@@ -278,13 +359,20 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn unbind<E>(&self, endpoint: E) -> Result<(), Error>
+    fn unbind<E>(&self, endpoints: E) -> Result<(), Error>
     where
-        E: AsRef<Endpoint>,
+        E: IntoIterator<Item = Endpoint>,
     {
-        let endpoint = endpoint.as_ref();
-        let c_str = CString::new(endpoint.to_string()).unwrap();
-        unbind(self.mut_raw_socket(), c_str)
+        for endpoint in endpoints.into_iter() {
+            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let raw_socket = self.raw_socket();
+            unbind(self.raw_socket().as_mut_ptr(), c_str)?;
+
+            let mut bound = raw_socket.bound().lock().unwrap();
+            let position = bound.iter().position(|e| e == &endpoint).unwrap();
+            bound.remove(position);
+        }
+        Ok(())
     }
 
     /// Retrieve the maximum length of the queue of outstanding peer connections.
@@ -293,9 +381,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn backlog(&self) -> Result<i32, Error> {
-        // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_scalar(mut_raw_socket, SocketOption::Backlog)
+        getsockopt_scalar(self.raw_socket().as_mut_ptr(), SocketOption::Backlog)
     }
 
     /// Set the maximum length of the queue of outstanding peer connections
@@ -312,7 +398,11 @@ pub trait Socket: GetRawSocket {
     ///
     /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
     fn set_backlog(&self, value: i32) -> Result<(), Error> {
-        setsockopt_scalar(self.mut_raw_socket(), SocketOption::Backlog, value)
+        setsockopt_scalar(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::Backlog,
+            value,
+        )
     }
 
     /// Retrieves how many milliseconds to wait before timing-out a [`connect`]
@@ -323,9 +413,11 @@ pub trait Socket: GetRawSocket {
     /// [`connect`]: #method.connect
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn connect_timeout(&self) -> Result<Option<Duration>, Error> {
-        // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::ConnectTimeout, -1)
+        getsockopt_duration(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::ConnectTimeout,
+            -1,
+        )
     }
 
     /// Sets how much time to wait before timing-out a [`connect`] call.
@@ -348,9 +440,8 @@ pub trait Socket: GetRawSocket {
                 "number of ms in duration cannot be zero"
             );
         }
-        // This is safe the call does not actually mutate the socket.
         setsockopt_duration(
-            self.mut_raw_socket(),
+            self.raw_socket().as_mut_ptr(),
             SocketOption::ConnectTimeout,
             maybe_duration,
             0,
@@ -359,9 +450,11 @@ pub trait Socket: GetRawSocket {
 
     /// The interval between sending ZMTP heartbeats.
     fn heartbeat_interval(&self) -> Result<Option<Duration>, Error> {
-        // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatInterval, 0)
+        getsockopt_duration(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::HeartbeatInterval,
+            0,
+        )
     }
 
     /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
@@ -376,7 +469,7 @@ pub trait Socket: GetRawSocket {
         maybe_duration: Option<Duration>,
     ) -> Result<(), Error> {
         setsockopt_duration(
-            self.mut_raw_socket(),
+            self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatInterval,
             maybe_duration,
             0,
@@ -386,9 +479,11 @@ pub trait Socket: GetRawSocket {
     /// How long to wait before timing-out a connection after sending a
     /// PING ZMTP command and not receiving any traffic.
     fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error> {
-        // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTimeout, 0)
+        getsockopt_duration(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::HeartbeatTimeout,
+            0,
+        )
     }
 
     /// How long to wait before timing-out a connection after sending a
@@ -402,7 +497,7 @@ pub trait Socket: GetRawSocket {
         maybe_duration: Option<Duration>,
     ) -> Result<(), Error> {
         setsockopt_duration(
-            self.mut_raw_socket(),
+            self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatTimeout,
             maybe_duration,
             0,
@@ -414,9 +509,11 @@ pub trait Socket: GetRawSocket {
     /// side shall time out the connection if it does not receive any more
     /// traffic within the TTL period.
     fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error> {
-        // This is safe the call does not actually mutate the socket.
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::HeartbeatTtl, 0)
+        getsockopt_duration(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::HeartbeatTtl,
+            0,
+        )
     }
 
     /// Set timeout on the remote peer for ZMTP heartbeats.
@@ -439,7 +536,7 @@ pub trait Socket: GetRawSocket {
             }
         }
         setsockopt_duration(
-            self.mut_raw_socket(),
+            self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatTtl,
             maybe_duration,
             0,
@@ -448,9 +545,11 @@ pub trait Socket: GetRawSocket {
 
     /// Returns the linger period for the socket shutdown.
     fn linger(&self) -> Result<Option<Duration>, Error> {
-        // This is safe since the call does not actually mutate the socket.
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::Linger, -1)
+        getsockopt_duration(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::Linger,
+            -1,
+        )
     }
 
     /// Sets the linger period for the socket shutdown.
@@ -468,7 +567,7 @@ pub trait Socket: GetRawSocket {
         maybe_duration: Option<Duration>,
     ) -> Result<(), Error> {
         setsockopt_duration(
-            self.mut_raw_socket(),
+            self.raw_socket().as_mut_ptr(),
             SocketOption::Linger,
             maybe_duration,
             -1,
@@ -514,12 +613,12 @@ impl SocketConfig {
         // only affect subsequent connections.
         if let Some(ref endpoints) = self.connect {
             for endpoint in endpoints {
-                socket.connect(endpoint)?;
+                socket.connect(endpoint.to_owned())?;
             }
         }
         if let Some(ref endpoints) = self.bind {
             for endpoint in endpoints {
-                socket.bind(endpoint)?;
+                socket.bind(endpoint.to_owned())?;
             }
         }
         Ok(())
@@ -530,7 +629,7 @@ impl SocketConfig {
 pub trait GetSocketConfig: private::Sealed {
     fn socket_config(&self) -> &SocketConfig;
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig;
+    fn socket_config_mut(&mut self) -> &mut SocketConfig;
 }
 
 impl GetSocketConfig for SocketConfig {
@@ -538,7 +637,7 @@ impl GetSocketConfig for SocketConfig {
         self
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
         self
     }
 }
@@ -554,7 +653,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     {
         let maybe_vec: Option<Vec<Endpoint>> =
             maybe_endpoints.map(|e| e.into_iter().collect());
-        self.mut_socket_config().connect = maybe_vec;
+        self.socket_config_mut().connect = maybe_vec;
     }
 
     fn bind(&self) -> Option<&[Endpoint]> {
@@ -567,7 +666,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     {
         let maybe_vec: Option<Vec<Endpoint>> =
             maybe_endpoints.map(|e| e.into_iter().collect());
-        self.mut_socket_config().bind = maybe_vec;
+        self.socket_config_mut().bind = maybe_vec;
     }
 
     fn backlog(&self) -> Option<i32> {
@@ -575,7 +674,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     }
 
     fn set_backlog(&mut self, maybe_backlog: Option<i32>) {
-        self.mut_socket_config().backlog = maybe_backlog;
+        self.socket_config_mut().backlog = maybe_backlog;
     }
 
     fn connect_timeout(&self) -> Option<Duration> {
@@ -583,7 +682,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     }
 
     fn set_connect_timeout(&mut self, maybe_duration: Option<Duration>) {
-        self.mut_socket_config().connect_timeout = maybe_duration;
+        self.socket_config_mut().connect_timeout = maybe_duration;
     }
 
     fn heartbeat_interval(&self) -> Option<Duration> {
@@ -591,7 +690,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     }
 
     fn set_heartbeat_interval(&mut self, maybe_duration: Option<Duration>) {
-        self.mut_socket_config().heartbeat_interval = maybe_duration;
+        self.socket_config_mut().heartbeat_interval = maybe_duration;
     }
 
     fn heartbeat_timeout(&self) -> Option<Duration> {
@@ -599,7 +698,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     }
 
     fn set_heartbeat_timeout(&mut self, maybe_duration: Option<Duration>) {
-        self.mut_socket_config().heartbeat_timeout = maybe_duration;
+        self.socket_config_mut().heartbeat_timeout = maybe_duration;
     }
 
     fn heartbeat_ttl(&self) -> Option<Duration> {
@@ -607,7 +706,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     }
 
     fn set_heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) {
-        self.mut_socket_config().heartbeat_ttl = maybe_duration;
+        self.socket_config_mut().heartbeat_ttl = maybe_duration;
     }
 
     fn linger(&self) -> Option<Duration> {
@@ -615,7 +714,7 @@ pub trait ConfigureSocket: GetSocketConfig {
     }
 
     fn set_linger(&mut self, maybe_duration: Option<Duration>) {
-        self.mut_socket_config().linger = maybe_duration;
+        self.socket_config_mut().linger = maybe_duration;
     }
 }
 
@@ -626,7 +725,7 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     where
         E: IntoIterator<Item = Endpoint>,
     {
-        self.mut_socket_config().set_connect(Some(endpoints));
+        self.socket_config_mut().set_connect(Some(endpoints));
         self
     }
 
@@ -634,12 +733,12 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     where
         E: IntoIterator<Item = Endpoint>,
     {
-        self.mut_socket_config().set_bind(Some(endpoints));
+        self.socket_config_mut().set_bind(Some(endpoints));
         self
     }
 
     fn backlog(&mut self, len: i32) -> &mut Self {
-        self.mut_socket_config().set_backlog(Some(len));
+        self.socket_config_mut().set_backlog(Some(len));
         self
     }
 
@@ -647,7 +746,7 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        self.mut_socket_config().set_connect_timeout(maybe_duration);
+        self.socket_config_mut().set_connect_timeout(maybe_duration);
         self
     }
 
@@ -655,7 +754,7 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        self.mut_socket_config()
+        self.socket_config_mut()
             .set_heartbeat_interval(maybe_duration);
         self
     }
@@ -664,18 +763,18 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         &mut self,
         maybe_duration: Option<Duration>,
     ) -> &mut Self {
-        self.mut_socket_config()
+        self.socket_config_mut()
             .set_heartbeat_timeout(maybe_duration);
         self
     }
 
     fn heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        self.mut_socket_config().set_heartbeat_ttl(maybe_duration);
+        self.socket_config_mut().set_heartbeat_ttl(maybe_duration);
         self
     }
 
     fn linger(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        self.mut_socket_config().set_linger(maybe_duration);
+        self.socket_config_mut().set_linger(maybe_duration);
         self
     }
 }

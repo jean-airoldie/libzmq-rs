@@ -2,7 +2,7 @@ use crate::{core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{os::raw::c_void, sync::Arc};
+use std::{sync::Arc};
 
 /// A `Client` socket is used for advanced request-reply messaging.
 ///
@@ -69,18 +69,13 @@ impl Client {
 
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> &crate::Ctx {
-        &self.inner.ctx
+        self.inner.ctx()
     }
 }
 
 impl GetRawSocket for Client {
-    fn raw_socket(&self) -> *const c_void {
-        self.inner.socket
-    }
-
-    // This is safe as long as it is only used by libzmq.
-    fn mut_raw_socket(&self) -> *mut c_void {
-        self.inner.socket as *mut _
+    fn raw_socket(&self) -> &RawSocket {
+        &self.inner
     }
 }
 
@@ -136,7 +131,7 @@ impl GetSocketConfig for ClientConfig {
         &self.socket_config
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
         &mut self.socket_config
     }
 }
@@ -148,7 +143,7 @@ impl GetRecvConfig for ClientConfig {
         &self.recv_config
     }
 
-    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+    fn recv_config_mut(&mut self) -> &mut RecvConfig {
         &mut self.recv_config
     }
 }
@@ -160,7 +155,7 @@ impl GetSendConfig for ClientConfig {
         &self.send_config
     }
 
-    fn mut_send_config(&mut self) -> &mut SendConfig {
+    fn send_config_mut(&mut self) -> &mut SendConfig {
         &mut self.send_config
     }
 }
@@ -191,8 +186,8 @@ impl GetSocketConfig for ClientBuilder {
         self.inner.socket_config()
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
-        self.inner.mut_socket_config()
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
+        self.inner.socket_config_mut()
     }
 }
 
@@ -203,8 +198,8 @@ impl GetSendConfig for ClientBuilder {
         self.inner.send_config()
     }
 
-    fn mut_send_config(&mut self) -> &mut SendConfig {
-        self.inner.mut_send_config()
+    fn send_config_mut(&mut self) -> &mut SendConfig {
+        self.inner.send_config_mut()
     }
 }
 
@@ -215,8 +210,8 @@ impl GetRecvConfig for ClientBuilder {
         self.inner.recv_config()
     }
 
-    fn mut_recv_config(&mut self) -> &mut RecvConfig {
-        self.inner.mut_recv_config()
+    fn recv_config_mut(&mut self) -> &mut RecvConfig {
+        self.inner.recv_config_mut()
     }
 }
 

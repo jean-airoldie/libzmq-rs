@@ -6,7 +6,7 @@ use crate::{
 
 use serde::{Deserialize, Serialize};
 
-use std::{os::raw::c_void, sync::Arc};
+use std::sync::Arc;
 
 /// A `Radio` socket is used by a publisher to distribute data to [`Radio`]
 /// sockets.
@@ -40,9 +40,9 @@ use std::{os::raw::c_void, sync::Arc};
 ///
 ///
 /// // We connect them.
-/// radio.bind(&endpoint)?;
-/// first.connect(&endpoint)?;
-/// second.connect(&endpoint)?;
+/// radio.bind(endpoint.clone())?;
+/// first.connect(endpoint.clone())?;
+/// second.connect(endpoint)?;
 ///
 /// // Each dish will only receive messages from that group.
 /// first.join("A")?;
@@ -122,12 +122,12 @@ impl Radio {
 
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> &crate::Ctx {
-        &self.inner.ctx
+        self.inner.ctx()
     }
 
     /// Returns `true` if the `no_drop` option is set.
     pub fn no_drop(&self) -> Result<bool, Error> {
-        getsockopt_bool(self.mut_raw_socket(), SocketOption::NoDrop)
+        getsockopt_bool(self.raw_socket().as_mut_ptr(), SocketOption::NoDrop)
     }
 
     /// Sets the socket's behaviour to block instead of drop messages when
@@ -139,18 +139,17 @@ impl Radio {
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`send_high_water_mark`]: #method.send_high_water_mark
     pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
-        setsockopt_bool(self.mut_raw_socket(), SocketOption::NoDrop, enabled)
+        setsockopt_bool(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::NoDrop,
+            enabled,
+        )
     }
 }
 
 impl GetRawSocket for Radio {
-    fn raw_socket(&self) -> *const c_void {
-        self.inner.socket
-    }
-
-    // This is safe as long as it is only used by libzmq.
-    fn mut_raw_socket(&self) -> *mut c_void {
-        self.inner.socket as *mut _
+    fn raw_socket(&self) -> &RawSocket {
+        &self.inner
     }
 }
 
@@ -210,7 +209,7 @@ impl GetSocketConfig for RadioConfig {
         &self.socket_config
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
         &mut self.socket_config
     }
 }
@@ -222,7 +221,7 @@ impl GetSendConfig for RadioConfig {
         &self.send_config
     }
 
-    fn mut_send_config(&mut self) -> &mut SendConfig {
+    fn send_config_mut(&mut self) -> &mut SendConfig {
         &mut self.send_config
     }
 }
@@ -253,8 +252,8 @@ impl GetSocketConfig for RadioBuilder {
         self.inner.socket_config()
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
-        self.inner.mut_socket_config()
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
+        self.inner.socket_config_mut()
     }
 }
 
@@ -265,8 +264,8 @@ impl GetSendConfig for RadioBuilder {
         self.inner.send_config()
     }
 
-    fn mut_send_config(&mut self) -> &mut SendConfig {
-        self.inner.mut_send_config()
+    fn send_config_mut(&mut self) -> &mut SendConfig {
+        self.inner.send_config_mut()
     }
 }
 

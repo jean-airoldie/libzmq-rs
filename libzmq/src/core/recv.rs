@@ -14,12 +14,12 @@ use std::{
 };
 
 fn recv(
-    mut_raw_socket: *mut c_void,
+    socket_ptr: *mut c_void,
     msg: &mut Msg,
     no_block: bool,
 ) -> Result<(), Error> {
     let rc = unsafe {
-        sys::zmq_msg_recv(msg.as_mut_ptr(), mut_raw_socket, no_block as c_int)
+        sys::zmq_msg_recv(msg.as_mut_ptr(), socket_ptr, no_block as c_int)
     };
 
     if rc == -1 {
@@ -63,7 +63,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     fn recv(&self, msg: &mut Msg) -> Result<(), Error> {
-        recv(self.mut_raw_socket(), msg, false)
+        recv(self.raw_socket().as_mut_ptr(), msg, false)
     }
 
     /// Try to retrieve a message from the inbound socket queue without blocking.
@@ -84,7 +84,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     fn try_recv(&self, msg: &mut Msg) -> Result<(), Error> {
-        recv(self.mut_raw_socket(), msg, true)
+        recv(self.raw_socket().as_mut_ptr(), msg, true)
     }
 
     /// A convenience function that allocates a [`Msg`] with the same properties
@@ -118,9 +118,10 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        let limit =
-            getsockopt_scalar(mut_raw_socket, SocketOption::RecvHighWaterMark)?;
+        let limit = getsockopt_scalar(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::RecvHighWaterMark,
+        )?;
 
         if limit == 0 {
             Ok(None)
@@ -144,17 +145,18 @@ pub trait RecvMsg: GetRawSocket {
         &self,
         maybe_limit: Option<i32>,
     ) -> Result<(), Error> {
+        let socket_ptr = self.raw_socket().as_mut_ptr();
         match maybe_limit {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
                 setsockopt_scalar(
-                    self.mut_raw_socket(),
+                    socket_ptr,
                     SocketOption::RecvHighWaterMark,
                     limit,
                 )
             }
             None => setsockopt_scalar(
-                self.mut_raw_socket(),
+                socket_ptr,
                 SocketOption::RecvHighWaterMark,
                 0,
             ),
@@ -167,8 +169,11 @@ pub trait RecvMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
     fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::RecvTimeout, -1)
+        getsockopt_duration(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::RecvTimeout,
+            -1,
+        )
     }
 
     /// Sets the timeout for [`recv`] on the socket.
@@ -181,7 +186,7 @@ pub trait RecvMsg: GetRawSocket {
         maybe_duration: Option<Duration>,
     ) -> Result<(), Error> {
         setsockopt_duration(
-            self.mut_raw_socket(),
+            self.raw_socket().as_mut_ptr(),
             SocketOption::RecvTimeout,
             maybe_duration,
             -1,
@@ -211,7 +216,7 @@ impl RecvConfig {
 pub trait GetRecvConfig: private::Sealed {
     fn recv_config(&self) -> &RecvConfig;
 
-    fn mut_recv_config(&mut self) -> &mut RecvConfig;
+    fn recv_config_mut(&mut self) -> &mut RecvConfig;
 }
 
 pub trait ConfigureRecv: GetRecvConfig {
@@ -226,13 +231,13 @@ pub trait ConfigureRecv: GetRecvConfig {
 
 pub trait BuildRecv: GetRecvConfig {
     fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        let mut config = self.mut_recv_config();
+        let mut config = self.recv_config_mut();
         config.recv_high_water_mark = Some(hwm);
         self
     }
 
     fn recv_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
-        let mut config = self.mut_recv_config();
+        let mut config = self.recv_config_mut();
         config.recv_timeout = timeout;
         self
     }

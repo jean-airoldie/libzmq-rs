@@ -1,16 +1,17 @@
-use crate::{error::*, Ctx};
+use crate::{error::*, Ctx, Endpoint};
 use libzmq_sys as sys;
 use sys::errno;
 
 use log::error;
 
-use std::os::raw::{c_int, c_void};
+use std::{
+    os::raw::{c_int, c_void},
+    sync::Mutex,
+};
 
 #[doc(hidden)]
 pub trait GetRawSocket: super::private::Sealed {
-    fn raw_socket(&self) -> *const c_void;
-
-    fn mut_raw_socket(&self) -> *mut c_void;
+    fn raw_socket(&self) -> &RawSocket;
 }
 
 pub(crate) enum RawSocketType {
@@ -31,10 +32,13 @@ impl Into<c_int> for RawSocketType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct RawSocket {
-    pub(crate) ctx: Ctx,
-    pub(crate) socket: *mut c_void,
+#[derive(Debug)]
+#[doc(hidden)]
+pub struct RawSocket {
+    socket_mut_ptr: *mut c_void,
+    ctx: Ctx,
+    connected: Mutex<Vec<Endpoint>>,
+    bound: Mutex<Vec<Endpoint>>,
 }
 
 impl RawSocket {
@@ -48,9 +52,10 @@ impl RawSocket {
         sock_type: RawSocketType,
         ctx: Ctx,
     ) -> Result<Self, Error> {
-        let socket = unsafe { sys::zmq_socket(ctx.as_ptr(), sock_type.into()) };
+        let socket_mut_ptr =
+            unsafe { sys::zmq_socket(ctx.as_ptr(), sock_type.into()) };
 
-        if socket.is_null() {
+        if socket_mut_ptr.is_null() {
             let errno = unsafe { sys::zmq_errno() };
             let err = match errno {
                 errno::EINVAL => panic!("invalid socket type"),
@@ -62,10 +67,40 @@ impl RawSocket {
 
             Err(err)
         } else {
-            Ok(Self { ctx, socket })
+            Ok(Self {
+                ctx,
+                socket_mut_ptr,
+                connected: Mutex::default(),
+                bound: Mutex::default(),
+            })
         }
     }
+
+    pub(crate) fn ctx(&self) -> &Ctx {
+        &self.ctx
+    }
+
+    /// This is safe since the pointed socket is thread safe.
+    pub(crate) fn as_mut_ptr(&self) -> *mut c_void {
+        self.socket_mut_ptr
+    }
+
+    pub(crate) fn connected(&self) -> &Mutex<Vec<Endpoint>> {
+        &self.connected
+    }
+
+    pub(crate) fn bound(&self) -> &Mutex<Vec<Endpoint>> {
+        &self.bound
+    }
 }
+
+impl PartialEq for RawSocket {
+    fn eq(&self, other: &RawSocket) -> bool {
+        self.socket_mut_ptr == other.socket_mut_ptr
+    }
+}
+
+impl Eq for RawSocket {}
 
 impl Drop for RawSocket {
     /// Close the ØMQ socket.
@@ -74,7 +109,7 @@ impl Drop for RawSocket {
     ///
     /// [`zmq_close`]: http://api.zeromq.org/master:zmq-close
     fn drop(&mut self) {
-        let rc = unsafe { sys::zmq_close(self.socket) };
+        let rc = unsafe { sys::zmq_close(self.socket_mut_ptr) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };

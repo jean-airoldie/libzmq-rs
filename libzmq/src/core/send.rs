@@ -14,13 +14,12 @@ use std::{
 };
 
 fn send(
-    mut_raw_socket: *mut c_void,
+    socket_ptr: *mut c_void,
     mut msg: Msg,
     no_block: bool,
 ) -> Result<(), Error> {
-    let mut_msg_ptr = msg.as_mut_ptr();
     let rc = unsafe {
-        sys::zmq_msg_send(mut_msg_ptr, mut_raw_socket, no_block as c_int)
+        sys::zmq_msg_send(msg.as_mut_ptr(), socket_ptr, no_block as c_int)
     };
 
     if rc == -1 {
@@ -86,7 +85,7 @@ pub trait SendMsg: GetRawSocket {
         M: Into<Msg>,
     {
         let msg: Msg = sendable.into();
-        send(self.mut_raw_socket(), msg, false)
+        send(self.raw_socket().as_mut_ptr(), msg, false)
     }
 
     /// Try to push a message into the outgoing socket queue without blocking.
@@ -120,7 +119,7 @@ pub trait SendMsg: GetRawSocket {
         M: Into<Msg>,
     {
         let msg: Msg = sendable.into();
-        send(self.mut_raw_socket(), msg, true)
+        send(self.raw_socket().as_mut_ptr(), msg, true)
     }
 
     /// The high water mark for outbound messages on the specified socket.
@@ -130,9 +129,10 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     fn send_high_water_mark(&self) -> Result<Option<i32>, Error> {
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        let limit =
-            getsockopt_scalar(mut_raw_socket, SocketOption::SendHighWaterMark)?;
+        let limit = getsockopt_scalar(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::SendHighWaterMark,
+        )?;
 
         if limit == 0 {
             Ok(None)
@@ -156,17 +156,18 @@ pub trait SendMsg: GetRawSocket {
         &self,
         high_water_mark: Option<i32>,
     ) -> Result<(), Error> {
+        let socket_ptr = self.raw_socket().as_mut_ptr();
         match high_water_mark {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
                 setsockopt_scalar(
-                    self.mut_raw_socket(),
+                    socket_ptr,
                     SocketOption::SendHighWaterMark,
                     limit,
                 )
             }
             None => setsockopt_scalar(
-                self.mut_raw_socket(),
+                socket_ptr,
                 SocketOption::SendHighWaterMark,
                 0,
             ),
@@ -179,8 +180,11 @@ pub trait SendMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise,
     /// it will block until the message is sent.
     fn send_timeout(&self) -> Result<Option<Duration>, Error> {
-        let mut_raw_socket = self.raw_socket() as *mut _;
-        getsockopt_duration(mut_raw_socket, SocketOption::SendTimeout, -1)
+        getsockopt_duration(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::SendTimeout,
+            -1,
+        )
     }
 
     /// Sets the timeout for [`send`] on the socket.
@@ -213,7 +217,7 @@ pub trait SendMsg: GetRawSocket {
     /// ```
     fn set_send_timeout(&self, timeout: Option<Duration>) -> Result<(), Error> {
         setsockopt_duration(
-            self.mut_raw_socket(),
+            self.raw_socket().as_mut_ptr(),
             SocketOption::SendTimeout,
             timeout,
             -1,
@@ -243,7 +247,7 @@ impl SendConfig {
 pub trait GetSendConfig: private::Sealed {
     fn send_config(&self) -> &SendConfig;
 
-    fn mut_send_config(&mut self) -> &mut SendConfig;
+    fn send_config_mut(&mut self) -> &mut SendConfig;
 }
 
 pub trait ConfigureSend: GetSendConfig {
@@ -258,13 +262,13 @@ pub trait ConfigureSend: GetSendConfig {
 
 pub trait BuildSend: GetSendConfig + Sized {
     fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        let mut config = self.mut_send_config();
+        let mut config = self.send_config_mut();
         config.send_high_water_mark = Some(hwm);
         self
     }
 
     fn send_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
-        let mut config = self.mut_send_config();
+        let mut config = self.send_config_mut();
         config.send_timeout = timeout;
         self
     }

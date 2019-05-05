@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     convert::{TryFrom, TryInto},
     ffi::CString,
-    os::raw::c_void,
     str,
     sync::Arc,
 };
@@ -66,7 +65,7 @@ impl Dish {
 
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> &crate::Ctx {
-        &self.inner.ctx
+        self.inner.ctx()
     }
     /// Joins the specified group.
     ///
@@ -89,8 +88,8 @@ impl Dish {
     {
         let group: &Group = group.try_into()?;
         let c_str = CString::new(group.as_str()).unwrap();
-        let rc =
-            unsafe { sys::zmq_join(self.mut_raw_socket(), c_str.as_ptr()) };
+        let socket_mut_ptr = self.raw_socket().as_mut_ptr();
+        let rc = unsafe { sys::zmq_join(socket_mut_ptr, c_str.as_ptr()) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
@@ -134,8 +133,8 @@ impl Dish {
     {
         let group: &Group = group.try_into()?;
         let c_str = CString::new(group.as_str()).unwrap();
-        let rc =
-            unsafe { sys::zmq_leave(self.mut_raw_socket(), c_str.as_ptr()) };
+        let socket_mut_ptr = self.raw_socket().as_mut_ptr();
+        let rc = unsafe { sys::zmq_leave(socket_mut_ptr, c_str.as_ptr()) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
@@ -158,13 +157,8 @@ impl Dish {
 }
 
 impl GetRawSocket for Dish {
-    fn raw_socket(&self) -> *const c_void {
-        self.inner.socket
-    }
-
-    // This is safe as long as it is only used by libzmq.
-    fn mut_raw_socket(&self) -> *mut c_void {
-        self.inner.socket as *mut _
+    fn raw_socket(&self) -> &RawSocket {
+        &self.inner
     }
 }
 
@@ -236,7 +230,7 @@ impl GetSocketConfig for DishConfig {
         &self.socket_config
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
         &mut self.socket_config
     }
 }
@@ -248,7 +242,7 @@ impl GetRecvConfig for DishConfig {
         &self.recv_config
     }
 
-    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+    fn recv_config_mut(&mut self) -> &mut RecvConfig {
         &mut self.recv_config
     }
 }
@@ -279,8 +273,8 @@ impl GetSocketConfig for DishBuilder {
         self.inner.socket_config()
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
-        self.inner.mut_socket_config()
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
+        self.inner.socket_config_mut()
     }
 }
 
@@ -291,8 +285,8 @@ impl GetRecvConfig for DishBuilder {
         self.inner.recv_config()
     }
 
-    fn mut_recv_config(&mut self) -> &mut RecvConfig {
-        self.inner.mut_recv_config()
+    fn recv_config_mut(&mut self) -> &mut RecvConfig {
+        self.inner.recv_config_mut()
     }
 }
 

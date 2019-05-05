@@ -122,7 +122,7 @@ impl Msg {
     }
 
     /// Return the message content as a mutable byte slice.
-    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
         // This is safe because we're constraining the slice to the lifetime of
         // this message.
         unsafe {
@@ -433,7 +433,7 @@ impl<'a> From<&[u8]> for Msg {
 
             ptr::copy_nonoverlapping(
                 slice.as_ptr(),
-                msg.as_mut_bytes().as_mut_ptr(),
+                msg.as_bytes_mut().as_mut_ptr(),
                 slice.len(),
             );
 

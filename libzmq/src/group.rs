@@ -1,13 +1,7 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{
-    borrow::Borrow,
-    borrow::ToOwned,
-    convert::TryFrom,
-    fmt,
-    ops, str,
-};
+use std::{borrow::Borrow, borrow::ToOwned, convert::TryFrom, fmt, ops, str};
 
 pub const MAX_GROUP_SIZE: usize = 15;
 

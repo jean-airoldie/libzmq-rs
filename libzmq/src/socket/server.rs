@@ -2,7 +2,7 @@ use crate::{core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{os::raw::c_void, sync::Arc};
+use std::sync::Arc;
 
 /// A `Server` socket is a socket used for advanced request-reply messaging.
 ///
@@ -46,7 +46,7 @@ use std::{os::raw::c_void, sync::Arc};
 /// let client = Client::new()?;
 /// let server = Server::new()?;
 ///
-/// client.connect(&endpoint)?;
+/// client.connect(endpoint.clone())?;
 /// server.bind(endpoint)?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.
@@ -118,18 +118,13 @@ impl Server {
 
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> &crate::Ctx {
-        &self.inner.ctx
+        self.inner.ctx()
     }
 }
 
 impl GetRawSocket for Server {
-    fn raw_socket(&self) -> *const c_void {
-        self.inner.socket
-    }
-
-    // This is safe as long as it is only used by libzmq.
-    fn mut_raw_socket(&self) -> *mut c_void {
-        self.inner.socket as *mut _
+    fn raw_socket(&self) -> &RawSocket {
+        &self.inner
     }
 }
 
@@ -185,7 +180,7 @@ impl GetSocketConfig for ServerConfig {
         &self.socket_config
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
         &mut self.socket_config
     }
 }
@@ -197,7 +192,7 @@ impl GetRecvConfig for ServerConfig {
         &self.recv_config
     }
 
-    fn mut_recv_config(&mut self) -> &mut RecvConfig {
+    fn recv_config_mut(&mut self) -> &mut RecvConfig {
         &mut self.recv_config
     }
 }
@@ -209,7 +204,7 @@ impl GetSendConfig for ServerConfig {
         &self.send_config
     }
 
-    fn mut_send_config(&mut self) -> &mut SendConfig {
+    fn send_config_mut(&mut self) -> &mut SendConfig {
         &mut self.send_config
     }
 }
@@ -240,8 +235,8 @@ impl GetSocketConfig for ServerBuilder {
         self.inner.socket_config()
     }
 
-    fn mut_socket_config(&mut self) -> &mut SocketConfig {
-        self.inner.mut_socket_config()
+    fn socket_config_mut(&mut self) -> &mut SocketConfig {
+        self.inner.socket_config_mut()
     }
 }
 
@@ -252,8 +247,8 @@ impl GetSendConfig for ServerBuilder {
         self.inner.send_config()
     }
 
-    fn mut_send_config(&mut self) -> &mut SendConfig {
-        self.inner.mut_send_config()
+    fn send_config_mut(&mut self) -> &mut SendConfig {
+        self.inner.send_config_mut()
     }
 }
 
@@ -264,8 +259,8 @@ impl GetRecvConfig for ServerBuilder {
         self.inner.recv_config()
     }
 
-    fn mut_recv_config(&mut self) -> &mut RecvConfig {
-        self.inner.mut_recv_config()
+    fn recv_config_mut(&mut self) -> &mut RecvConfig {
+        self.inner.recv_config_mut()
     }
 }
 

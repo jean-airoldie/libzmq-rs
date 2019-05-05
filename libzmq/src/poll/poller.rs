@@ -206,10 +206,10 @@ impl IntoIterator for Events {
 /// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
 ///
 /// let server = Server::new()?;
-/// server.bind(&endpoint)?;
+/// server.bind(endpoint.clone())?;
 ///
 /// let client = Client::new()?;
-/// client.connect(&endpoint)?;
+/// client.connect(endpoint)?;
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
@@ -289,17 +289,16 @@ impl Poller {
         token: Token,
         flags: Flags,
     ) -> Result<(), Error> {
-        // This is safe since we won't actually mutate the socket.
-        let mut_raw_socket = socket.raw_socket() as *mut c_void;
+        let socket_mut_ptr = socket.raw_socket().as_mut_ptr();
 
         let user_data: usize = token.into();
-        let mut_user_data = user_data as *mut usize as *mut c_void;
+        let user_data = user_data as *mut usize as *mut c_void;
 
         let rc = unsafe {
             sys::zmq_poller_add(
                 self.poller,
-                mut_raw_socket,
-                mut_user_data,
+                socket_mut_ptr,
+                user_data,
                 flags.bits(),
             )
         };
@@ -345,10 +344,9 @@ impl Poller {
     /// # }
     /// ```
     pub fn remove(&mut self, socket: &GetRawSocket) -> Result<(), Error> {
-        // This is safe since we don't actually mutate the socket.
-        let mut_raw_socket = socket.raw_socket() as *mut c_void;
+        let socket_mut_ptr = socket.raw_socket().as_mut_ptr();
 
-        let rc = unsafe { sys::zmq_poller_remove(self.poller, mut_raw_socket) };
+        let rc = unsafe { sys::zmq_poller_remove(self.poller, socket_mut_ptr) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
@@ -375,11 +373,10 @@ impl Poller {
         socket: &GetRawSocket,
         flags: Flags,
     ) -> Result<(), Error> {
-        // This is safe since we don't actually mutate the socket.
-        let mut_raw_socket = socket.raw_socket() as *mut c_void;
+        let socket_mut_ptr = socket.raw_socket().as_mut_ptr();
 
         let rc = unsafe {
-            sys::zmq_poller_modify(self.poller, mut_raw_socket, flags.bits())
+            sys::zmq_poller_modify(self.poller, socket_mut_ptr, flags.bits())
         };
 
         if rc == -1 {
@@ -518,10 +515,10 @@ mod test {
         let endpoint: Endpoint = "inproc://test".try_into().unwrap();
 
         let server = Server::new().unwrap();
-        server.bind(&endpoint).unwrap();
+        server.bind(endpoint.clone()).unwrap();
 
         let client = Client::new().unwrap();
-        client.connect(&endpoint).unwrap();
+        client.connect(endpoint).unwrap();
 
         // We create our poller instance.
         let mut poller = Poller::new();
