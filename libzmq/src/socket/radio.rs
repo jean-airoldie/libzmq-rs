@@ -23,7 +23,7 @@ use std::sync::Arc;
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, *};
+/// use libzmq::{prelude::*, Radio, Dish, Msg, Group, Endpoint, ErrorKind};
 /// use std::convert::TryInto;
 ///
 /// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
@@ -38,6 +38,8 @@ use std::sync::Arc;
 /// let first = Dish::new()?;
 /// let second = Dish::new()?;
 ///
+/// let a: &Group = "A".try_into()?;
+/// let b: &Group = "B".try_into()?;
 ///
 /// // We connect them.
 /// radio.bind(&endpoint)?;
@@ -45,15 +47,15 @@ use std::sync::Arc;
 /// second.connect(endpoint)?;
 ///
 /// // Each dish will only receive messages from that group.
-/// first.join("A")?;
-/// second.join("B")?;
+/// first.join(a)?;
+/// second.join(b)?;
 ///
 /// // Lets publish some messages to subscribers.
 /// let mut msg: Msg = "first msg".into();
-/// msg.set_group("A")?;
+/// msg.set_group(a)?;
 /// radio.send(msg)?;
 /// let mut msg: Msg = "second msg".into();
-/// msg.set_group("B")?;
+/// msg.set_group(b)?;
 /// radio.send(msg)?;
 ///
 /// // Lets receive the publisher's messages.

@@ -17,7 +17,7 @@ use std::{
     str::{self, Utf8Error},
 };
 
-/// A message owned by ØMQ.
+/// A handle to a message owned by ØMQ.
 ///
 /// A ØMQ message is a discrete unit of data passed between applications
 /// or components of the same application. ØMQ messages have no internal

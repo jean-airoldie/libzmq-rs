@@ -6,10 +6,58 @@ use serde::{Deserialize, Serialize};
 
 use std::{
     convert::{TryFrom, TryInto},
-    ffi::CString,
+    ffi::{CString, c_void},
     str,
-    sync::Arc,
+    sync::{Arc, Mutex, MutexGuard},
 };
+
+fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
+    let c_str = CString::new(group.as_str()).unwrap();
+    let rc = unsafe { sys::zmq_join(socket_mut_ptr, c_str.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid group",
+                }),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::EINTR => Error::new(ErrorKind::Interrupted),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::EMTHREAD => panic!("no i/o thread available"),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
+    let c_str = CString::new(group.as_str()).unwrap();
+    let rc = unsafe { sys::zmq_leave(socket_mut_ptr, c_str.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => panic!("Invalid group"),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::EINTR => Error::new(ErrorKind::Interrupted),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::EMTHREAD => panic!("no i/o thread available"),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
 
 /// A `Dish` socket is used by a subscriber to subscribe to groups distributed
 /// by a [`Radio`].
@@ -28,9 +76,10 @@ use std::{
 ///
 /// [`Radio`]: struct.Radio.html
 /// [`join`]: #method.join
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Dish {
     inner: Arc<RawSocket>,
+    groups: Arc<Mutex<Vec<GroupOwned>>>,
 }
 
 impl Dish {
@@ -46,7 +95,10 @@ impl Dish {
     pub fn new() -> Result<Self, Error> {
         let inner = Arc::new(RawSocket::new(RawSocketType::Dish)?);
 
-        Ok(Self { inner })
+        Ok(Self {
+            inner,
+            groups: Arc::default(),
+        })
     }
 
     /// Create a `Dish` socket from a specific context.
@@ -64,7 +116,7 @@ impl Dish {
         let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dish, ctx)?);
 
-        Ok(Self { inner })
+        Ok(Self { inner, groups: Arc::default() })
     }
 
     /// Returns a reference to the context of the socket.
@@ -101,35 +153,43 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn join<'a, G>(&self, group: G) -> Result<(), Error>
+    pub fn join<'a, I, G>(&self, groups: I) -> Result<(), Error>
     where
-        &'a Group: TryFrom<G> + Sized,
-        Error: From<<&'a Group as TryFrom<G>>::Error>,
+        I: IntoIterator<Item = G>,
+        G: Into<GroupOwned>,
     {
-        let group: &Group = group.try_into()?;
-        let c_str = CString::new(group.as_str()).unwrap();
-        let socket_mut_ptr = self.raw_socket().as_mut_ptr();
-        let rc = unsafe { sys::zmq_join(socket_mut_ptr, c_str.as_ptr()) };
-
-        if rc == -1 {
-            let errno = unsafe { sys::zmq_errno() };
-            let err = {
-                match errno {
-                    errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                        msg: "invalid group",
-                    }),
-                    errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                    errno::EINTR => Error::new(ErrorKind::Interrupted),
-                    errno::ENOTSOCK => panic!("invalid socket"),
-                    errno::EMTHREAD => panic!("no i/o thread available"),
-                    _ => panic!(msg_from_errno(errno)),
-                }
-            };
-
-            Err(err)
-        } else {
-            Ok(())
+        for group in groups.into_iter() {
+            let group = group.into();
+            join(self.raw_socket().as_mut_ptr(), &group)?;
+            self.groups.lock().unwrap().push(group);
         }
+        Ok(())
+    }
+
+    /// Returns a `MutexGuard` containing all the currently joined groups.
+    ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Dish, Group};
+    /// use std::convert::TryInto;
+    ///
+    /// let first: &Group = "first group".try_into()?;
+    /// let second: &Group = "second group".try_into()?;
+    ///
+    /// let dish = Dish::new()?;
+    /// assert!(dish.joined().is_empty());
+    ///
+    /// dish.join(vec![first, second])?;
+    /// assert_eq!(dish.joined().len(), 2);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn joined(&self) -> MutexGuard<Vec<GroupOwned>> {
+        self.groups.lock().unwrap()
     }
 
     /// Leave the specified group.
@@ -164,33 +224,19 @@ impl Dish {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<'a, G>(&self, group: G) -> Result<(), Error>
+    pub fn leave<'a, I, G>(&self, groups: I) -> Result<(), Error>
     where
-        &'a Group: TryFrom<G>,
-        Error: From<<&'a Group as TryFrom<G>>::Error>,
+        I: IntoIterator<Item = G>,
+        G: Into<GroupOwned>,
     {
-        let group: &Group = group.try_into()?;
-        let c_str = CString::new(group.as_str()).unwrap();
-        let socket_mut_ptr = self.raw_socket().as_mut_ptr();
-        let rc = unsafe { sys::zmq_leave(socket_mut_ptr, c_str.as_ptr()) };
-
-        if rc == -1 {
-            let errno = unsafe { sys::zmq_errno() };
-            let err = {
-                match errno {
-                    errno::EINVAL => panic!("Invalid group"),
-                    errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                    errno::EINTR => Error::new(ErrorKind::Interrupted),
-                    errno::ENOTSOCK => panic!("invalid socket"),
-                    errno::EMTHREAD => panic!("no i/o thread available"),
-                    _ => panic!(msg_from_errno(errno)),
-                }
-            };
-
-            Err(err)
-        } else {
-            Ok(())
+        for group in groups.into_iter() {
+            let group = group.into();
+            leave(self.raw_socket().as_mut_ptr(), &group)?;
+            let mut groups = self.groups.lock().unwrap();
+            let position = groups.iter().position(|g| g == &group).unwrap();
+            groups.remove(position);
         }
+        Ok(())
     }
 }
 

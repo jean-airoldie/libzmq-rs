@@ -1,7 +1,7 @@
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{borrow::{Borrow, ToOwned}, convert::TryFrom, fmt, ops, str};
+use std::{borrow::{Borrow, ToOwned}, convert::TryFrom, fmt, ops, str, option};
 
 pub const MAX_GROUP_SIZE: usize = 15;
 
@@ -119,6 +119,15 @@ impl<'a> fmt::Display for &'a Group {
     }
 }
 
+impl<'a> IntoIterator for &'a Group {
+    type Item = &'a Group;
+    type IntoIter = option::IntoIter<&'a Group>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
 /// An owned `String` that is a valid ØMQ group identifier.
 ///
 /// Namely, the length this group identifier must not exceed [`MAX_GROUP_SIZE`].
@@ -154,6 +163,12 @@ impl<'a> From<&'a Group> for GroupOwned {
 impl From<GroupOwned> for String {
     fn from(g: GroupOwned) -> String {
         g.inner
+    }
+}
+
+impl<'a> From<&'a GroupOwned> for GroupOwned {
+    fn from(g: &'a GroupOwned) -> GroupOwned {
+        g.to_owned()
     }
 }
 
@@ -250,6 +265,24 @@ impl<'a> PartialEq<&'a str> for GroupOwned {
 impl<'a> PartialEq<GroupOwned> for &'a str {
     fn eq(&self, other: &GroupOwned) -> bool {
         **other == **self
+    }
+}
+
+impl IntoIterator for GroupOwned {
+    type Item = GroupOwned;
+    type IntoIter = option::IntoIter<GroupOwned>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a GroupOwned {
+    type Item = &'a GroupOwned;
+    type IntoIter = option::IntoIter<&'a GroupOwned>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
     }
 }
 
