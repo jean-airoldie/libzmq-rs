@@ -8,7 +8,7 @@ use std::{
     convert::{TryFrom, TryInto},
     ffi::{CString, c_void},
     str,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, LockResult},
 };
 
 fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
@@ -214,9 +214,13 @@ impl Dish {
     /// let group: GroupOwned = "some group".to_owned().try_into()?;
     ///
     /// let dish = Dish::new()?;
+    /// assert!(dish.joined().is_empty());
     ///
     /// dish.join(&group)?;
+    /// assert_eq!(dish.joined().len(), 1);
+    ///
     /// dish.leave(&group)?;
+    /// assert!(dish.joined().is_empty());
     /// #
     /// #     Ok(())
     /// # }
