@@ -58,7 +58,7 @@ impl<T> Error<T> {
     /// Creates a new `Error` from an `ErrorKind`.
     ///
     /// The `content` field will be `None`.
-    pub fn new(kind: ErrorKind) -> Self {
+    pub(crate) fn new(kind: ErrorKind) -> Self {
         Self {
             inner: Context::new(kind),
             content: None,
@@ -66,7 +66,7 @@ impl<T> Error<T> {
     }
 
     /// Creates a new `Error` from an `ErrorKind` and some content.
-    pub fn with_content(kind: ErrorKind, content: T) -> Self {
+    pub(crate) fn with_content(kind: ErrorKind, content: T) -> Self {
         Self {
             inner: Context::new(kind),
             content: Some(content),
@@ -86,6 +86,17 @@ impl<T> Error<T> {
     /// Takes the content held by the error, if any.
     pub fn take_content(&mut self) -> Option<T> {
         self.content.take()
+    }
+
+    /// This allows casting to any `Error<I>` by replacing the content
+    /// of the error with `None`.
+    ///
+    /// This is not implemented as `Into<Error<I>>` to be explicit.
+    pub fn into_any<I>(self) -> Error<I> {
+        Error {
+            inner: self.inner,
+            content: None,
+        }
     }
 }
 

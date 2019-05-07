@@ -61,7 +61,7 @@ impl Client {
     ///
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, failure::Error>
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
     where
         C: Into<Ctx>,
     {

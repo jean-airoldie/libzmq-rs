@@ -54,7 +54,7 @@ pub trait RecvMsg: GetRawSocket {
     /// This operation might block until the socket receives a message.
     ///
     /// # Error
-    /// No message from the inbound queue is lost if there is an error.
+    /// The `Msg` is returned as the content of the `Error`.
     ///
     /// ## Possible Error Variants
     /// * [`CtxTerminated`]
