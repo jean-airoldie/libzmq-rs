@@ -14,8 +14,8 @@ use std::{
 pub const INPROC_MAX_SIZE: usize = 256;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct TcpAddr {
-    #[serde(flatten)]
     inner: SocketAddr,
 }
 
@@ -129,8 +129,8 @@ impl<'a> From<&'a TcpAddr> for Endpoint {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct UdpAddr {
-    #[serde(flatten)]
     inner: SocketAddr,
 }
 
@@ -244,8 +244,8 @@ impl<'a> From<&'a UdpAddr> for Endpoint {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct PgmAddr {
-    #[serde(flatten)]
     inner: SocketAddr,
 }
 
@@ -359,8 +359,8 @@ impl<'a> From<&'a PgmAddr> for Endpoint {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct EpgmAddr {
-    #[serde(flatten)]
     inner: SocketAddr,
 }
 
@@ -481,8 +481,8 @@ impl<'a> From<&'a EpgmAddr> for Endpoint {
 /// * The wild-card *, meaning all available interfaces.
 /// * Non-portable interface name as defined by the operating system.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct RawAddr {
-    #[serde(flatten)]
     addr: String,
 }
 
@@ -548,8 +548,8 @@ impl<'a> From<&'a RawAddr> for Endpoint {
 pub struct InprocAddrError;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct InprocAddr {
-    #[serde(flatten)]
     addr: String,
 }
 
