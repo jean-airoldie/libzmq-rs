@@ -134,25 +134,25 @@ impl Default for RawCtx {
 ///
 /// [`Ctx`]: struct.Ctx.html
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct CtxConfig {
+pub struct CtxBuilder {
     io_threads: Option<i32>,
     max_msg_size: Option<i32>,
     max_sockets: Option<i32>,
     no_linger: Option<bool>,
 }
 
-impl CtxConfig {
+impl CtxBuilder {
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Builds a `Ctx` from a `CtxConfig`.
+    /// Builds a `Ctx` from a `CtxBuilder`.
     ///
     /// # Usage Example
     /// ```
     /// use libzmq::ctx::*;
     ///
-    /// let ctx = CtxConfig::new()
+    /// let ctx = CtxBuilder::new()
     ///   .io_threads(2)
     ///   .no_linger(true)
     ///   .build();
@@ -167,7 +167,7 @@ impl CtxConfig {
         ctx
     }
 
-    /// Applies a `CtxConfig` to an existing `Ctx`.
+    /// Applies a `CtxBuilder` to an existing `Ctx`.
     ///
     /// # Usage Example
     /// ```
@@ -175,7 +175,7 @@ impl CtxConfig {
     ///
     /// let global = Ctx::global();
     ///
-    /// CtxConfig::new()
+    /// CtxBuilder::new()
     ///   .io_threads(0)
     ///   .max_msg_size(420)
     ///   .max_sockets(69)
