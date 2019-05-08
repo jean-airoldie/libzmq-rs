@@ -32,6 +32,25 @@ pub const READABLE: Flags = Flags::READABLE;
 /// Specifies wakeup on write readiness.
 pub const WRITABLE: Flags = Flags::WRITABLE;
 
+/// The type used to alias a socket or a `RawFd` when polling.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PollId(pub usize);
+
+impl From<usize> for PollId {
+    fn from(val: usize) -> PollId {
+        PollId(val)
+    }
+}
+
+impl From<PollId> for usize {
+    fn from(val: PollId) -> usize {
+        val.0
+    }
+}
+
+/// An `Iterator` over references to [`Event`].
+///
+/// [`Event`]: struct.Event.html
 #[derive(Clone, Debug)]
 pub struct Iter<'a> {
     inner: &'a Events,
@@ -53,7 +72,7 @@ impl<'a> Iterator for Iter<'a> {
             } else {
                 let user_data = event.user_data as *mut usize as usize;
                 Some(Event {
-                    id: Id(user_data),
+                    id: PollId(user_data),
                     flags: Flags::from_bits(event.events).unwrap(),
                 })
             }
@@ -69,6 +88,9 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
+/// An `Iterator` over a set of [`Event`].
+///
+/// [`Event`]: struct.Event.html
 #[derive(Debug)]
 pub struct IntoIter {
     inner: Events,
@@ -86,7 +108,7 @@ impl Iterator for IntoIter {
         raw.map(|raw| {
             let user_data = raw.user_data as *mut usize as usize;
             Event {
-                id: Id(user_data),
+                id: PollId(user_data),
                 flags: Flags::from_bits(raw.events).unwrap(),
             }
         })
@@ -98,26 +120,11 @@ impl Iterator for IntoIter {
         (len, Some(len))
     }
 }
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Id(pub usize);
-
-impl From<usize> for Id {
-    fn from(val: usize) -> Id {
-        Id(val)
-    }
-}
-
-impl From<Id> for usize {
-    fn from(val: Id) -> usize {
-        val.0
-    }
-}
-
 /// An event detected by a poller.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event {
     flags: Flags,
-    id: Id,
+    id: PollId,
 }
 
 impl Event {
@@ -130,11 +137,14 @@ impl Event {
         self.flags
     }
 
-    pub fn id(&self) -> Id {
+    pub fn id(&self) -> PollId {
         self.id
     }
 }
 
+/// Used to store [`Event`]s for polling.
+///
+/// [`Event`]: struct.Event.html
 #[derive(Default, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Events {
     inner: Vec<sys::zmq_poller_event_t>,
@@ -213,8 +223,8 @@ impl IntoIterator for Events {
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
-/// poller.add(&server, Id(0), READABLE)?;
-/// poller.add(&client, Id(1), READABLE)?;
+/// poller.add(&server, PollId(0), READABLE)?;
+/// poller.add(&client, PollId(1), READABLE)?;
 ///
 /// // Initialize the client.
 /// client.send("ping")?;
@@ -231,13 +241,13 @@ impl IntoIterator for Events {
 ///         if event.flags() != NO_WAKEUP {
 ///             match event.id() {
 ///                 // The server is ready to receive an incoming message.
-///                 Id(0) => {
+///                 PollId(0) => {
 ///                     let msg = server.recv_msg()?;
 ///                     assert_eq!("ping", msg.to_str()?);
 ///                     server.send(msg)?;
 ///                 }
 ///                 // One of the clients is ready to receive an incoming message.
-///                 Id(1) => {
+///                 PollId(1) => {
 ///                     let msg = client.recv_msg()?;
 ///                     assert_eq!("ping", msg.to_str()?);
 ///                     client.send(msg)?;
@@ -272,8 +282,8 @@ impl Poller {
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, Id(0), NO_WAKEUP)?;
-    /// let err = poller.add(&server, Id(1), NO_WAKEUP).unwrap_err();
+    /// poller.add(&server, PollId(0), NO_WAKEUP)?;
+    /// let err = poller.add(&server, PollId(1), NO_WAKEUP).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -286,7 +296,7 @@ impl Poller {
     pub fn add(
         &mut self,
         socket: &GetRawSocket,
-        id: Id,
+        id: PollId,
         flags: Flags,
     ) -> Result<(), Error> {
         let socket_mut_ptr = socket.raw_socket().as_mut_ptr();
@@ -331,7 +341,7 @@ impl Poller {
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, Id(0), NO_WAKEUP)?;
+    /// poller.add(&server, PollId(0), NO_WAKEUP)?;
     /// poller.remove(&server)?;
     ///
     /// let err = poller.remove(&server).unwrap_err();
@@ -522,8 +532,8 @@ mod test {
 
         // We create our poller instance.
         let mut poller = Poller::new();
-        poller.add(&server, Id(0), READABLE).unwrap();
-        poller.add(&client, Id(1), READABLE).unwrap();
+        poller.add(&server, PollId(0), READABLE).unwrap();
+        poller.add(&client, PollId(1), READABLE).unwrap();
 
         // Inti the client.
         client.send("ping").unwrap();
@@ -542,13 +552,13 @@ mod test {
                 // passed in the `Poller::add` method.
                 match event.id() {
                     // The server is ready to receive an incoming message.
-                    Id(0) => {
+                    PollId(0) => {
                         let msg = server.recv_msg().unwrap();
                         assert_eq!("ping", msg.to_str().unwrap());
                         server.send(msg).unwrap();
                     }
                     // One of the clients is ready to receive an incoming message.
-                    Id(1) => {
+                    PollId(1) => {
                         let msg = client.recv_msg().unwrap();
                         assert_eq!("ping", msg.to_str().unwrap());
                         client.send(msg).unwrap();

@@ -1,3 +1,5 @@
+//! Message groups used by the `Radio` and `Dish` sockets.
+
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -7,10 +9,16 @@ use std::{
     fmt, ops, option, str,
 };
 
+/// The maximum allowed number of characters in a group.
 pub const MAX_GROUP_SIZE: usize = 15;
 
+/// An error returned when trying to parse a `Group` or `GroupOwned`.
+///
+/// This error occurs from a string that exceeds [`MAX_GROUP_SIZE`] char.
+///
+/// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Fail, Hash)]
-#[fail(display = "group cannot exceed 15 char")]
+#[fail(display = "group cannot exceed MAX_GROUP_SIZE char")]
 pub struct GroupParseError(());
 
 /// A `str` slice that is a valid ØMQ group identifier.
@@ -27,7 +35,7 @@ pub struct GroupParseError(());
 ///
 /// let group: &Group = "some group".try_into()?;
 ///
-/// let result: Result<&Group, _> = "a group more than 15 char".try_into();
+/// let result: Result<&Group, _> = "group that exceed the char limit".try_into();
 /// assert!(result.is_err());
 /// #
 /// #     Ok(())

@@ -19,6 +19,7 @@ use std::{
     str::{self, Utf8Error},
 };
 
+/// The value used to route messages to the approriate client.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct RoutingId(u32);
 
