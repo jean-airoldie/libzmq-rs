@@ -31,6 +31,7 @@ mod private {
     impl Sealed for Dish {}
     impl Sealed for DishConfig {}
     impl Sealed for DishBuilder {}
+    impl Sealed for SocketType {}
 }
 
 use crate::{

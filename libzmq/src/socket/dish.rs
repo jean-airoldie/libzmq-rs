@@ -301,6 +301,14 @@ impl Dish {
     }
 }
 
+impl PartialEq for Dish {
+    fn eq(&self, other: &Dish) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl Eq for Dish {}
+
 impl GetRawSocket for Dish {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
