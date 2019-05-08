@@ -127,18 +127,80 @@ impl Default for RawCtx {
     }
 }
 
-/// A convenience builder for a [`Ctx`].
+/// A config for a [`Ctx`].
 ///
-/// Makes context configuration more convenient. Its also good match for
-/// initializing a context from a config file.
+/// Usefull in configuration files.
 ///
 /// [`Ctx`]: struct.Ctx.html
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct CtxBuilder {
+pub struct CtxConfig {
     io_threads: Option<i32>,
     max_msg_size: Option<i32>,
     max_sockets: Option<i32>,
     no_linger: Option<bool>,
+}
+
+impl CtxConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn apply(&self, ctx: &Ctx) {
+        if let Some(value) = self.io_threads {
+            ctx.set_io_threads(value);
+        }
+        if let Some(value) = self.max_sockets {
+            ctx.set_max_sockets(value);
+        }
+        if let Some(value) = self.max_msg_size {
+            ctx.set_max_msg_size(value);
+        }
+        if let Some(value) = self.no_linger {
+            ctx.set_no_linger(value);
+        }
+    }
+
+    pub fn io_threads(&self) -> Option<i32> {
+        self.io_threads
+    }
+
+    pub fn set_io_threads(&mut self, value: Option<i32>) {
+        self.io_threads = value;
+    }
+
+    pub fn max_msg_size(&self) -> Option<i32> {
+        self.max_msg_size
+    }
+
+    pub fn set_max_msg_size(&mut self, value: Option<i32>) {
+        self.max_msg_size = value;
+    }
+
+    pub fn max_sockets(&mut self) -> Option<i32> {
+        self.max_sockets
+    }
+
+    pub fn set_max_sockets(&mut self, value: Option<i32>) {
+        self.max_sockets = value;
+    }
+
+    pub fn no_linger(&self) -> Option<bool> {
+        self.no_linger
+    }
+
+    pub fn set_no_linger(&mut self, value: Option<bool>) {
+        self.no_linger = value;
+    }
+}
+
+/// A convenience builder for a [`Ctx`].
+///
+/// Makes complex context configuration more convenient.
+///
+/// [`Ctx`]: struct.Ctx.html
+#[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CtxBuilder {
+    inner: CtxConfig,
 }
 
 impl CtxBuilder {
@@ -188,25 +250,14 @@ impl CtxBuilder {
     /// assert_eq!(global.max_sockets(), 69);
     /// ```
     pub fn apply(&self, ctx: &Ctx) {
-        if let Some(value) = self.io_threads {
-            ctx.set_io_threads(value);
-        }
-        if let Some(value) = self.max_sockets {
-            ctx.set_max_sockets(value);
-        }
-        if let Some(value) = self.max_msg_size {
-            ctx.set_max_msg_size(value);
-        }
-        if let Some(value) = self.no_linger {
-            ctx.set_no_linger(value);
-        }
+        self.inner.apply(ctx);
     }
 
     /// See [`set_io_threads`].
     ///
     /// [`set_io_threads`]: struct.Ctx.html#method.set_io_threads
     pub fn io_threads(&mut self, value: i32) -> &mut Self {
-        self.io_threads = Some(value);
+        self.inner.set_io_threads(Some(value));
         self
     }
 
@@ -214,7 +265,7 @@ impl CtxBuilder {
     ///
     /// [`set_max_msg_size`]: struct.Ctx.html#method.set_max_msg_size
     pub fn max_msg_size(&mut self, value: i32) -> &mut Self {
-        self.max_msg_size = Some(value);
+        self.inner.set_max_msg_size(Some(value));
         self
     }
 
@@ -222,7 +273,7 @@ impl CtxBuilder {
     ///
     /// [`set_max_sockets`]: struct.Ctx.html#method.set_max_sockets
     pub fn max_sockets(&mut self, value: i32) -> &mut Self {
-        self.max_sockets = Some(value);
+        self.inner.set_max_sockets(Some(value));
         self
     }
 
@@ -230,7 +281,7 @@ impl CtxBuilder {
     ///
     /// [`set_no_linger`]: struct.Ctx.html#method.set_no_linger
     pub fn no_linger(&mut self, value: bool) -> &mut Self {
-        self.no_linger = Some(value);
+        self.inner.set_no_linger(Some(value));
         self
     }
 }
