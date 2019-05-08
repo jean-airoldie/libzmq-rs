@@ -205,24 +205,15 @@ impl Msg {
     /// See [`zmq_msg_set_routing_id`].
     /// [`zmq_msg_set_routing_id`]: http://api.zeromq.org/master:zmq-msg-set-routing-id
     /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
-    pub fn set_routing_id(&mut self, routing_id: RoutingId) -> Result<(), Error> {
+    pub fn set_routing_id(&mut self, routing_id: RoutingId) {
         let rc = unsafe {
             sys::zmq_msg_set_routing_id(self.as_mut_ptr(), routing_id.into())
         };
 
+        // Should never occur.
         if rc != 0 {
             let errno = unsafe { sys::zmq_errno() };
-
-            let err = match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid routing id",
-                }),
-                _ => panic!(msg_from_errno(errno)),
-            };
-
-            Err(err)
-        } else {
-            Ok(())
+            panic!(msg_from_errno(errno));
         }
     }
 
