@@ -1,6 +1,8 @@
+use crate::{core::GetRawSocket, error::*};
 use libzmq_sys as sys;
+use sys::errno;
 
-use std::{ffi, os::raw::*, str};
+use std::{ffi, os::raw::*, ptr, str, thread};
 
 /// Reports the ØMQ library version.
 ///
@@ -45,6 +47,86 @@ pub fn zmq_version() -> (i32, i32, i32) {
 pub fn zmq_has(capability: &str) -> bool {
     let c_str = ffi::CString::new(capability).unwrap();
     unsafe { sys::zmq_has(c_str.as_ptr()) == 1 }
+}
+
+/// # Returned Errors
+/// * [`CtxTerminated`]
+///
+/// # Example
+/// ```
+/// #
+/// # use failure::Error;
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::{
+///     prelude::*, Ctx, Endpoint, socket::*, Group, ErrorKind, Msg, proxy
+/// };
+/// use std::{thread, convert::TryInto};
+///
+/// let radio_endpoint: Endpoint = "inproc://frontend".try_into()?;
+/// let dish_endpoint: Endpoint = "inproc://backend".try_into()?;
+/// let group: &Group = "some group".try_into()?;
+///
+/// // Using `no_drop = true` is usually an anti-pattern. In this case it is used
+/// // for demonstration purposes.
+/// let radio = RadioBuilder::new()
+///     .no_drop()
+///     .bind(&radio_endpoint)
+///     .build()?;
+///
+/// let frontend = DishBuilder::new()
+///     .connect(&radio_endpoint)
+///     .join(group)
+///     .build()?;
+///
+/// let backend = RadioBuilder::new()
+///     .bind(&dish_endpoint)
+///     .build()?;
+///
+/// let dish = DishBuilder::new()
+///     .connect(&dish_endpoint)
+///     .join(group)
+///     .build()?;
+///
+/// let proxy_handle = thread::spawn(move || proxy(&frontend, &backend));
+///
+/// let mut msg = Msg::new();
+/// msg.set_group(group);
+/// radio.send(msg).unwrap();
+/// let msg = dish.recv_msg().unwrap();
+/// assert!(msg.is_empty());
+///
+/// // This will cause the proxy to error out with `CtxTerminated`.
+/// let _ = Ctx::global().shutdown();
+/// let err = proxy_handle.join().unwrap().unwrap_err();
+/// assert_eq!(err.kind(), ErrorKind::CtxTerminated);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+pub fn proxy<F, B>(frontend: &F, backend: &B) -> Result<(), Error>
+where
+    F: GetRawSocket,
+    B: GetRawSocket,
+{
+    let frontend_socket_ptr = frontend.raw_socket().as_mut_ptr();
+    let backend_socket_ptr = backend.raw_socket().as_mut_ptr();
+    let rc = unsafe {
+        sys::zmq_proxy(frontend_socket_ptr, backend_socket_ptr, ptr::null_mut())
+    };
+
+    assert_eq!(rc, -1);
+
+    let errno = unsafe { sys::zmq_errno() };
+    let err = {
+        match errno {
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            _ => panic!(msg_from_errno(errno)),
+        }
+    };
+
+    Err(err)
 }
 
 #[cfg(test)]

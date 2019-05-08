@@ -7,6 +7,8 @@ use sys::errno;
 
 use libc::size_t;
 use log::error;
+use failure::Fail;
+use serde::{Serialize, Deserialize};
 
 use std::{
     convert::{TryFrom, TryInto},
@@ -16,6 +18,15 @@ use std::{
     ptr, slice,
     str::{self, Utf8Error},
 };
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct RoutingId(u32);
+
+impl From<RoutingId> for u32 {
+    fn from(r: RoutingId) -> u32 {
+        r.0
+    }
+}
 
 /// A handle to a message owned by ØMQ.
 ///
@@ -167,18 +178,18 @@ impl Msg {
     /// See [`zmq_msg_routing_id`].
     ///
     /// [`zmq_msg_routing_id`]: http://api.zeromq.org/master:zmq-msg-routing-id
-    pub fn routing_id(&self) -> Option<u32> {
-        let routing_id = unsafe {
+    pub fn routing_id(&self) -> Option<RoutingId> {
+        let rc = unsafe {
             // This is safe since `zmq_msg_routing_id` has the wrong signature.
             // The `msg` pointer should be `*const zmq_msg_t` since
             // the it is not modified by the operation.
             let ptr = self.as_ptr() as *mut _;
             sys::zmq_msg_routing_id(ptr)
         };
-        if routing_id == 0 {
+        if rc == 0 {
             None
         } else {
-            Some(routing_id)
+            Some(RoutingId(rc))
         }
     }
 
@@ -191,29 +202,11 @@ impl Msg {
     /// * [`InvalidInput`] (if contract is not followed)
     ///
     /// See [`zmq_msg_set_routing_id`].
-    ///
-    /// ```rust
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
-    /// use libzmq::Msg;
-    ///
-    /// let mut msg = Msg::new();
-    ///
-    /// let routing_id = 420;
-    /// msg.set_routing_id(routing_id)?;
-    ///
-    /// assert_eq!(msg.routing_id().unwrap(), routing_id);
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    ///
     /// [`zmq_msg_set_routing_id`]: http://api.zeromq.org/master:zmq-msg-set-routing-id
     /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
-    pub fn set_routing_id(&mut self, routing_id: u32) -> Result<(), Error> {
+    pub fn set_routing_id(&mut self, routing_id: RoutingId) -> Result<(), Error> {
         let rc = unsafe {
-            sys::zmq_msg_set_routing_id(self.as_mut_ptr(), routing_id)
+            sys::zmq_msg_set_routing_id(self.as_mut_ptr(), routing_id.into())
         };
 
         if rc != 0 {
@@ -252,11 +245,14 @@ impl Msg {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::Msg;
+    /// use libzmq::{Msg, Group};
+    /// use std::convert::TryInto;
+    ///
+    /// let a: &Group = "A".try_into()?;
     ///
     /// let mut msg: Msg = "some msg".into();
-    /// msg.set_group("some group")?;
-    /// assert_eq!("some group", msg.group().unwrap());
+    /// msg.set_group(a);
+    /// assert_eq!(a, msg.group().unwrap());
     /// #
     /// #     Ok(())
     /// # }
@@ -267,30 +263,20 @@ impl Msg {
     ///
     /// # Returned Error Variants
     /// * [`InvalidInput`] (if contract is not followed)
-    pub fn set_group<'a, G>(&mut self, group: G) -> Result<(), Error>
+    pub fn set_group<'a, G>(&mut self, group: G)
     where
-        &'a Group: TryFrom<G>,
-        Error: From<<&'a Group as TryFrom<G>>::Error>,
+        G: Into<&'a Group>,
     {
-        let group: &Group = group.try_into()?;
+        let group: &Group = group.into();
         let c_string = CString::new(group.as_str().as_bytes()).unwrap();
         let rc = unsafe {
             sys::zmq_msg_set_group(self.as_mut_ptr(), c_string.as_ptr())
         };
 
-        if rc != 0 {
+        // Should never occur.
+        if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
-
-            let err = match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid group",
-                }),
-                _ => panic!(msg_from_errno(errno)),
-            };
-
-            Err(err)
-        } else {
-            Ok(())
+            panic!(msg_from_errno(errno));
         }
     }
 

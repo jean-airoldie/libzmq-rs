@@ -38,22 +38,24 @@ use std::sync::Arc;
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, *};
+/// use libzmq::{prelude::*, socket::*, Msg, Endpoint};
 /// use std::convert::TryInto;
 ///
 /// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
 ///
-/// let client = Client::new()?;
-/// let server = Server::new()?;
+/// let client = ClientBuilder::new()
+///     .connect(&endpoint)
+///     .build()?;
 ///
-/// client.connect(&endpoint)?;
-/// server.bind(endpoint)?;
+/// let server = ServerBuilder::new()
+///     .bind(endpoint)
+///     .build()?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.
 /// client.send("request")?;
 /// let msg = server.recv_msg()?;
 /// assert_eq!("request", msg.to_str()?);
-/// let routing_id = msg.routing_id().expect("no routing id");
+/// let routing_id = msg.routing_id().unwrap();
 ///
 /// // Using this `routing_id`, we can now route as many replies as we
 /// // want to the client.

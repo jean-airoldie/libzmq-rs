@@ -75,6 +75,41 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// | Incoming routing strategy | Fair-queued    |
 /// | Outgoing routing strategy | N/A            |
 ///
+/// # Example
+/// ```
+/// #
+/// # use failure::Error;
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::{prelude::*, Endpoint, socket::*, Msg, Group};
+/// use std::convert::TryInto;
+///
+/// let endpoint: Endpoint = "inproc://test".try_into()?;
+/// let group: &Group = "some group".try_into()?;
+///
+/// // Setting `no_drop = true` is an anti pattern meant for illustration
+/// // purposes.
+/// let radio = RadioBuilder::new()
+///     .bind(&endpoint)
+///     .no_drop()
+///     .build()?;
+///
+/// let dish = DishBuilder::new()
+///     .connect(&endpoint)
+///     .join(group)
+///     .build()?;
+///
+/// let mut msg: Msg = "".into();
+/// msg.set_group(group);
+///
+/// radio.try_send(msg)?;
+/// let msg = dish.try_recv_msg()?;
+/// assert!(msg.is_empty());
+/// assert_eq!(msg.group().unwrap(), group);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+///
 /// [`Radio`]: struct.Radio.html
 /// [`join`]: #method.join
 #[derive(Debug, Clone)]
@@ -381,6 +416,17 @@ impl DishBuilder {
     {
         self.inner.build_with_ctx(ctx)
     }
+
+    pub fn join<I, G>(&mut self, groups: I) -> &mut Self
+    where
+        I: IntoIterator<Item = G>,
+        G: Into<GroupOwned>,
+    {
+        let groups: Vec<GroupOwned> = groups.into_iter().map(G::into).collect();
+        self.inner.set_groups(Some(groups));
+        self
+    }
+
 }
 
 impl GetSocketConfig for DishBuilder {

@@ -91,7 +91,8 @@ impl<T> Error<T> {
     /// This allows casting to any `Error<I>` by replacing the content
     /// of the error with `None`.
     ///
-    /// This is not implemented as `Into<Error<I>>` to be explicit.
+    /// This is not implemented as `Into<Error<I>>` to be explicit since
+    /// information is lost in the conversion.
     pub fn into_any<I>(self) -> Error<I> {
         Error {
             inner: self.inner,

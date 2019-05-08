@@ -23,51 +23,55 @@ use std::sync::Arc;
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Radio, Dish, Msg, Group, Endpoint, ErrorKind};
+/// use libzmq::{prelude::*, socket::*, Msg, Group, Endpoint, ErrorKind};
 /// use std::convert::TryInto;
 ///
 /// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
 ///
-/// // We create our sockets.
-/// let radio = Radio::new()?;
-/// // We configure the radio so that it doesnt drop in mute state.
-/// // However this means that a slow `Dish` would slow down
-/// // the `Radio`. We use this is this example because `connect`
-/// // takes a few milliseconds, enough for the `Radio` to drop a few messages.
-/// radio.set_no_drop(true)?;
-/// let first = Dish::new()?;
-/// let second = Dish::new()?;
 ///
 /// let a: &Group = "A".try_into()?;
 /// let b: &Group = "B".try_into()?;
 ///
-/// // We connect them.
-/// radio.bind(&endpoint)?;
-/// first.connect(&endpoint)?;
-/// second.connect(endpoint)?;
+/// // We configure the radio so that it doesnt drop in mute state.
+/// // However this means that a slow `Dish` would slow down
+/// // the `Radio`. We use this is this example because `connect`
+/// // takes a few milliseconds, enough for the `Radio` to drop a few messages.
+/// let radio = RadioBuilder::new()
+///     .bind(&endpoint)
+///     .no_drop()
+///     .build()?;
 ///
-/// // Each dish will only receive messages from that group.
-/// first.join(a)?;
-/// second.join(b)?;
+/// let dish_a = DishBuilder::new()
+///     .connect(&endpoint)
+///     .join(a)
+///     .build()?;
+///
+/// let dish_b = DishBuilder::new()
+///     .connect(&endpoint)
+///     .join(b)
+///     .build()?;
 ///
 /// // Lets publish some messages to subscribers.
 /// let mut msg: Msg = "first msg".into();
-/// msg.set_group(a)?;
+/// msg.set_group(a);
 /// radio.send(msg)?;
 /// let mut msg: Msg = "second msg".into();
-/// msg.set_group(b)?;
+/// msg.set_group(b);
 /// radio.send(msg)?;
 ///
 /// // Lets receive the publisher's messages.
-/// let mut msg = first.recv_msg()?;
-/// assert_eq!("first msg", msg.to_str().unwrap());
-/// let err = first.try_recv(&mut msg).unwrap_err();
+/// let mut msg = dish_a.recv_msg()?;
+/// assert_eq!(msg.group().unwrap(), a);
+/// assert_eq!(msg.to_str().unwrap(), "first msg");
+/// let err = dish_a.try_recv(&mut msg).unwrap_err();
+///
 /// // Only the message from the first group was received.
 /// assert_eq!(ErrorKind::WouldBlock, err.kind());
 ///
-/// second.recv(&mut msg)?;
-/// assert_eq!("second msg", msg.to_str().unwrap());
-/// let err = first.try_recv(&mut msg).unwrap_err();
+/// dish_b.recv(&mut msg)?;
+/// assert_eq!(msg.group().unwrap(), b);
+/// assert_eq!(msg.to_str().unwrap(), "second msg");
+/// let err = dish_b.try_recv(&mut msg).unwrap_err();
 /// // Only the message from the second group was received.
 /// assert_eq!(ErrorKind::WouldBlock, err.kind());
 /// #
@@ -200,6 +204,16 @@ impl RadioConfig {
         Ok(radio)
     }
 
+    /// Returns `true` if the `no_drop` option is set.
+    pub fn no_drop(&self) -> bool {
+        self.no_drop.unwrap_or_default()
+    }
+
+    /// Returns `true` if the `no_drop` option is set.
+    pub fn set_no_drop(&mut self, cond: bool) {
+        self.no_drop = Some(cond);
+    }
+
     pub fn apply(&self, radio: &Radio) -> Result<(), failure::Error> {
         self.socket_config.apply(radio)?;
         self.send_config.apply(radio)?;
@@ -244,6 +258,11 @@ pub struct RadioBuilder {
 impl RadioBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn no_drop(&mut self) -> &mut Self {
+        self.inner.set_no_drop(true);
+        self
     }
 
     pub fn build(&self) -> Result<Radio, failure::Error> {
