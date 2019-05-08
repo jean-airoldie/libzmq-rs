@@ -1,7 +1,4 @@
-use crate::{
-    error::msg_from_errno,
-    Group,
-};
+use crate::{error::msg_from_errno, Group};
 use libzmq_sys as sys;
 use sys::errno;
 
