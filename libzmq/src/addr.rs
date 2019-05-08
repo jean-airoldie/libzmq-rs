@@ -487,7 +487,7 @@ pub struct RawAddr {
 }
 
 impl RawAddr {
-    fn new<S>(addr: S) -> Self
+    pub fn new<S>(addr: S) -> Self
     where
         S: Into<String>,
     {
@@ -495,7 +495,7 @@ impl RawAddr {
         Self { addr }
     }
 
-    fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         self.addr.as_str()
     }
 }
@@ -554,7 +554,7 @@ pub struct InprocAddr {
 }
 
 impl InprocAddr {
-    fn new<S>(addr: S) -> Result<Self, InprocAddrError>
+    pub fn new<S>(addr: S) -> Result<Self, InprocAddrError>
     where
         S: Into<String>,
     {
@@ -566,7 +566,7 @@ impl InprocAddr {
         }
     }
 
-    fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         self.addr.as_str()
     }
 }
@@ -661,6 +661,9 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 
 /// A transport and a transport-specific address supported by ØMQ.
 ///
+/// The transport specifies the underlying protocol to use. The address
+/// specifies the transport-specific address to connect to.
+///
 /// # Bind vs. Connect
 /// For most transports and socket types the connection is not performed
 /// immediately but as needed by ØMQ. Thus a successful call to `connect`
@@ -668,12 +671,6 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// Because of this, for most transports and socket types the order in
 /// which a server socket is bound and a client socket is connected to it
 /// does not matter.
-///
-/// # Endpoint
-/// The endpoint is a string consisting of a `"{transport}://{address}"`,
-/// e.g. `"tcp://localhost:3000"`.
-/// The transport specifies the underlying protocol to use.
-/// The address specifies the transport-specific address to connect to.
 ///
 /// # Summary of Transports
 /// | Transport `str` | Description                                 | Reference      |

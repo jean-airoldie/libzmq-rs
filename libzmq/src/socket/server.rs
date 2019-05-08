@@ -41,7 +41,7 @@ use std::sync::Arc;
 /// use libzmq::{prelude::*, socket::*, Msg, addr::InprocAddr};
 /// use std::convert::TryInto;
 ///
-/// let addr: InprocAddr = "inproc://test".try_into()?;
+/// let addr: InprocAddr = "test".try_into()?;
 ///
 /// let client = ClientBuilder::new()
 ///     .connect(&addr)

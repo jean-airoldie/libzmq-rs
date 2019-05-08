@@ -91,11 +91,11 @@ pub fn zmq_has(capability: &str) -> bool {
 ///
 /// let mut msg = Msg::new();
 /// msg.set_group(group);
-/// radio.send(msg).unwrap();
-/// let msg = dish.recv_msg().unwrap();
+/// radio.send(msg)?;
+/// let msg = dish.recv_msg()?;
 /// assert!(msg.is_empty());
 ///
-/// // This will cause the proxy to error out with `CtxTerminated`.
+/// // This will cause the proxy terminate with `CtxTerminated`.
 /// let _ = Ctx::global().shutdown();
 /// let err = proxy_handle.join().unwrap().unwrap_err();
 /// assert_eq!(err.kind(), ErrorKind::CtxTerminated);

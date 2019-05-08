@@ -26,7 +26,7 @@ use std::sync::Arc;
 /// use libzmq::{prelude::*, socket::*, addr::InprocAddr, Msg, Group, Endpoint, ErrorKind};
 /// use std::convert::TryInto;
 ///
-/// let addr: InprocAddr = "inproc://test".try_into()?;
+/// let addr: InprocAddr = "test".try_into()?;
 ///
 /// let a: &Group = "A".try_into()?;
 /// let b: &Group = "B".try_into()?;

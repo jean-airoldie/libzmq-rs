@@ -101,8 +101,8 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// let mut msg: Msg = "".into();
 /// msg.set_group(group);
 ///
-/// radio.try_send(msg)?;
-/// let msg = dish.try_recv_msg()?;
+/// radio.send(msg)?;
+/// let msg = dish.recv_msg()?;
 /// assert!(msg.is_empty());
 /// assert_eq!(msg.group().unwrap(), group);
 /// #
