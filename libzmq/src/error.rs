@@ -1,4 +1,4 @@
-use crate::{endpoint::EndpointParseError, group::GroupParseError};
+use crate::group::GroupParseError;
 use libzmq_sys as sys;
 
 use failure::{Backtrace, Context, Fail};
@@ -117,14 +117,6 @@ where
 impl<T> Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Display::fmt(&self.inner, f)
-    }
-}
-
-impl<T> From<EndpointParseError> for Error<T> {
-    fn from(_error: EndpointParseError) -> Self {
-        Error::new(ErrorKind::InvalidInput {
-            msg: "invalid endpoint",
-        })
     }
 }
 

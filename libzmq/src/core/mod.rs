@@ -35,7 +35,7 @@ mod private {
 }
 
 use crate::{
-    endpoint::Endpoint,
+    addr::Endpoint,
     error::{msg_from_errno, Error, ErrorKind},
 };
 use libzmq_sys as sys;
@@ -209,33 +209,33 @@ pub trait Socket: GetRawSocket {
         Ok(())
     }
 
-    /// Returns a `MutexGuard` containing all the endpoints the socket is
-    /// currently connected to.
+    /// Returns a snapshot of the list of connected `Endpoint`.
     ///
     /// Example
     /// ```
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Client, Endpoint};
-    /// use std::convert::TryFrom;
+    /// use libzmq::{prelude::*, Client, addr::{InprocAddr, Endpoint}};
+    /// use std::convert::TryInto;
     ///
-    /// let endpoint = Endpoint::try_from("inproc://test")?;
+    /// let inproc: InprocAddr = "test".try_into()?;
     ///
     /// let client = Client::new()?;
     /// assert!(client.connected().is_empty());
     ///
-    /// client.connect(&endpoint)?;
-    /// assert!(client.connected().contains(&endpoint));
+    /// client.connect(&inproc)?;
+    /// let endpoint = Endpoint::from(&inproc);
+    /// assert!(client.connected().contains((&endpoint).into()));
     ///
-    /// client.disconnect(endpoint)?;
+    /// client.disconnect(inproc)?;
     /// assert!(client.connected().is_empty());
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    fn connected(&self) -> MutexGuard<Vec<Endpoint>> {
-        self.raw_socket().connected().lock().unwrap()
+    fn connected(&self) -> Vec<Endpoint> {
+        self.raw_socket().connected().lock().unwrap().to_owned()
     }
 
     /// Disconnect the socket from one or more [`Endpoints`].
@@ -338,18 +338,17 @@ pub trait Socket: GetRawSocket {
         }
         Ok(())
     }
-    /// Returns a `MutexGuard` containing a all the endpoints currently
-    /// bound to.
-    /// Example
+    /// Returns a snapshot of the list of bound `Endpoint`.
+    ///
     /// ```
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Radio, Endpoint};
-    /// use std::convert::TryFrom;
+    /// use libzmq::{prelude::*, Radio, addr::{InprocAddr, Endpoint}};
+    /// use std::convert::TryInto;
     ///
-    /// let first = Endpoint::try_from("inproc://test1")?;
-    /// let second = Endpoint::try_from("inproc://test2")?;
+    /// let first: InprocAddr = "test1".try_into()?;
+    /// let second: InprocAddr = "test2".try_into()?;
     ///
     /// let radio = Radio::new()?;
     /// assert!(radio.bound().is_empty());
@@ -357,22 +356,26 @@ pub trait Socket: GetRawSocket {
     /// radio.bind(vec![&first, &second])?;
     /// {
     ///     let bound = radio.bound();
+    ///     let first = Endpoint::from(&first);
     ///     assert!(bound.contains(&first));
+    ///     let second = Endpoint::from(&second);
     ///     assert!(bound.contains(&second));
     /// }
     ///
     /// radio.unbind(&first)?;
     /// {
     ///     let bound = radio.bound();
-    ///     assert!(!bound.contains(&first));
-    ///     assert!(bound.contains(&second));
+    ///     let first = Endpoint::from(&first);
+    ///     assert!(!bound.contains((&first).into()));
+    ///     let second = Endpoint::from(&second);
+    ///     assert!(bound.contains((&second).into()));
     /// }
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    fn bound(&self) -> MutexGuard<Vec<Endpoint>> {
-        self.raw_socket().bound().lock().unwrap()
+    fn bound(&self) -> Vec<Endpoint> {
+        self.raw_socket().bound().lock().unwrap().to_owned()
     }
 
     /// Unbinds the socket from one or more [`Endpoints`].

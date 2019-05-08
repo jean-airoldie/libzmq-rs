@@ -58,32 +58,32 @@ pub fn zmq_has(capability: &str) -> bool {
 /// # use failure::Error;
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{
-///     prelude::*, Ctx, Endpoint, socket::*, Group, ErrorKind, Msg, proxy
+///     prelude::*, Ctx, addr::InprocAddr, socket::*, Group, ErrorKind, Msg, proxy
 /// };
 /// use std::{thread, convert::TryInto};
 ///
-/// let radio_endpoint: Endpoint = "inproc://frontend".try_into()?;
-/// let dish_endpoint: Endpoint = "inproc://backend".try_into()?;
+/// let radio_addr: InprocAddr = "frontend".try_into()?;
+/// let dish_addr: InprocAddr = "backend".try_into()?;
 /// let group: &Group = "some group".try_into()?;
 ///
 /// // Using `no_drop = true` is usually an anti-pattern. In this case it is used
 /// // for demonstration purposes.
 /// let radio = RadioBuilder::new()
 ///     .no_drop()
-///     .bind(&radio_endpoint)
+///     .bind(&radio_addr)
 ///     .build()?;
 ///
 /// let frontend = DishBuilder::new()
-///     .connect(&radio_endpoint)
+///     .connect(&radio_addr)
 ///     .join(group)
 ///     .build()?;
 ///
 /// let backend = RadioBuilder::new()
-///     .bind(&dish_endpoint)
+///     .bind(&dish_addr)
 ///     .build()?;
 ///
 /// let dish = DishBuilder::new()
-///     .connect(&dish_endpoint)
+///     .connect(&dish_addr)
 ///     .join(group)
 ///     .build()?;
 ///

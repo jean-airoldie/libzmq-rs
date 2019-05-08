@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     ffi::{c_void, CString},
     str,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
 fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
@@ -80,21 +80,21 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// #
 /// # use failure::Error;
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Endpoint, socket::*, Msg, Group};
+/// use libzmq::{prelude::*, addr::InprocAddr, socket::*, Msg, Group};
 /// use std::convert::TryInto;
 ///
-/// let endpoint: Endpoint = "inproc://test".try_into()?;
+/// let addr: InprocAddr = "test".try_into()?;
 /// let group: &Group = "some group".try_into()?;
 ///
 /// // Setting `no_drop = true` is an anti pattern meant for illustration
 /// // purposes.
 /// let radio = RadioBuilder::new()
-///     .bind(&endpoint)
+///     .bind(&addr)
 ///     .no_drop()
 ///     .build()?;
 ///
 /// let dish = DishBuilder::new()
-///     .connect(&endpoint)
+///     .connect(&addr)
 ///     .join(group)
 ///     .build()?;
 ///
@@ -215,7 +215,9 @@ impl Dish {
         Ok(())
     }
 
-    /// Returns a `MutexGuard` containing all the currently joined groups.
+    /// Returns a snapshot of the list of joined `Group`.
+    ///
+    /// The list might be modified by another thread after it is returned.
     ///
     /// # Example
     /// ```
@@ -237,8 +239,8 @@ impl Dish {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn joined(&self) -> MutexGuard<Vec<GroupOwned>> {
-        self.groups.lock().unwrap()
+    pub fn joined(&self) -> Vec<GroupOwned> {
+        self.groups.lock().unwrap().to_owned()
     }
 
     /// Leave the specified group(s).

@@ -7,7 +7,7 @@ pub use failure;
 #[macro_use]
 mod core;
 pub mod ctx;
-pub mod endpoint;
+pub mod addr;
 mod error;
 pub mod group;
 mod msg;
@@ -16,7 +16,7 @@ pub mod socket;
 mod utils;
 
 pub use ctx::Ctx;
-pub use endpoint::Endpoint;
+pub use addr::Endpoint;
 pub use error::{Error, ErrorKind};
 pub use group::{Group, GroupOwned};
 pub use msg::Msg;

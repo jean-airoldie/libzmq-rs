@@ -38,17 +38,17 @@ use std::sync::Arc;
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, Msg, Endpoint};
+/// use libzmq::{prelude::*, socket::*, Msg, addr::InprocAddr};
 /// use std::convert::TryInto;
 ///
-/// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
+/// let addr: InprocAddr = "inproc://test".try_into()?;
 ///
 /// let client = ClientBuilder::new()
-///     .connect(&endpoint)
+///     .connect(&addr)
 ///     .build()?;
 ///
 /// let server = ServerBuilder::new()
-///     .bind(endpoint)
+///     .bind(addr)
 ///     .build()?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.

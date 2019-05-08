@@ -209,17 +209,17 @@ impl IntoIterator for Events {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Client, Server, Endpoint, poll::*};
+/// use libzmq::{prelude::*, Client, Server, addr::InprocAddr, poll::*};
 /// use std::convert::TryInto;
 ///
 /// // We initialize our sockets and connect them to each other.
-/// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
+/// let inproc: InprocAddr = "test".try_into()?;
 ///
 /// let server = Server::new()?;
-/// server.bind(endpoint.clone())?;
+/// server.bind(&inproc)?;
 ///
 /// let client = Client::new()?;
-/// client.connect(endpoint)?;
+/// client.connect(&inproc)?;
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
@@ -518,11 +518,11 @@ mod test {
 
     #[test]
     fn test_poller() {
-        use crate::{prelude::*, Client, Endpoint, Server};
+        use crate::{prelude::*, Client, addr::*, Server};
         use std::convert::TryInto;
 
         // We initialize our sockets and connect them to each other.
-        let endpoint: Endpoint = "inproc://test".try_into().unwrap();
+        let endpoint: InprocAddr = "test".try_into().unwrap();
 
         let server = Server::new().unwrap();
         server.bind(endpoint.clone()).unwrap();

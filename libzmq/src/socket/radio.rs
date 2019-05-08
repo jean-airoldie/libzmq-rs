@@ -23,11 +23,10 @@ use std::sync::Arc;
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, Msg, Group, Endpoint, ErrorKind};
+/// use libzmq::{prelude::*, socket::*, addr::InprocAddr, Msg, Group, Endpoint, ErrorKind};
 /// use std::convert::TryInto;
 ///
-/// let endpoint: Endpoint = "inproc://test".try_into().unwrap();
-///
+/// let addr: InprocAddr = "inproc://test".try_into()?;
 ///
 /// let a: &Group = "A".try_into()?;
 /// let b: &Group = "B".try_into()?;
@@ -37,17 +36,17 @@ use std::sync::Arc;
 /// // the `Radio`. We use this is this example because `connect`
 /// // takes a few milliseconds, enough for the `Radio` to drop a few messages.
 /// let radio = RadioBuilder::new()
-///     .bind(&endpoint)
+///     .bind(&addr)
 ///     .no_drop()
 ///     .build()?;
 ///
 /// let dish_a = DishBuilder::new()
-///     .connect(&endpoint)
+///     .connect(&addr)
 ///     .join(a)
 ///     .build()?;
 ///
 /// let dish_b = DishBuilder::new()
-///     .connect(&endpoint)
+///     .connect(&addr)
 ///     .join(b)
 ///     .build()?;
 ///
