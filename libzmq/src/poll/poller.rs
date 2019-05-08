@@ -518,7 +518,7 @@ mod test {
 
     #[test]
     fn test_poller() {
-        use crate::{prelude::*, Client, addr::*, Server};
+        use crate::{addr::*, prelude::*, Client, Server};
         use std::convert::TryInto;
 
         // We initialize our sockets and connect them to each other.

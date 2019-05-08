@@ -2,25 +2,28 @@
 
 use failure::Fail;
 use serde::{Deserialize, Serialize};
-use nix::sys::socket::UnixAddr;
 
-use std::{convert::{TryFrom, Infallible}, fmt, option, str::{self, FromStr}, net::{SocketAddr, IpAddr, AddrParseError}};
+use std::{
+    convert::{Infallible, TryFrom},
+    fmt,
+    net::{AddrParseError, IpAddr, SocketAddr},
+    option,
+    str::{self, FromStr},
+};
 
 pub const INPROC_MAX_SIZE: usize = 256;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct TcpAddr {
     #[serde(flatten)]
-    inner: SocketAddr
+    inner: SocketAddr,
 }
 
 impl TcpAddr {
     pub fn new(ip: IpAddr, port: u16) -> Self {
         let inner = SocketAddr::new(ip, port);
 
-        Self {
-            inner,
-        }
+        Self { inner }
     }
 
     pub fn ip(&self) -> IpAddr {
@@ -50,9 +53,7 @@ impl TcpAddr {
 
 impl From<SocketAddr> for TcpAddr {
     fn from(addr: SocketAddr) -> Self {
-        Self {
-            inner: addr,
-        }
+        Self { inner: addr }
     }
 }
 
@@ -72,9 +73,7 @@ impl FromStr for TcpAddr {
     type Err = AddrParseError;
     fn from_str(s: &str) -> Result<TcpAddr, AddrParseError> {
         let inner = SocketAddr::from_str(s)?;
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 }
 
@@ -132,16 +131,14 @@ impl<'a> From<&'a TcpAddr> for Endpoint {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct UdpAddr {
     #[serde(flatten)]
-    inner: SocketAddr
+    inner: SocketAddr,
 }
 
 impl UdpAddr {
     pub fn new(ip: IpAddr, port: u16) -> Self {
         let inner = SocketAddr::new(ip, port);
 
-        Self {
-            inner,
-        }
+        Self { inner }
     }
 
     pub fn ip(&self) -> IpAddr {
@@ -171,9 +168,7 @@ impl UdpAddr {
 
 impl From<SocketAddr> for UdpAddr {
     fn from(addr: SocketAddr) -> Self {
-        Self {
-            inner: addr,
-        }
+        Self { inner: addr }
     }
 }
 
@@ -193,12 +188,9 @@ impl FromStr for UdpAddr {
     type Err = AddrParseError;
     fn from_str(s: &str) -> Result<UdpAddr, AddrParseError> {
         let inner = SocketAddr::from_str(s)?;
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 }
-
 
 impl TryFrom<String> for UdpAddr {
     type Error = AddrParseError;
@@ -254,16 +246,14 @@ impl<'a> From<&'a UdpAddr> for Endpoint {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct PgmAddr {
     #[serde(flatten)]
-    inner: SocketAddr
+    inner: SocketAddr,
 }
 
 impl PgmAddr {
     pub fn new(ip: IpAddr, port: u16) -> Self {
         let inner = SocketAddr::new(ip, port);
 
-        Self {
-            inner,
-        }
+        Self { inner }
     }
 
     pub fn ip(&self) -> IpAddr {
@@ -293,9 +283,7 @@ impl PgmAddr {
 
 impl From<SocketAddr> for PgmAddr {
     fn from(addr: SocketAddr) -> Self {
-        Self {
-            inner: addr,
-        }
+        Self { inner: addr }
     }
 }
 
@@ -315,9 +303,7 @@ impl FromStr for PgmAddr {
     type Err = AddrParseError;
     fn from_str(s: &str) -> Result<PgmAddr, AddrParseError> {
         let inner = SocketAddr::from_str(s)?;
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 }
 
@@ -375,16 +361,14 @@ impl<'a> From<&'a PgmAddr> for Endpoint {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct EpgmAddr {
     #[serde(flatten)]
-    inner: SocketAddr
+    inner: SocketAddr,
 }
 
 impl EpgmAddr {
     pub fn new(ip: IpAddr, port: u16) -> Self {
         let inner = SocketAddr::new(ip, port);
 
-        Self {
-            inner,
-        }
+        Self { inner }
     }
 
     pub fn ip(&self) -> IpAddr {
@@ -414,9 +398,7 @@ impl EpgmAddr {
 
 impl From<SocketAddr> for EpgmAddr {
     fn from(addr: SocketAddr) -> Self {
-        Self {
-            inner: addr,
-        }
+        Self { inner: addr }
     }
 }
 
@@ -436,9 +418,7 @@ impl FromStr for EpgmAddr {
     type Err = AddrParseError;
     fn from_str(s: &str) -> Result<EpgmAddr, AddrParseError> {
         let inner = SocketAddr::from_str(s)?;
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 }
 
@@ -507,11 +487,12 @@ pub struct RawAddr {
 }
 
 impl RawAddr {
-    fn new<S>(addr: S) -> Self where S: Into<String> {
+    fn new<S>(addr: S) -> Self
+    where
+        S: Into<String>,
+    {
         let addr = addr.into();
-        Self {
-            addr
-        }
+        Self { addr }
     }
 
     fn as_str(&self) -> &str {
@@ -573,7 +554,10 @@ pub struct InprocAddr {
 }
 
 impl InprocAddr {
-    fn new<S>(addr: S) -> Result<Self, InprocAddrError> where S: Into<String> {
+    fn new<S>(addr: S) -> Result<Self, InprocAddrError>
+    where
+        S: Into<String>,
+    {
         let addr = addr.into();
         if addr.len() <= INPROC_MAX_SIZE {
             Ok(Self { addr })

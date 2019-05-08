@@ -436,7 +436,6 @@ impl DishBuilder {
         self.inner.set_groups(Some(groups));
         self
     }
-
 }
 
 impl GetSocketConfig for DishBuilder {

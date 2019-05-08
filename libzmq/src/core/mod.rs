@@ -44,7 +44,7 @@ use sys::errno;
 
 use serde::{Deserialize, Serialize};
 
-use std::{ffi::CString, os::raw::c_void, sync::MutexGuard, time::Duration};
+use std::{ffi::CString, os::raw::c_void, time::Duration};
 
 const MAX_HB_TTL: i64 = 6_553_599;
 

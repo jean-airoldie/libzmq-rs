@@ -2,7 +2,7 @@ use crate::{core::GetRawSocket, error::*};
 use libzmq_sys as sys;
 use sys::errno;
 
-use std::{ffi, os::raw::*, ptr, str, thread};
+use std::{ffi, os::raw::*, ptr, str};
 
 /// Reports the ØMQ library version.
 ///

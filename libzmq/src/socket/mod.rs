@@ -10,9 +10,11 @@ pub use dish::*;
 pub use radio::*;
 pub use server::*;
 
-use crate::{Error, core::{RawSocket, GetRawSocket}};
+use crate::{
+    core::{GetRawSocket, RawSocket},
+};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// An enum containing all the socket types.
 #[derive(Debug, Clone, PartialEq, Eq)]

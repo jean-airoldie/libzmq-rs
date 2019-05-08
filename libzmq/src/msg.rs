@@ -1,5 +1,5 @@
 use crate::{
-    error::{msg_from_errno, Error, ErrorKind},
+    error::msg_from_errno,
     Group,
 };
 use libzmq_sys as sys;
@@ -7,11 +7,9 @@ use sys::errno;
 
 use libc::size_t;
 use log::error;
-use failure::Fail;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use std::{
-    convert::{TryFrom, TryInto},
     ffi::{self, CStr, CString},
     fmt,
     os::raw::c_void,
