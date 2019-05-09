@@ -329,10 +329,15 @@ impl BuildRecv for ClientBuilder {}
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::addr::InprocAddr;
+    use std::convert::TryInto;
 
     #[test]
     fn test_ser_de() {
-        let config = ClientConfig::new();
+        let addr: InprocAddr = "test".try_into().unwrap();
+
+        let mut config = ClientConfig::new();
+        config.set_connect(Some(&addr));
 
         let ron = ron::ser::to_string(&config).unwrap();
         let de: ClientConfig = ron::de::from_str(&ron).unwrap();

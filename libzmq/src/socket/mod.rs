@@ -36,7 +36,6 @@ impl GetRawSocket for SocketType {
 
 /// An enum containing all the socket config types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum ConfigType {
     Client(ClientConfig),
     Server(ServerConfig),
