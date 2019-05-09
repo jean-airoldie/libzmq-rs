@@ -712,6 +712,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// [`zmq_pgm`]: http://api.zeromq.org/master:zmq_pgm
 /// [`zmq_vmci`]: http://api.zeromq.org/master:zmq_vmci
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Endpoint {
     /// Unicast transport using TCP, see [`zmq_tcp`].
     ///
