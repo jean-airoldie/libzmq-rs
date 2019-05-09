@@ -2,7 +2,7 @@ use crate::{core::*, error::*, Ctx, Endpoint, GroupOwned};
 use libzmq_sys as sys;
 use sys::errno;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use std::{
     ffi::{c_void, CString},
@@ -327,7 +327,11 @@ unsafe impl Sync for Dish {}
 /// A configuration for a `Dish`.
 ///
 /// Especially helpfull in config files.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+// We can't derive and use #[serde(flatten)] because of this issue:
+// https://github.com/serde-rs/serde/issues/1346
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(from = "FlatDishConfig")]
+#[serde(into = "FlatDishConfig")]
 pub struct DishConfig {
     socket_config: SocketConfig,
     recv_config: RecvConfig,
@@ -380,10 +384,7 @@ impl DishConfig {
     }
 }
 
-// We can't derive and use #[serde(flatten)] because of this issue:
-// https://github.com/serde-rs/serde/issues/1346
-// Wish there was a better way.
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct FlatDishConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
@@ -410,22 +411,22 @@ struct FlatDishConfig {
     groups: Option<Vec<GroupOwned>>,
 }
 
-impl<'a> From<&'a DishConfig> for FlatDishConfig {
-    fn from(config: &'a DishConfig) -> Self {
-        let socket_config = &config.socket_config;
-        let recv_config = &config.recv_config;
+impl From<DishConfig> for FlatDishConfig {
+    fn from(config: DishConfig) -> Self {
+        let socket_config = config.socket_config;
+        let recv_config = config.recv_config;
         Self {
-            connect: socket_config.connect.to_owned(),
-            bind: socket_config.bind.to_owned(),
-            backlog: socket_config.backlog.to_owned(),
-            connect_timeout: socket_config.connect_timeout.to_owned(),
-            heartbeat_interval: socket_config.heartbeat_interval.to_owned(),
-            heartbeat_timeout: socket_config.heartbeat_timeout.to_owned(),
-            heartbeat_ttl: socket_config.heartbeat_ttl.to_owned(),
-            linger: socket_config.linger.to_owned(),
-            recv_high_water_mark: recv_config.recv_high_water_mark.to_owned(),
-            recv_timeout: recv_config.recv_timeout.to_owned(),
-            groups: config.groups.to_owned(),
+            connect: socket_config.connect,
+            bind: socket_config.bind,
+            backlog: socket_config.backlog,
+            connect_timeout: socket_config.connect_timeout,
+            heartbeat_interval: socket_config.heartbeat_interval,
+            heartbeat_timeout: socket_config.heartbeat_timeout,
+            heartbeat_ttl: socket_config.heartbeat_ttl,
+            linger: socket_config.linger,
+            recv_high_water_mark: recv_config.recv_high_water_mark,
+            recv_timeout: recv_config.recv_timeout,
+            groups: config.groups,
         }
     }
 }
@@ -453,27 +454,6 @@ impl From<FlatDishConfig> for DishConfig {
         }
     }
 }
-
-impl Serialize for DishConfig {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let flattened: FlatDishConfig = self.into();
-        flattened.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for DishConfig {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let flat = FlatDishConfig::deserialize(deserializer)?;
-        Ok(flat.into())
-    }
-}
-
 impl GetSocketConfig for DishConfig {
     fn socket_config(&self) -> &SocketConfig {
         &self.socket_config

@@ -1,6 +1,6 @@
 use crate::{core::*, error::*, Ctx, Endpoint};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use std::{sync::Arc, time::Duration};
 
@@ -93,7 +93,11 @@ unsafe impl Sync for Client {}
 /// A configuration for a `Client`.
 ///
 /// Especially helpfull in config files.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+// We can't derive and use #[serde(flatten)] because of this issue:
+// https://github.com/serde-rs/serde/issues/1346.
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(into = "FlatClientConfig")]
+#[serde(from = "FlatClientConfig")]
 pub struct ClientConfig {
     socket_config: SocketConfig,
     send_config: SendConfig,
@@ -129,10 +133,7 @@ impl ClientConfig {
     }
 }
 
-// We can't derive and use #[serde(flatten)] because of this issue:
-// https://github.com/serde-rs/serde/issues/1346
-// Wish there was a better way.
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct FlatClientConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
@@ -162,24 +163,24 @@ struct FlatClientConfig {
     recv_timeout: Option<Duration>,
 }
 
-impl<'a> From<&'a ClientConfig> for FlatClientConfig {
-    fn from(config: &'a ClientConfig) -> Self {
-        let socket_config = &config.socket_config;
-        let send_config = &config.send_config;
-        let recv_config = &config.recv_config;
+impl From<ClientConfig> for FlatClientConfig {
+    fn from(config: ClientConfig) -> Self {
+        let socket_config = config.socket_config;
+        let send_config = config.send_config;
+        let recv_config = config.recv_config;
         Self {
-            connect: socket_config.connect.to_owned(),
-            bind: socket_config.bind.to_owned(),
-            backlog: socket_config.backlog.to_owned(),
-            connect_timeout: socket_config.connect_timeout.to_owned(),
-            heartbeat_interval: socket_config.heartbeat_interval.to_owned(),
-            heartbeat_timeout: socket_config.heartbeat_timeout.to_owned(),
-            heartbeat_ttl: socket_config.heartbeat_ttl.to_owned(),
-            linger: socket_config.linger.to_owned(),
-            send_high_water_mark: send_config.send_high_water_mark.to_owned(),
-            send_timeout: send_config.send_timeout.to_owned(),
-            recv_high_water_mark: recv_config.recv_high_water_mark.to_owned(),
-            recv_timeout: recv_config.recv_timeout.to_owned(),
+            connect: socket_config.connect,
+            bind: socket_config.bind,
+            backlog: socket_config.backlog,
+            connect_timeout: socket_config.connect_timeout,
+            heartbeat_interval: socket_config.heartbeat_interval,
+            heartbeat_timeout: socket_config.heartbeat_timeout,
+            heartbeat_ttl: socket_config.heartbeat_ttl,
+            linger: socket_config.linger,
+            send_high_water_mark: send_config.send_high_water_mark,
+            send_timeout: send_config.send_timeout,
+            recv_high_water_mark: recv_config.recv_high_water_mark,
+            recv_timeout: recv_config.recv_timeout,
         }
     }
 }
@@ -209,26 +210,6 @@ impl From<FlatClientConfig> for ClientConfig {
             send_config,
             recv_config,
         }
-    }
-}
-
-impl Serialize for ClientConfig {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let flattened: FlatClientConfig = self.into();
-        flattened.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ClientConfig {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let flat = FlatClientConfig::deserialize(deserializer)?;
-        Ok(flat.into())
     }
 }
 
