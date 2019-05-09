@@ -1,12 +1,12 @@
 use crate::{
     core::{sockopt::*, *},
     error::*,
-    Ctx,
+    Ctx, Endpoint,
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 /// A `Radio` socket is used by a publisher to distribute data to [`Radio`]
 /// sockets.
@@ -171,15 +171,10 @@ unsafe impl Sync for Radio {}
 /// A configuration for a `Radio`.
 ///
 /// Especially helpfull in config files.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct RadioConfig {
-    #[serde(flatten)]
     socket_config: SocketConfig,
-    #[serde(flatten)]
     send_config: SendConfig,
-    #[serde(flatten)]
-    recv_config: RecvConfig,
-    #[serde(flatten)]
     no_drop: Option<bool>,
 }
 
@@ -225,6 +220,100 @@ impl RadioConfig {
     }
 }
 
+// We can't derive and use #[serde(flatten)] because of this issue:
+// https://github.com/serde-rs/serde/issues/1346
+// Wish there was a better way.
+#[derive(Serialize, Deserialize)]
+struct FlatRadioConfig {
+    connect: Option<Vec<Endpoint>>,
+    bind: Option<Vec<Endpoint>>,
+    backlog: Option<i32>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    connect_timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_interval: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_ttl: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    linger: Option<Duration>,
+    send_high_water_mark: Option<i32>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    send_timeout: Option<Duration>,
+    no_drop: Option<bool>,
+}
+
+impl<'a> From<&'a RadioConfig> for FlatRadioConfig {
+    fn from(config: &'a RadioConfig) -> Self {
+        let socket_config = &config.socket_config;
+        let send_config = &config.send_config;
+        Self {
+            connect: socket_config.connect.to_owned(),
+            bind: socket_config.bind.to_owned(),
+            backlog: socket_config.backlog.to_owned(),
+            connect_timeout: socket_config.connect_timeout.to_owned(),
+            heartbeat_interval: socket_config.heartbeat_interval.to_owned(),
+            heartbeat_timeout: socket_config.heartbeat_timeout.to_owned(),
+            heartbeat_ttl: socket_config.heartbeat_ttl.to_owned(),
+            linger: socket_config.linger.to_owned(),
+            send_high_water_mark: send_config.send_high_water_mark.to_owned(),
+            send_timeout: send_config.send_timeout.to_owned(),
+            no_drop: config.no_drop.to_owned(),
+        }
+    }
+}
+
+impl From<FlatRadioConfig> for RadioConfig {
+    fn from(flat: FlatRadioConfig) -> Self {
+        let socket_config = SocketConfig {
+            connect: flat.connect,
+            bind: flat.bind,
+            backlog: flat.backlog,
+            connect_timeout: flat.connect_timeout,
+            heartbeat_interval: flat.heartbeat_interval,
+            heartbeat_timeout: flat.heartbeat_timeout,
+            heartbeat_ttl: flat.heartbeat_ttl,
+            linger: flat.linger,
+        };
+        let send_config = SendConfig {
+            send_high_water_mark: flat.send_high_water_mark,
+            send_timeout: flat.send_timeout,
+        };
+        Self {
+            socket_config,
+            send_config,
+            no_drop: flat.no_drop,
+        }
+    }
+}
+
+impl Serialize for RadioConfig {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let flattened: FlatRadioConfig = self.into();
+        flattened.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for RadioConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let flat = FlatRadioConfig::deserialize(deserializer)?;
+        Ok(flat.into())
+    }
+}
+
 impl GetSocketConfig for RadioConfig {
     fn socket_config(&self) -> &SocketConfig {
         &self.socket_config
@@ -249,7 +338,7 @@ impl GetSendConfig for RadioConfig {
 
 impl ConfigureSend for RadioConfig {}
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct RadioBuilder {
     inner: RadioConfig,
 }
@@ -299,3 +388,17 @@ impl GetSendConfig for RadioBuilder {
 }
 
 impl BuildSend for RadioBuilder {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_ser_de() {
+        let config = RadioConfig::new();
+
+        let ron = ron::ser::to_string(&config).unwrap();
+        let de: RadioConfig = ron::de::from_str(&ron).unwrap();
+        assert_eq!(config, de);
+    }
+}

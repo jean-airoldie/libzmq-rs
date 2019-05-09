@@ -6,8 +6,6 @@ use crate::{
 use libzmq_sys as sys;
 use sys::errno;
 
-use serde::{Deserialize, Serialize};
-
 use std::{
     os::raw::{c_int, c_void},
     time::Duration,
@@ -194,13 +192,11 @@ pub trait RecvMsg: GetRawSocket {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct RecvConfig {
-    recv_high_water_mark: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    recv_timeout: Option<Duration>,
+    pub(crate) recv_high_water_mark: Option<i32>,
+    pub(crate) recv_timeout: Option<Duration>,
 }
 
 impl RecvConfig {

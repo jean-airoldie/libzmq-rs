@@ -37,6 +37,7 @@ rand_isaac = "0.1.1"
 rand_core = "0.4"
 criterion = "0.2"
 version-sync = "0.8"
+ron = "0.5"
 
 [[bench]]
 name = "bench_main"

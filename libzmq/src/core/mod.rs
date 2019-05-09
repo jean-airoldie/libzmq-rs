@@ -623,27 +623,17 @@ pub trait Socket: GetRawSocket {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct SocketConfig {
-    connect: Option<Vec<Endpoint>>,
-    bind: Option<Vec<Endpoint>>,
-    backlog: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    connect_timeout: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    heartbeat_interval: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    heartbeat_timeout: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    heartbeat_ttl: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    linger: Option<Duration>,
+    pub(crate) connect: Option<Vec<Endpoint>>,
+    pub(crate) bind: Option<Vec<Endpoint>>,
+    pub(crate) backlog: Option<i32>,
+    pub(crate) connect_timeout: Option<Duration>,
+    pub(crate) heartbeat_interval: Option<Duration>,
+    pub(crate) heartbeat_timeout: Option<Duration>,
+    pub(crate) heartbeat_ttl: Option<Duration>,
+    pub(crate) linger: Option<Duration>,
 }
 
 impl SocketConfig {

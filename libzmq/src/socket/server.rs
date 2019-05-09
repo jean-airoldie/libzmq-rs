@@ -1,8 +1,8 @@
-use crate::{core::*, error::*, Ctx};
+use crate::{core::*, error::*, Ctx, Endpoint};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 /// A `Server` socket is a socket used for advanced request-reply messaging.
 ///
@@ -144,13 +144,10 @@ unsafe impl Sync for Server {}
 /// A configuration for a `Server`.
 ///
 /// Especially helpfull in config files.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct ServerConfig {
-    #[serde(flatten)]
     socket_config: SocketConfig,
-    #[serde(flatten)]
     send_config: SendConfig,
-    #[serde(flatten)]
     recv_config: RecvConfig,
 }
 
@@ -180,6 +177,109 @@ impl ServerConfig {
         self.recv_config.apply(server)?;
 
         Ok(())
+    }
+}
+
+// We can't derive and use #[serde(flatten)] because of this issue:
+// https://github.com/serde-rs/serde/issues/1346
+// Wish there was a better way.
+#[derive(Serialize, Deserialize)]
+struct FlatServerConfig {
+    connect: Option<Vec<Endpoint>>,
+    bind: Option<Vec<Endpoint>>,
+    backlog: Option<i32>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    connect_timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_interval: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_ttl: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    linger: Option<Duration>,
+    send_high_water_mark: Option<i32>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    send_timeout: Option<Duration>,
+    recv_high_water_mark: Option<i32>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    recv_timeout: Option<Duration>,
+}
+
+impl<'a> From<&'a ServerConfig> for FlatServerConfig {
+    fn from(config: &'a ServerConfig) -> Self {
+        let socket_config = &config.socket_config;
+        let send_config = &config.send_config;
+        let recv_config = &config.recv_config;
+        Self {
+            connect: socket_config.connect.to_owned(),
+            bind: socket_config.bind.to_owned(),
+            backlog: socket_config.backlog.to_owned(),
+            connect_timeout: socket_config.connect_timeout.to_owned(),
+            heartbeat_interval: socket_config.heartbeat_interval.to_owned(),
+            heartbeat_timeout: socket_config.heartbeat_timeout.to_owned(),
+            heartbeat_ttl: socket_config.heartbeat_ttl.to_owned(),
+            linger: socket_config.linger.to_owned(),
+            send_high_water_mark: send_config.send_high_water_mark.to_owned(),
+            send_timeout: send_config.send_timeout.to_owned(),
+            recv_high_water_mark: recv_config.recv_high_water_mark.to_owned(),
+            recv_timeout: recv_config.recv_timeout.to_owned(),
+        }
+    }
+}
+
+impl From<FlatServerConfig> for ServerConfig {
+    fn from(flat: FlatServerConfig) -> Self {
+        let socket_config = SocketConfig {
+            connect: flat.connect,
+            bind: flat.bind,
+            backlog: flat.backlog,
+            connect_timeout: flat.connect_timeout,
+            heartbeat_interval: flat.heartbeat_interval,
+            heartbeat_timeout: flat.heartbeat_timeout,
+            heartbeat_ttl: flat.heartbeat_ttl,
+            linger: flat.linger,
+        };
+        let send_config = SendConfig {
+            send_high_water_mark: flat.send_high_water_mark,
+            send_timeout: flat.send_timeout,
+        };
+        let recv_config = RecvConfig {
+            recv_high_water_mark: flat.recv_high_water_mark,
+            recv_timeout: flat.recv_timeout,
+        };
+        Self {
+            socket_config,
+            send_config,
+            recv_config,
+        }
+    }
+}
+
+impl Serialize for ServerConfig {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let flattened: FlatServerConfig = self.into();
+        flattened.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ServerConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let flat = FlatServerConfig::deserialize(deserializer)?;
+        Ok(flat.into())
     }
 }
 
@@ -219,7 +319,7 @@ impl GetSendConfig for ServerConfig {
 
 impl ConfigureSend for ServerConfig {}
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct ServerBuilder {
     inner: ServerConfig,
 }
@@ -276,3 +376,17 @@ impl GetRecvConfig for ServerBuilder {
 }
 
 impl BuildRecv for ServerBuilder {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_ser_de() {
+        let config = ServerConfig::new();
+
+        let ron = ron::ser::to_string(&config).unwrap();
+        let de: ServerConfig = ron::de::from_str(&ron).unwrap();
+        assert_eq!(config, de);
+    }
+}

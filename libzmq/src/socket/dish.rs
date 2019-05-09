@@ -1,13 +1,14 @@
-use crate::{core::*, error::*, Ctx, GroupOwned};
+use crate::{core::*, error::*, Ctx, Endpoint, GroupOwned};
 use libzmq_sys as sys;
 use sys::errno;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::{
     ffi::{c_void, CString},
     str,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
@@ -326,13 +327,10 @@ unsafe impl Sync for Dish {}
 /// A configuration for a `Dish`.
 ///
 /// Especially helpfull in config files.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct DishConfig {
-    #[serde(flatten)]
     socket_config: SocketConfig,
-    #[serde(flatten)]
     recv_config: RecvConfig,
-    #[serde(flatten)]
     groups: Option<Vec<GroupOwned>>,
 }
 
@@ -379,6 +377,100 @@ impl DishConfig {
         }
 
         Ok(())
+    }
+}
+
+// We can't derive and use #[serde(flatten)] because of this issue:
+// https://github.com/serde-rs/serde/issues/1346
+// Wish there was a better way.
+#[derive(Serialize, Deserialize)]
+struct FlatDishConfig {
+    connect: Option<Vec<Endpoint>>,
+    bind: Option<Vec<Endpoint>>,
+    backlog: Option<i32>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    connect_timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_interval: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    heartbeat_ttl: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    linger: Option<Duration>,
+    recv_high_water_mark: Option<i32>,
+    #[serde(default)]
+    #[serde(with = "serde_humantime")]
+    recv_timeout: Option<Duration>,
+    groups: Option<Vec<GroupOwned>>,
+}
+
+impl<'a> From<&'a DishConfig> for FlatDishConfig {
+    fn from(config: &'a DishConfig) -> Self {
+        let socket_config = &config.socket_config;
+        let recv_config = &config.recv_config;
+        Self {
+            connect: socket_config.connect.to_owned(),
+            bind: socket_config.bind.to_owned(),
+            backlog: socket_config.backlog.to_owned(),
+            connect_timeout: socket_config.connect_timeout.to_owned(),
+            heartbeat_interval: socket_config.heartbeat_interval.to_owned(),
+            heartbeat_timeout: socket_config.heartbeat_timeout.to_owned(),
+            heartbeat_ttl: socket_config.heartbeat_ttl.to_owned(),
+            linger: socket_config.linger.to_owned(),
+            recv_high_water_mark: recv_config.recv_high_water_mark.to_owned(),
+            recv_timeout: recv_config.recv_timeout.to_owned(),
+            groups: config.groups.to_owned(),
+        }
+    }
+}
+
+impl From<FlatDishConfig> for DishConfig {
+    fn from(flat: FlatDishConfig) -> Self {
+        let socket_config = SocketConfig {
+            connect: flat.connect,
+            bind: flat.bind,
+            backlog: flat.backlog,
+            connect_timeout: flat.connect_timeout,
+            heartbeat_interval: flat.heartbeat_interval,
+            heartbeat_timeout: flat.heartbeat_timeout,
+            heartbeat_ttl: flat.heartbeat_ttl,
+            linger: flat.linger,
+        };
+        let recv_config = RecvConfig {
+            recv_high_water_mark: flat.recv_high_water_mark,
+            recv_timeout: flat.recv_timeout,
+        };
+        Self {
+            socket_config,
+            recv_config,
+            groups: flat.groups,
+        }
+    }
+}
+
+impl Serialize for DishConfig {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let flattened: FlatDishConfig = self.into();
+        flattened.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for DishConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let flat = FlatDishConfig::deserialize(deserializer)?;
+        Ok(flat.into())
     }
 }
 
@@ -461,3 +553,17 @@ impl GetRecvConfig for DishBuilder {
 }
 
 impl BuildRecv for DishBuilder {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_ser_de() {
+        let config = DishConfig::new();
+
+        let ron = ron::ser::to_string(&config).unwrap();
+        let de: DishConfig = ron::de::from_str(&ron).unwrap();
+        assert_eq!(config, de);
+    }
+}

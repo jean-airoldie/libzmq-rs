@@ -129,7 +129,6 @@ impl<'a> From<&'a TcpAddr> for Endpoint {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
 pub struct UdpAddr {
     inner: SocketAddr,
 }
@@ -824,4 +823,33 @@ impl<'a> IntoIterator for &'a Endpoint {
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
     }
+}
+
+#[cfg(test)]
+mod test {
+    macro_rules! test_addr_ser_de {
+        ($mod: ident, $name: ty, $string: expr) => {
+            mod $mod {
+                use crate::addr::*;
+                use std::convert::TryInto;
+
+                #[test]
+                fn test_ser_de() {
+                    let addr: $name = $string.try_into().unwrap();
+                    let endpoint: Endpoint = addr.into();
+
+                    let ron = ron::ser::to_string(&endpoint).unwrap();
+                    println!("{}", ron);
+                    let de: Endpoint = ron::de::from_str(&ron).unwrap();
+                    assert_eq!(endpoint, de);
+                }
+            }
+        };
+    }
+
+    test_addr_ser_de!(tcp, TcpAddr, "0.0.0.0:3000");
+    test_addr_ser_de!(udp, UdpAddr, "0.0.0.0:3000");
+    test_addr_ser_de!(pgm, PgmAddr, "0.0.0.0:3000");
+    test_addr_ser_de!(epgm, EpgmAddr, "0.0.0.0:3000");
+    test_addr_ser_de!(inproc, InprocAddr, "test");
 }
