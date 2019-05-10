@@ -197,7 +197,7 @@ pub trait Socket: GetRawSocket {
 
         for endpoint in endpoints.into_iter() {
             let endpoint: Endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let c_str = CString::new(endpoint.to_zmq()).unwrap();
             connect(raw_socket.as_mut_ptr(), c_str)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -274,7 +274,7 @@ pub trait Socket: GetRawSocket {
 
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let c_str = CString::new(endpoint.to_zmq()).unwrap();
             disconnect(raw_socket.as_mut_ptr(), c_str)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -326,7 +326,7 @@ pub trait Socket: GetRawSocket {
         let mut count = 0;
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let c_str = CString::new(endpoint.to_zmq()).unwrap();
             let raw_socket = self.raw_socket();
             bind(self.raw_socket().as_mut_ptr(), c_str)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
@@ -410,7 +410,7 @@ pub trait Socket: GetRawSocket {
     {
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_string()).unwrap();
+            let c_str = CString::new(endpoint.to_zmq()).unwrap();
             let raw_socket = self.raw_socket();
             unbind(self.raw_socket().as_mut_ptr(), c_str)?;
 
@@ -419,6 +419,47 @@ pub trait Socket: GetRawSocket {
             bound.remove(position);
         }
         Ok(())
+    }
+
+    /// Retrieve the last endpoint connected or bound to.
+    ///
+    /// This is the only way to retreive the value of a bound `Dynamic` port.
+    ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Server, addr::*};
+    /// use std::convert::TryInto;
+    ///
+    /// // We create a tcp addr with an unspecified port.
+    /// // This port will be assigned by the OS upon connection.
+    /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
+    /// assert!(addr.host().port().is_unspecified());
+    ///
+    /// let server = Server::new()?;
+    /// assert!(server.last_endpoint()?.is_none());
+    ///
+    /// server.bind(&addr)?;
+    ///
+    /// if let Endpoint::Tcp(tcp) = server.last_endpoint()?.unwrap() {
+    ///     // The port was indeed assigned by the OS.
+    ///     assert!(tcp.host().port().is_specified());
+    /// } else {
+    ///     unreachable!();
+    /// }
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
+        let maybe = getsockopt_string(
+            self.raw_socket().as_mut_ptr(),
+            SocketOption::LastEndpoint,
+        )?;
+
+        Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
     }
 
     /// Retrieve the maximum length of the queue of outstanding peer connections.

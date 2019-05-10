@@ -30,6 +30,7 @@ pub(crate) enum SocketOption {
     RecvTimeout,
     NoDrop,
     Linger,
+    LastEndpoint,
 }
 
 impl From<SocketOption> for c_int {
@@ -49,6 +50,7 @@ impl From<SocketOption> for c_int {
             SocketOption::RecvTimeout => sys::ZMQ_RCVTIMEO as c_int,
             SocketOption::NoDrop => sys::ZMQ_XPUB_NODROP as c_int,
             SocketOption::Linger => sys::ZMQ_LINGER as c_int,
+            SocketOption::LastEndpoint => sys::ZMQ_LAST_ENDPOINT as c_int,
         }
     }
 }
@@ -133,9 +135,16 @@ pub(crate) fn getsockopt_string(
     option: SocketOption,
 ) -> Result<Option<String>, Error> {
     match getsockopt_bytes(mut_sock_ptr, option)? {
-        Some(bytes) => {
-            let c_str = unsafe { CString::from_vec_unchecked(bytes) };
-            Ok(Some(c_str.into_string().unwrap()))
+        Some(mut bytes) => {
+            // Remove null byte.
+            bytes.pop();
+
+            if bytes.is_empty() {
+                Ok(None)
+            } else {
+                let c_str = unsafe { CString::from_vec_unchecked(bytes) };
+                Ok(Some(c_str.into_string().unwrap()))
+            }
         }
         None => Ok(None),
     }
