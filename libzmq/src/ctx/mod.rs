@@ -303,7 +303,7 @@ impl CtxBuilder {
 /// # Multiple Contexts
 /// Multiple contexts are allowed but for most cases one will suffice.
 ///
-/// # Differences with `libzmq` context.
+/// # Differences with `ØMQ` context.
 /// * IPV6 option is always enabled.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Ctx {

@@ -13,13 +13,13 @@ use std::{ffi, os::raw::*, ptr, str};
 /// [`zmq_version`]: http://api.zeromq.org/4-2:zmq-version
 ///
 /// ```
-/// use libzmq::zmq_version;
+/// use libzmq::version;
 ///
-/// assert_eq!(zmq_version(), (4, 3, 1));
+/// assert_eq!(version(), (4, 3, 1));
 /// ```
 // This test acts as a canary when upgrading the libzmq
 // version.
-pub fn zmq_version() -> (i32, i32, i32) {
+pub fn version() -> (i32, i32, i32) {
     let mut major = 0;
     let mut minor = 0;
     let mut patch = 0;
@@ -40,11 +40,11 @@ pub fn zmq_version() -> (i32, i32, i32) {
 /// [`zmq_has`]: http://api.zeromq.org/4-2:zmq-has
 ///
 /// ```
-/// use libzmq::zmq_has;
+/// use libzmq::has;
 ///
-/// assert!(zmq_has("curve"));
+/// assert!(has("curve"));
 /// ```
-pub fn zmq_has(capability: &str) -> bool {
+pub fn has(capability: &str) -> bool {
     let c_str = ffi::CString::new(capability).unwrap();
     unsafe { sys::zmq_has(c_str.as_ptr()) == 1 }
 }

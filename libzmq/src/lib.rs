@@ -23,7 +23,7 @@ pub use msg::Msg;
 pub use socket::{Client, Dish, Radio, Server};
 pub use utils::*;
 
-/// A "prelude" for users of the `libzmq` crate.
+/// A "prelude" for users of the `ØMQ` crate.
 ///
 /// This prelude is similar to the standard library's prelude in that you'll
 /// almost always want to import its entire contents, but unlike the standard
