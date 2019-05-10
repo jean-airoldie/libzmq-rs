@@ -19,7 +19,7 @@ pub use addr::Endpoint;
 pub use ctx::Ctx;
 pub use error::{Error, ErrorKind};
 pub use group::{Group, GroupOwned};
-pub use msg::Msg;
+pub use msg::*;
 pub use socket::{Client, Dish, Radio, Server};
 pub use utils::*;
 
