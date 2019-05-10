@@ -1,106 +1,550 @@
 //! The different transport types supported by ØMQ.
 
 use failure::Fail;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use std::{
-    convert::{Infallible, TryFrom},
+    convert::TryFrom,
     fmt,
-    net::{AddrParseError, IpAddr, SocketAddr},
+    net::{self, IpAddr},
     option,
     str::{self, FromStr},
 };
 
+/// The maximum number of characters in a `inproc` address.
 pub const INPROC_MAX_SIZE: usize = 256;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+/// An error that occurs when an address cannot be parsed.
+///
+/// The error contains a message detailling the source of the error.
+#[derive(Debug, Fail)]
+#[fail(display = "cannot parse address : {}", msg)]
+pub struct AddrParseError {
+    msg: &'static str,
+}
+
+impl AddrParseError {
+    fn new(msg: &'static str) -> Self {
+        Self { msg }
+    }
+
+    pub fn msg(&self) -> &'static str {
+        self.msg
+    }
+}
+
+macro_rules! serde_display_tryfrom {
+    ($name:ident) => {
+        impl Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.collect_str(self)
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let s = String::deserialize(deserializer)?;
+                TryFrom::try_from(s).map_err(de::Error::custom)
+            }
+        }
+    };
+}
+
+macro_rules! tryfrom_fromstr {
+    ($name:ident) => {
+        impl TryFrom<String> for $name {
+            type Error = AddrParseError;
+            fn try_from(s: String) -> Result<Self, AddrParseError> {
+                Self::from_str(s.as_str())
+            }
+        }
+
+        impl<'a> TryFrom<&'a String> for $name {
+            type Error = AddrParseError;
+            fn try_from(s: &'a String) -> Result<Self, AddrParseError> {
+                Self::from_str(s.as_str())
+            }
+        }
+
+        impl<'a> TryFrom<&'a str> for $name {
+            type Error = AddrParseError;
+            fn try_from(s: &'a str) -> Result<Self, AddrParseError> {
+                Self::from_str(s)
+            }
+        }
+    };
+}
+
+/// An named interface.
+///
+/// It can represente a network interface, a DNS address or
+/// a IP hostname depending on the context.
+///
+/// The hostname must be strictly alpha-numeric except for the `-` character
+/// that is allowed.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::Hostname;
+/// use std::convert::TryInto;
+///
+/// // This is a network interface.
+/// let net: Hostname = "eth0".try_into()?;
+/// // This is a DNS address.
+/// let dns: Hostname = "server-name".try_into()?;
+/// // This is a IPv4 hostname
+/// let localhost: Hostname = "localhost".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Hostname {
+    name: String,
+}
+
+impl Hostname {
+    pub fn new<S>(name: S) -> Result<Self, AddrParseError>
+    where
+        S: Into<String>,
+    {
+        let name = name.into();
+
+        if !name.is_empty() {
+            for c in name.as_str().chars() {
+                if !c.is_ascii_alphanumeric() && c != '-' {
+                    dbg!(c);
+                    return Err(AddrParseError::new(
+                        "hostname contains illegal char",
+                    ));
+                }
+            }
+
+            Ok(Self { name })
+        } else {
+            Err(AddrParseError::new("empty hostname"))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
+impl FromStr for Hostname {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        Self::new(s)
+    }
+}
+
+impl fmt::Display for Hostname {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+serde_display_tryfrom!(Hostname);
+
+impl TryFrom<String> for Hostname {
+    type Error = AddrParseError;
+    fn try_from(s: String) -> Result<Self, AddrParseError> {
+        Self::new(s)
+    }
+}
+
+impl<'a> TryFrom<&'a String> for Hostname {
+    type Error = AddrParseError;
+    fn try_from(s: &'a String) -> Result<Self, AddrParseError> {
+        Self::new(s.as_str())
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Hostname {
+    type Error = AddrParseError;
+    fn try_from(s: &'a str) -> Result<Self, AddrParseError> {
+        Self::new(s)
+    }
+}
+
+/// A port used by a socket address.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::Port;
+/// use std::convert::TryInto;
+///
+/// let port: Port = "*".try_into()?;
+/// assert_eq!(port, Port::Dynamic);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Port {
+    /// A specific port number.
+    Static(u16),
+    /// A system assigned ephemeral port.
+    Dynamic,
+}
+
+impl FromStr for Port {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if !s.is_empty() {
+            if s.chars().nth(0).unwrap() == '*' && s.len() == 1 {
+                Ok(Port::Dynamic)
+            } else {
+                let port = u16::from_str(s)
+                    .map_err(|_| AddrParseError::new("invalid port number"))?;
+                Ok(Port::Static(port))
+            }
+        } else {
+            Err(AddrParseError::new("empty port"))
+        }
+    }
+}
+
+tryfrom_fromstr!(Port);
+
+impl fmt::Display for Port {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Port::Static(num) => write!(f, "{}", num),
+            Port::Dynamic => write!(f, "*"),
+        }
+    }
+}
+
+serde_display_tryfrom!(Port);
+
+/// An interface used for connecting or binding.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::Interface;
+/// use std::convert::TryInto;
+///
+/// let interface: Interface = "0.0.0.0".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Interface {
+    /// Connect or bind to an IP address.
+    Ip(IpAddr),
+    /// Connect or bind to a named address.
+    Hostname(Hostname),
+}
+
+impl FromStr for Interface {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if !s.is_empty() {
+            dbg!(s);
+            if let Ok(ip) = IpAddr::from_str(s) {
+                Ok(Interface::Ip(ip))
+            } else {
+                let interface = Hostname::from_str(s)?;
+                Ok(Interface::Hostname(interface))
+            }
+        } else {
+            Err(AddrParseError::new("empty interface"))
+        }
+    }
+}
+
+tryfrom_fromstr!(Interface);
+
+impl fmt::Display for Interface {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Interface::Ip(ip) => write!(f, "{}", ip),
+            Interface::Hostname(interface) => write!(f, "{}", interface),
+        }
+    }
+}
+
+serde_display_tryfrom!(Interface);
+
+/// A socket address with an [`Interface`] and a [`Port`].
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::SocketAddr;
+/// use std::convert::TryInto;
+///
+/// let addr: SocketAddr = "127.0.0.1:3000".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// [`Interface`]: enum.Interface.html
+/// [`Port`]: enum.Port.html
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct SocketAddr {
+    interface: Interface,
+    port: Port,
+}
+
+impl SocketAddr {
+    pub fn new(interface: Interface, port: Port) -> Self {
+        Self { interface, port }
+    }
+
+    pub fn interface(&self) -> &Interface {
+        &self.interface
+    }
+
+    pub fn port(&self) -> Port {
+        self.port
+    }
+}
+
+impl FromStr for SocketAddr {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        // We reverse search so that we don't have to deal will IPv6 syntax.
+        if let Some(mid) = s.rfind(':') {
+            let addr = {
+                // Check for IPv6.
+                if s.chars().nth(0).unwrap() == '['
+                    && s.chars().nth(mid - 1).unwrap() == ']'
+                {
+                    let interface = Interface::from_str(&s[1..mid - 1])?;
+                    let port = Port::from_str(&s[mid + 1..])?;
+
+                    Self { interface, port }
+                } else {
+                    let interface = Interface::from_str(&s[0..mid])?;
+                    let port = Port::from_str(&s[mid + 1..])?;
+
+                    Self { interface, port }
+                }
+            };
+
+            Ok(addr)
+        } else {
+            Err(AddrParseError::new("invalid addr format"))
+        }
+    }
+}
+
+tryfrom_fromstr!(SocketAddr);
+
+impl fmt::Display for SocketAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.interface, self.port)
+    }
+}
+
+serde_display_tryfrom!(SocketAddr);
+
+impl From<net::SocketAddr> for SocketAddr {
+    fn from(addr: net::SocketAddr) -> Self {
+        Self::new(Interface::Ip(addr.ip()), Port::Static(addr.port()))
+    }
+}
+
+impl<'a> From<&'a SocketAddr> for SocketAddr {
+    fn from(addr: &'a SocketAddr) -> Self {
+        addr.to_owned()
+    }
+}
+
+/// Specify a source address when connecting.
+///
+/// A source address can be specified when a client communicate with a public
+/// server from behind a private network. This allows the server's replies to
+/// be routed properly.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::SrcAddr;
+/// use std::convert::TryInto;
+///
+/// /// Bind to an IPv4 addr with a dynamic port.
+/// let src: SrcAddr = "192.168.1.17:*".try_into()?;
+///
+/// /// Bind to an IPv6 multicast addr.
+/// let src: SrcAddr = "ff02::1".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum SrcAddr {
+    /// Bind to a socket address.
+    Socket(SocketAddr),
+    /// Bind to an interface.
+    Interface(Interface),
+}
+
+impl FromStr for SrcAddr {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if let Ok(addr) = SocketAddr::from_str(s) {
+            Ok(SrcAddr::Socket(addr))
+        } else {
+            let host = Interface::from_str(s)?;
+            Ok(SrcAddr::Interface(host))
+        }
+    }
+}
+
+tryfrom_fromstr!(SrcAddr);
+
+impl fmt::Display for SrcAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SrcAddr::Socket(addr) => write!(f, "{}", addr),
+            SrcAddr::Interface(host) => write!(f, "{}", host),
+        }
+    }
+}
+
+serde_display_tryfrom!(SrcAddr);
+
+impl From<SocketAddr> for SrcAddr {
+    fn from(addr: SocketAddr) -> Self {
+        SrcAddr::Socket(addr)
+    }
+}
+
+impl<'a> From<&'a SocketAddr> for SrcAddr {
+    fn from(addr: &'a SocketAddr) -> Self {
+        SrcAddr::Socket(addr.to_owned())
+    }
+}
+
+impl<'a> From<&'a SrcAddr> for SrcAddr {
+    fn from(src: &'a SrcAddr) -> Self {
+        src.to_owned()
+    }
+}
+
+/// A socket address with the `TCP` transport.
+///
+/// # Supported Sockets
+/// [`Dish`], [`Radio`], [`Client`] and [`Server]
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::TcpAddr;
+/// use std::convert::TryInto;
+///
+/// // Connecting using a IPv4 address and bind to `eth0` interface.
+/// let ipv4: TcpAddr = "eth0;192.168.1.1:5555".try_into()?;
+///
+/// // Connecting using a IPv4 address.
+/// let ipv6: TcpAddr = "[2001:db8::1]:8080".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct TcpAddr {
-    inner: SocketAddr,
+    src: Option<SrcAddr>,
+    addr: SocketAddr,
 }
 
 impl TcpAddr {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        let inner = SocketAddr::new(ip, port);
-
-        Self { inner }
+    pub fn new<A>(addr: A) -> Self
+    where
+        A: Into<SocketAddr>,
+    {
+        let addr = addr.into();
+        Self { addr, src: None }
     }
 
-    pub fn ip(&self) -> IpAddr {
-        self.inner.ip()
+    pub fn with_src<A, S>(addr: A, src: S) -> Self
+    where
+        A: Into<SocketAddr>,
+        S: Into<SrcAddr>,
+    {
+        let addr = addr.into();
+        let src = src.into();
+
+        Self {
+            addr,
+            src: Some(src),
+        }
     }
 
-    pub fn set_ip(&mut self, new_ip: IpAddr) {
-        self.inner.set_ip(new_ip);
+    pub fn addr(&self) -> &SocketAddr {
+        &self.addr
     }
 
-    pub fn port(&self) -> u16 {
-        self.inner.port()
-    }
-
-    pub fn set_port(&mut self, new_port: u16) {
-        self.inner.set_port(new_port)
-    }
-
-    pub fn is_ipv4(&self) -> bool {
-        self.inner.is_ipv4()
-    }
-
-    pub fn is_ipv6(&self) -> bool {
-        self.inner.is_ipv6()
-    }
-}
-
-impl From<SocketAddr> for TcpAddr {
-    fn from(addr: SocketAddr) -> Self {
-        Self { inner: addr }
-    }
-}
-
-impl From<TcpAddr> for SocketAddr {
-    fn from(addr: TcpAddr) -> Self {
-        addr.inner
-    }
-}
-
-impl fmt::Display for TcpAddr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "tcp://{:?}", self.inner)
+    pub fn src(&self) -> Option<&SrcAddr> {
+        self.src.as_ref()
     }
 }
 
 impl FromStr for TcpAddr {
     type Err = AddrParseError;
-    fn from_str(s: &str) -> Result<TcpAddr, AddrParseError> {
-        let inner = SocketAddr::from_str(s)?;
-        Ok(Self { inner })
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if let Some(mid) = s.find(';') {
+            let src = Some(SrcAddr::from_str(&s[..mid])?);
+            let addr = SocketAddr::from_str(&s[mid + 1..])?;
+
+            Ok(Self { src, addr })
+        } else {
+            let addr = SocketAddr::from_str(s)?;
+
+            Ok(Self { src: None, addr })
+        }
     }
 }
 
-impl TryFrom<String> for TcpAddr {
-    type Error = AddrParseError;
-    fn try_from(s: String) -> Result<TcpAddr, AddrParseError> {
-        Self::from_str(s.as_str())
+tryfrom_fromstr!(TcpAddr);
+
+impl fmt::Display for TcpAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.src.is_some() {
+            write!(f, "{};{}", self.addr, self.src.as_ref().unwrap())
+        } else {
+            write!(f, "{}", self.addr)
+        }
     }
 }
 
-impl<'a> TryFrom<&'a String> for TcpAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a String) -> Result<TcpAddr, AddrParseError> {
-        Self::from_str(s.as_str())
-    }
-}
+serde_display_tryfrom!(TcpAddr);
 
-impl<'a> TryFrom<&'a str> for TcpAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a str) -> Result<TcpAddr, AddrParseError> {
-        Self::from_str(s)
+impl From<SocketAddr> for TcpAddr {
+    fn from(addr: SocketAddr) -> Self {
+        Self { addr, src: None }
     }
 }
 
 impl IntoIterator for TcpAddr {
-    type Item = TcpAddr;
-    type IntoIter = option::IntoIter<TcpAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -108,8 +552,8 @@ impl IntoIterator for TcpAddr {
 }
 
 impl<'a> IntoIterator for &'a TcpAddr {
-    type Item = &'a TcpAddr;
-    type IntoIter = option::IntoIter<&'a TcpAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -128,93 +572,122 @@ impl<'a> From<&'a TcpAddr> for Endpoint {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+/// A socket address with the `UDP` transport.
+///
+/// # Supported Sockets
+/// [`Dish`], [`Radio`]
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::UdpAddr;
+/// use std::convert::TryInto;
+///
+/// // Multicast - UDP port 5555 on a Multicast address
+/// let addr: UdpAddr = "239.0.0.1:5555".try_into()?;
+///
+/// // Same as above using IPv6 with joining only on interface eth0.
+/// let addr: UdpAddr = "eth0;[ff02::1]:5555".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UdpAddr {
-    inner: SocketAddr,
+    src: Option<SrcAddr>,
+    addr: SocketAddr,
 }
 
 impl UdpAddr {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        let inner = SocketAddr::new(ip, port);
-
-        Self { inner }
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::addr::{UdpAddr, SocketAddr};
+    /// use std::convert::TryInto;
+    ///
+    /// let addr: SocketAddr = "localhost:5555".try_into()?;
+    /// // We can use a reference here which will allocate.
+    /// let udp = UdpAddr::new(&addr);
+    /// // We can also give ownership which does not allocate.
+    /// let udp = UdpAddr::new(addr);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn new<A>(addr: A) -> Self
+    where
+        A: Into<SocketAddr>,
+    {
+        let addr = addr.into();
+        Self { addr, src: None }
     }
 
-    pub fn ip(&self) -> IpAddr {
-        self.inner.ip()
+    pub fn with_src<A, S>(addr: A, src: S) -> Self
+    where
+        A: Into<SocketAddr>,
+        S: Into<SrcAddr>,
+    {
+        let addr = addr.into();
+        let src = src.into();
+
+        Self {
+            addr,
+            src: Some(src),
+        }
     }
 
-    pub fn set_ip(&mut self, new_ip: IpAddr) {
-        self.inner.set_ip(new_ip);
+    pub fn addr(&self) -> &SocketAddr {
+        &self.addr
     }
 
-    pub fn port(&self) -> u16 {
-        self.inner.port()
-    }
-
-    pub fn set_port(&mut self, new_port: u16) {
-        self.inner.set_port(new_port)
-    }
-
-    pub fn is_ipv4(&self) -> bool {
-        self.inner.is_ipv4()
-    }
-
-    pub fn is_ipv6(&self) -> bool {
-        self.inner.is_ipv6()
-    }
-}
-
-impl From<SocketAddr> for UdpAddr {
-    fn from(addr: SocketAddr) -> Self {
-        Self { inner: addr }
-    }
-}
-
-impl From<UdpAddr> for SocketAddr {
-    fn from(addr: UdpAddr) -> Self {
-        addr.inner
-    }
-}
-
-impl fmt::Display for UdpAddr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "udp://{:?}", self.inner)
+    pub fn src(&self) -> Option<&SrcAddr> {
+        self.src.as_ref()
     }
 }
 
 impl FromStr for UdpAddr {
     type Err = AddrParseError;
-    fn from_str(s: &str) -> Result<UdpAddr, AddrParseError> {
-        let inner = SocketAddr::from_str(s)?;
-        Ok(Self { inner })
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if let Some(mid) = s.find(';') {
+            let src = Some(SrcAddr::from_str(&s[..mid])?);
+            let addr = SocketAddr::from_str(&s[mid + 1..])?;
+
+            Ok(Self { src, addr })
+        } else {
+            let addr = SocketAddr::from_str(s)?;
+
+            Ok(Self { src: None, addr })
+        }
     }
 }
 
-impl TryFrom<String> for UdpAddr {
-    type Error = AddrParseError;
-    fn try_from(s: String) -> Result<UdpAddr, AddrParseError> {
-        Self::from_str(s.as_str())
+tryfrom_fromstr!(UdpAddr);
+
+impl fmt::Display for UdpAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.src.is_some() {
+            write!(f, "{};{}", self.addr, self.src.as_ref().unwrap())
+        } else {
+            write!(f, "{}", self.addr)
+        }
     }
 }
 
-impl<'a> TryFrom<&'a String> for UdpAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a String) -> Result<UdpAddr, AddrParseError> {
-        Self::from_str(s.as_str())
-    }
-}
+serde_display_tryfrom!(UdpAddr);
 
-impl<'a> TryFrom<&'a str> for UdpAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a str) -> Result<UdpAddr, AddrParseError> {
-        Self::from_str(s)
+impl From<SocketAddr> for UdpAddr {
+    fn from(addr: SocketAddr) -> Self {
+        Self { addr, src: None }
     }
 }
 
 impl IntoIterator for UdpAddr {
-    type Item = UdpAddr;
-    type IntoIter = option::IntoIter<UdpAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -222,8 +695,8 @@ impl IntoIterator for UdpAddr {
 }
 
 impl<'a> IntoIterator for &'a UdpAddr {
-    type Item = &'a UdpAddr;
-    type IntoIter = option::IntoIter<&'a UdpAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -242,94 +715,105 @@ impl<'a> From<&'a UdpAddr> for Endpoint {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+/// A socket address with the `PGM` transport.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::PgmAddr;
+/// use std::convert::TryInto;
+///
+/// // Connecting to the multicast address 239.192.1.1, port 5555,
+/// // using the network interface with the address 192.168.1.1
+/// // and the PGM protocol
+/// let addr: PgmAddr = "192.168.1.1;239.192.1.1:5555".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+///
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PgmAddr {
-    inner: SocketAddr,
+    src: Option<SrcAddr>,
+    addr: SocketAddr,
 }
 
 impl PgmAddr {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        let inner = SocketAddr::new(ip, port);
-
-        Self { inner }
+    pub fn new<A>(addr: A) -> Self
+    where
+        A: Into<SocketAddr>,
+    {
+        let addr = addr.into();
+        Self { addr, src: None }
     }
 
-    pub fn ip(&self) -> IpAddr {
-        self.inner.ip()
+    /// A source address can be specified when a client communicate with a public
+    /// server from behind a private network. This allows the server's replies to
+    /// be routed properly.
+    pub fn with_src<A, S>(addr: A, src: S) -> Self
+    where
+        A: Into<SocketAddr>,
+        S: Into<SrcAddr>,
+    {
+        let addr = addr.into();
+        let src = src.into();
+
+        Self {
+            addr,
+            src: Some(src),
+        }
     }
 
-    pub fn set_ip(&mut self, new_ip: IpAddr) {
-        self.inner.set_ip(new_ip);
+    pub fn addr(&self) -> &SocketAddr {
+        &self.addr
     }
 
-    pub fn port(&self) -> u16 {
-        self.inner.port()
-    }
-
-    pub fn set_port(&mut self, new_port: u16) {
-        self.inner.set_port(new_port)
-    }
-
-    pub fn is_ipv4(&self) -> bool {
-        self.inner.is_ipv4()
-    }
-
-    pub fn is_ipv6(&self) -> bool {
-        self.inner.is_ipv6()
-    }
-}
-
-impl From<SocketAddr> for PgmAddr {
-    fn from(addr: SocketAddr) -> Self {
-        Self { inner: addr }
-    }
-}
-
-impl From<PgmAddr> for SocketAddr {
-    fn from(addr: PgmAddr) -> Self {
-        addr.inner
-    }
-}
-
-impl fmt::Display for PgmAddr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "pgm://{:?}", self.inner)
+    pub fn src(&self) -> Option<&SrcAddr> {
+        self.src.as_ref()
     }
 }
 
 impl FromStr for PgmAddr {
     type Err = AddrParseError;
-    fn from_str(s: &str) -> Result<PgmAddr, AddrParseError> {
-        let inner = SocketAddr::from_str(s)?;
-        Ok(Self { inner })
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if let Some(mid) = s.find(';') {
+            let src = Some(SrcAddr::from_str(&s[..mid])?);
+            let addr = SocketAddr::from_str(&s[mid + 1..])?;
+
+            Ok(Self { src, addr })
+        } else {
+            let addr = SocketAddr::from_str(s)?;
+
+            Ok(Self { src: None, addr })
+        }
     }
 }
 
-impl TryFrom<String> for PgmAddr {
-    type Error = AddrParseError;
-    fn try_from(s: String) -> Result<PgmAddr, AddrParseError> {
-        Self::from_str(s.as_str())
+tryfrom_fromstr!(PgmAddr);
+
+impl fmt::Display for PgmAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.src.is_some() {
+            write!(f, "{};{}", self.addr, self.src.as_ref().unwrap())
+        } else {
+            write!(f, "{}", self.addr)
+        }
     }
 }
 
-impl<'a> TryFrom<&'a String> for PgmAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a String) -> Result<PgmAddr, AddrParseError> {
-        Self::from_str(s.as_str())
-    }
-}
+serde_display_tryfrom!(PgmAddr);
 
-impl<'a> TryFrom<&'a str> for PgmAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a str) -> Result<PgmAddr, AddrParseError> {
-        Self::from_str(s)
+impl From<SocketAddr> for PgmAddr {
+    fn from(addr: SocketAddr) -> Self {
+        Self { addr, src: None }
     }
 }
 
 impl IntoIterator for PgmAddr {
-    type Item = PgmAddr;
-    type IntoIter = option::IntoIter<PgmAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -337,8 +821,8 @@ impl IntoIterator for PgmAddr {
 }
 
 impl<'a> IntoIterator for &'a PgmAddr {
-    type Item = &'a PgmAddr;
-    type IntoIter = option::IntoIter<&'a PgmAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -357,94 +841,104 @@ impl<'a> From<&'a PgmAddr> for Endpoint {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+/// A socket address with the Encapsulated `PGM` transport.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::EpgmAddr;
+/// use std::convert::TryInto;
+///
+/// // Connecting to the multicast address 239.192.1.1, port 5555,
+/// // using the first Ethernet network interface on Linux
+/// // and the Encapsulated PGM protocol.
+/// let addr: EpgmAddr = "eth0;239.192.1.1:5555".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct EpgmAddr {
-    inner: SocketAddr,
+    src: Option<SrcAddr>,
+    addr: SocketAddr,
 }
 
 impl EpgmAddr {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        let inner = SocketAddr::new(ip, port);
-
-        Self { inner }
+    pub fn new<A>(addr: A) -> Self
+    where
+        A: Into<SocketAddr>,
+    {
+        let addr = addr.into();
+        Self { addr, src: None }
     }
 
-    pub fn ip(&self) -> IpAddr {
-        self.inner.ip()
+    /// A source address can be specified when a client communicate with a public
+    /// server from behind a private network. This allows the server's replies to
+    /// be routed properly.
+    pub fn with_src<A, S>(addr: A, src: S) -> Self
+    where
+        A: Into<SocketAddr>,
+        S: Into<SrcAddr>,
+    {
+        let addr = addr.into();
+        let src = src.into();
+
+        Self {
+            addr,
+            src: Some(src),
+        }
     }
 
-    pub fn set_ip(&mut self, new_ip: IpAddr) {
-        self.inner.set_ip(new_ip);
+    pub fn addr(&self) -> &SocketAddr {
+        &self.addr
     }
 
-    pub fn port(&self) -> u16 {
-        self.inner.port()
-    }
-
-    pub fn set_port(&mut self, new_port: u16) {
-        self.inner.set_port(new_port)
-    }
-
-    pub fn is_ipv4(&self) -> bool {
-        self.inner.is_ipv4()
-    }
-
-    pub fn is_ipv6(&self) -> bool {
-        self.inner.is_ipv6()
-    }
-}
-
-impl From<SocketAddr> for EpgmAddr {
-    fn from(addr: SocketAddr) -> Self {
-        Self { inner: addr }
-    }
-}
-
-impl From<EpgmAddr> for SocketAddr {
-    fn from(addr: EpgmAddr) -> Self {
-        addr.inner
-    }
-}
-
-impl fmt::Display for EpgmAddr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "epgm://{:?}", self.inner)
+    pub fn src(&self) -> Option<&SrcAddr> {
+        self.src.as_ref()
     }
 }
 
 impl FromStr for EpgmAddr {
     type Err = AddrParseError;
-    fn from_str(s: &str) -> Result<EpgmAddr, AddrParseError> {
-        let inner = SocketAddr::from_str(s)?;
-        Ok(Self { inner })
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if let Some(mid) = s.find(';') {
+            let src = Some(SrcAddr::from_str(&s[..mid])?);
+            let addr = SocketAddr::from_str(&s[mid + 1..])?;
+
+            Ok(Self { src, addr })
+        } else {
+            let addr = SocketAddr::from_str(s)?;
+
+            Ok(Self { src: None, addr })
+        }
     }
 }
 
-impl TryFrom<String> for EpgmAddr {
-    type Error = AddrParseError;
-    fn try_from(s: String) -> Result<EpgmAddr, AddrParseError> {
-        Self::from_str(s.as_str())
+tryfrom_fromstr!(EpgmAddr);
+
+impl fmt::Display for EpgmAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.src.is_some() {
+            write!(f, "{};{}", self.addr, self.src.as_ref().unwrap())
+        } else {
+            write!(f, "{}", self.addr)
+        }
     }
 }
 
-impl<'a> TryFrom<&'a String> for EpgmAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a String) -> Result<EpgmAddr, AddrParseError> {
-        Self::from_str(s.as_str())
-    }
-}
+serde_display_tryfrom!(EpgmAddr);
 
-impl<'a> TryFrom<&'a str> for EpgmAddr {
-    type Error = AddrParseError;
-    fn try_from(s: &'a str) -> Result<EpgmAddr, AddrParseError> {
-        Self::from_str(s)
+impl From<SocketAddr> for EpgmAddr {
+    fn from(addr: SocketAddr) -> Self {
+        Self { addr, src: None }
     }
 }
 
 impl IntoIterator for EpgmAddr {
-    type Item = EpgmAddr;
-    type IntoIter = option::IntoIter<EpgmAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -452,8 +946,8 @@ impl IntoIterator for EpgmAddr {
 }
 
 impl<'a> IntoIterator for &'a EpgmAddr {
-    type Item = &'a EpgmAddr;
-    type IntoIter = option::IntoIter<&'a EpgmAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -472,96 +966,53 @@ impl<'a> From<&'a EpgmAddr> for Endpoint {
     }
 }
 
-/// A wrapper for `String` that is passed directly to `libzmq` without
-/// type checking.
+/// A socket address with inter-thread transport.
 ///
-/// This is meant to allow usage of features not currently supported by
-/// endpoint types such as:
-/// * The wild-card *, meaning all available interfaces.
-/// * Non-portable interface name as defined by the operating system.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct RawAddr {
-    addr: String,
-}
-
-impl RawAddr {
-    pub fn new<S>(addr: S) -> Self
-    where
-        S: Into<String>,
-    {
-        let addr = addr.into();
-        Self { addr }
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.addr.as_str()
-    }
-}
-
-impl fmt::Display for RawAddr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl FromStr for RawAddr {
-    type Err = Infallible;
-    fn from_str(s: &str) -> Result<RawAddr, Infallible> {
-        Ok(Self::new(s))
-    }
-}
-
-impl IntoIterator for RawAddr {
-    type Item = RawAddr;
-    type IntoIter = option::IntoIter<RawAddr>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Some(self).into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a RawAddr {
-    type Item = &'a RawAddr;
-    type IntoIter = option::IntoIter<&'a RawAddr>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Some(self).into_iter()
-    }
-}
-
-impl From<RawAddr> for Endpoint {
-    fn from(addr: RawAddr) -> Endpoint {
-        Endpoint::Raw(addr)
-    }
-}
-
-impl<'a> From<&'a RawAddr> for Endpoint {
-    fn from(addr: &'a RawAddr) -> Endpoint {
-        Endpoint::Raw(addr.to_owned())
-    }
-}
-
-#[derive(Debug, Fail)]
-#[fail(display = "inproc addr cannot exceed INPROC_MAX_SIZE char")]
-pub struct InprocAddrError;
-
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+/// The `inproc` address is a non-empty `String` with at most
+/// [`INPROC_MAX_SIZE`] characters.
+///
+/// The `inproc` transport can only be used by sockets that share the same `Ctx`.
+///
+/// # Supported Sockets
+/// [`Dish`], [`Radio`], [`Client`] and [`Server]
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::addr::InprocAddr;
+/// use std::convert::TryInto;
+///
+/// // Can be any arbitrary string.
+/// let test: InprocAddr = "test".try_into()?;
+/// let rand: InprocAddr = "LKH*O&_[::O2134KG".try_into()?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// [`INPROC_MAX_SIZE`]: constant.INPROC_MAX_SIZE.html
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InprocAddr {
     addr: String,
 }
 
 impl InprocAddr {
-    pub fn new<S>(addr: S) -> Result<Self, InprocAddrError>
+    pub fn new<S>(addr: S) -> Result<Self, AddrParseError>
     where
         S: Into<String>,
     {
         let addr = addr.into();
-        if addr.len() <= INPROC_MAX_SIZE {
-            Ok(Self { addr })
+
+        if addr.is_empty() {
+            Err(AddrParseError::new("empty addr"))
+        } else if addr.len() > INPROC_MAX_SIZE {
+            Err(AddrParseError::new(
+                "addr cannot exceed `INPROC_MAX_SIZE` chars",
+            ))
         } else {
-            Err(InprocAddrError)
+            Ok(Self { addr })
         }
     }
 
@@ -570,67 +1021,45 @@ impl InprocAddr {
     }
 }
 
-impl PartialEq<str> for InprocAddr {
-    fn eq(&self, other: &str) -> bool {
-        self.as_str() == other
-    }
-}
-
-impl PartialEq<InprocAddr> for str {
-    fn eq(&self, other: &InprocAddr) -> bool {
-        other.as_str() == self
-    }
-}
-
-impl<'a> PartialEq<&'a str> for InprocAddr {
-    fn eq(&self, other: &&'a str) -> bool {
-        self.as_str() == *other
-    }
-}
-
-impl<'a> PartialEq<InprocAddr> for &'a str {
-    fn eq(&self, other: &InprocAddr) -> bool {
-        other.as_str() == *self
-    }
-}
-
-impl TryFrom<String> for InprocAddr {
-    type Error = InprocAddrError;
-    fn try_from(s: String) -> Result<Self, Self::Error> {
-        Self::new(s)
-    }
-}
-
-impl<'a> TryFrom<&'a String> for InprocAddr {
-    type Error = InprocAddrError;
-    fn try_from(s: &'a String) -> Result<Self, Self::Error> {
-        Self::new(s.as_str())
-    }
-}
-
-impl<'a> TryFrom<&'a str> for InprocAddr {
-    type Error = InprocAddrError;
-    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+impl FromStr for InprocAddr {
+    type Err = AddrParseError;
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
         Self::new(s)
     }
 }
 
 impl fmt::Display for InprocAddr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "inproc://{}", self.as_str())
+        self.addr.fmt(f)
     }
 }
 
-impl FromStr for InprocAddr {
-    type Err = InprocAddrError;
-    fn from_str(s: &str) -> Result<InprocAddr, InprocAddrError> {
+serde_display_tryfrom!(InprocAddr);
+
+impl TryFrom<String> for InprocAddr {
+    type Error = AddrParseError;
+    fn try_from(s: String) -> Result<Self, AddrParseError> {
+        Self::new(s)
+    }
+}
+
+impl<'a> TryFrom<&'a String> for InprocAddr {
+    type Error = AddrParseError;
+    fn try_from(s: &'a String) -> Result<Self, AddrParseError> {
+        Self::new(s.as_str())
+    }
+}
+
+impl<'a> TryFrom<&'a str> for InprocAddr {
+    type Error = AddrParseError;
+    fn try_from(s: &'a str) -> Result<Self, AddrParseError> {
         Self::new(s)
     }
 }
 
 impl IntoIterator for InprocAddr {
-    type Item = InprocAddr;
-    type IntoIter = option::IntoIter<InprocAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -638,8 +1067,8 @@ impl IntoIterator for InprocAddr {
 }
 
 impl<'a> IntoIterator for &'a InprocAddr {
-    type Item = &'a InprocAddr;
-    type IntoIter = option::IntoIter<&'a InprocAddr>;
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
 
     fn into_iter(self) -> Self::IntoIter {
         Some(self).into_iter()
@@ -691,8 +1120,6 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 ///
 /// // IPv4 addr with TCP transport.
 /// let addr: TcpAddr = "127.0.0.1:9090".try_into()?;
-/// assert!(addr.is_ipv4());
-///
 /// let endpoint: Endpoint = addr.into();
 /// assert!(endpoint.is_tcp());
 /// #
@@ -734,9 +1161,6 @@ pub enum Endpoint {
     ///
     /// [`zmq_pgm`]: http://api.zeromq.org/master:zmq-pgm
     Epgm(EpgmAddr),
-    /// A raw `String` directly passed to libzmq used to bypass
-    /// type checking.
-    Raw(RawAddr),
 }
 
 impl Endpoint {
@@ -766,7 +1190,6 @@ impl Endpoint {
             false
         }
     }
-
     /// Returns `true` if the endpoint uses the `Pgm` transport.
     pub fn is_pgm(&self) -> bool {
         if let Endpoint::Pgm(_) = self {
@@ -775,19 +1198,9 @@ impl Endpoint {
             false
         }
     }
-
     /// Returns `true` if the endpoint uses the `Epgm` transport.
     pub fn is_edpgm(&self) -> bool {
         if let Endpoint::Epgm(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Returns `true` if the endpoint is a `RawAddr`.
-    pub fn is_raw(&self) -> bool {
-        if let Endpoint::Raw(_) = self {
             true
         } else {
             false
@@ -798,12 +1211,11 @@ impl Endpoint {
 impl fmt::Display for Endpoint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Endpoint::Tcp(addr) => write!(f, "{}", addr),
-            Endpoint::Udp(addr) => write!(f, "{}", addr),
-            Endpoint::Inproc(addr) => write!(f, "{}", addr),
-            Endpoint::Pgm(addr) => write!(f, "{}", addr),
-            Endpoint::Epgm(addr) => write!(f, "{}", addr),
-            Endpoint::Raw(addr) => write!(f, "{}", addr),
+            Endpoint::Tcp(addr) => write!(f, "tcp://{}", addr),
+            Endpoint::Inproc(addr) => write!(f, "inproc://{}", addr),
+            Endpoint::Udp(addr) => write!(f, "udp://{}", addr),
+            Endpoint::Epgm(addr) => write!(f, "pgm://{}", addr),
+            Endpoint::Pgm(addr) => write!(f, "epgm://{}", addr),
         }
     }
 }

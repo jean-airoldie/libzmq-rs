@@ -1,4 +1,4 @@
-use crate::group::GroupParseError;
+use crate::{addr::AddrParseError, group::GroupParseError};
 use libzmq_sys as sys;
 
 use failure::{Backtrace, Context, Fail};
@@ -125,6 +125,12 @@ impl<T> From<GroupParseError> for Error<T> {
         Error::new(ErrorKind::InvalidInput {
             msg: "unable to parse group",
         })
+    }
+}
+
+impl<T> From<AddrParseError> for Error<T> {
+    fn from(error: AddrParseError) -> Self {
+        Error::new(ErrorKind::InvalidInput { msg: error.msg() })
     }
 }
 

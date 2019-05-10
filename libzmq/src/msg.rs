@@ -41,7 +41,7 @@ impl Msg {
     ///
     /// [`zmq_msg_init`]: http://api.zeromq.org/master:zmq-msg-init
     ///
-    /// ```rust
+    /// ```
     /// use libzmq::Msg;
     ///
     /// let msg = Msg::new();
@@ -58,7 +58,7 @@ impl Msg {
     ///
     /// [`zmq_msg_init_size`]: http://api.zeromq.org/master:zmq-msg-init-size
     ///
-    /// ```rust
+    /// ```
     /// use libzmq::Msg;
     ///
     /// let size = 420;
@@ -90,7 +90,7 @@ impl Msg {
 
     /// Return the message content as a `str` slice if it is valid UTF-8.
     ///
-    /// ```rust
+    /// ```
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
@@ -110,7 +110,7 @@ impl Msg {
 
     /// Return the message content as a byte slice.
     ///
-    /// ```rust
+    /// ```
     /// use libzmq::Msg;
     ///
     /// let bytes: &[u8] = b"blzit";
