@@ -15,9 +15,12 @@ pub mod poll;
 pub mod socket;
 mod utils;
 
-pub use addr::Endpoint;
+#[doc(inline)]
+pub use addr::{EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr};
+#[doc(inline)]
 pub use ctx::Ctx;
 pub use error::{Error, ErrorKind};
+#[doc(inline)]
 pub use group::{Group, GroupOwned};
 pub use msg::*;
 pub use socket::{Client, Dish, Radio, Server};

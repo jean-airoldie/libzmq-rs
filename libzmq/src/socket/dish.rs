@@ -1,4 +1,4 @@
-use crate::{core::*, error::*, Ctx, Endpoint, GroupOwned};
+use crate::{addr::Endpoint, core::*, error::*, Ctx, GroupOwned};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -81,7 +81,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// #
 /// # use failure::Error;
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, addr::InprocAddr, socket::*, Msg, Group};
+/// use libzmq::{prelude::*, InprocAddr, socket::*, Msg, Group};
 /// use std::convert::TryInto;
 ///
 /// let addr: InprocAddr = "test".try_into()?;

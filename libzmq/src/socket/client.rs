@@ -1,4 +1,4 @@
-use crate::{core::*, error::*, Ctx, Endpoint};
+use crate::{addr::Endpoint, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
@@ -310,7 +310,7 @@ impl BuildRecv for ClientBuilder {}
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::addr::InprocAddr;
+    use crate::InprocAddr;
     use std::convert::TryInto;
 
     #[test]

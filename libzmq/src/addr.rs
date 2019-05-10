@@ -201,7 +201,7 @@ pub enum Port {
 }
 
 impl Port {
-    pub fn is_specified(&self) -> bool {
+    pub fn is_specified(self) -> bool {
         if let Port::Specified(_) = self {
             true
         } else {
@@ -209,7 +209,7 @@ impl Port {
         }
     }
 
-    pub fn is_unspecified(&self) -> bool {
+    pub fn is_unspecified(self) -> bool {
         if let Port::Unspecified = self {
             true
         } else {
@@ -476,7 +476,7 @@ impl<'a> From<&'a SrcAddr> for SrcAddr {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::TcpAddr;
+/// use libzmq::TcpAddr;
 /// use std::convert::TryInto;
 ///
 /// // Connecting using a IPv4 address and bind to `eth0` interface.
@@ -602,7 +602,7 @@ impl<'a> From<&'a TcpAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::UdpAddr;
+/// use libzmq::UdpAddr;
 /// use std::convert::TryInto;
 ///
 /// // Multicast - UDP port 5555 on a Multicast address
@@ -764,7 +764,7 @@ impl<'a> From<&'a UdpAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::PgmAddr;
+/// use libzmq::PgmAddr;
 /// use std::convert::TryInto;
 ///
 /// // Connecting to the multicast address 239.192.1.1, port 5555,
@@ -890,7 +890,7 @@ impl<'a> From<&'a PgmAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::EpgmAddr;
+/// use libzmq::EpgmAddr;
 /// use std::convert::TryInto;
 ///
 /// // Connecting to the multicast address 239.192.1.1, port 5555,
@@ -1023,7 +1023,7 @@ impl<'a> From<&'a EpgmAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::InprocAddr;
+/// use libzmq::InprocAddr;
 /// use std::convert::TryInto;
 ///
 /// // Can be any arbitrary string.

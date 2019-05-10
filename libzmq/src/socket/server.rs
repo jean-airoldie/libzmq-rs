@@ -1,4 +1,4 @@
-use crate::{core::*, error::*, Ctx, Endpoint};
+use crate::{addr::Endpoint, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
@@ -36,7 +36,7 @@ use std::{sync::Arc, time::Duration};
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, Msg, addr::InprocAddr};
+/// use libzmq::{prelude::*, socket::*, Msg, InprocAddr};
 /// use std::convert::TryInto;
 ///
 /// let addr: InprocAddr = "test".try_into()?;

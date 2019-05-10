@@ -1,4 +1,4 @@
-use crate::{error::*, Ctx, Endpoint};
+use crate::{addr::Endpoint, error::*, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
