@@ -5,12 +5,6 @@
 
 Based on this [`guide`](https://kornel.ski/rust-sys-crate) as well as [`zmq-sys`].
 
-# Cargo
-```toml
-[dependencies]
-libzmq-sys = "0.1"
-```
-
 # Dependencies
 * [CMake 2.8.12+ (or 3.0.2+ on Darwin)](https://github.com/zeromq/libzmq/blob/de4d69f59788fed86bcb0f610723c5acd486a7da/CMakeLists.txt#L7)
 * [Clang 6.0+](https://github.com/rust-lang/rust-bindgen/blob/master/Cargo.toml#L51)
