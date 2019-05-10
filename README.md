@@ -17,6 +17,7 @@ By default `libzmq` is built and linked dynamically. To change this behavior
 
 # General Goals
 * Conform to these [`API guidelines`].
+* Provide an ergonomic API
 * Prevent footguns (which are plentifull in `libzmq`)
 * Minimize the learning curve
 * Don't sacrifice any performance
