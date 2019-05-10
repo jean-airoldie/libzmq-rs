@@ -374,6 +374,9 @@ impl<'a> From<&'a SocketAddr> for SocketAddr {
 
 /// Specify a source address when connecting.
 ///
+/// A `SrcAddr` differs from a `SocketAddr` since it allows an address with
+/// with no port specified (an `Interface`).
+///
 /// A source address can be specified when a client communicate with a public
 /// server from behind a private network. This allows the server's replies to
 /// be routed properly.
@@ -386,11 +389,11 @@ impl<'a> From<&'a SocketAddr> for SocketAddr {
 /// use libzmq::addr::SrcAddr;
 /// use std::convert::TryInto;
 ///
-/// /// Bind to an IPv4 addr with a dynamic port.
+/// /// Specify an IPv4 addr with a dynamic port.
 /// let src: SrcAddr = "192.168.1.17:*".try_into()?;
 ///
-/// /// Bind to an IPv6 multicast addr.
-/// let src: SrcAddr = "ff02::1".try_into()?;
+/// /// Specify a network interface.
+/// let src: SrcAddr = "eth0".try_into()?;
 /// #
 /// #     Ok(())
 /// # }
@@ -626,6 +629,28 @@ impl UdpAddr {
         Self { addr, src: None }
     }
 
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::addr::{UdpAddr, SocketAddr, SrcAddr};
+    /// use std::convert::TryInto;
+    ///
+    /// let addr: SocketAddr = "localhost:5555".try_into()?;
+    /// let src: SrcAddr = "eth0".try_into()?;
+    ///
+    /// // We pass by reference which allocates, but we could
+    /// // also give the ownership directly.
+    /// let udp = UdpAddr::with_src(&addr, &src);
+    ///
+    /// // Note that `SocketAddr` implement `Into<SrcAddr>`,
+    /// // so this is also valid.
+    /// let udp = UdpAddr::with_src(&addr, &addr);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn with_src<A, S>(addr: A, src: S) -> Self
     where
         A: Into<SocketAddr>,
