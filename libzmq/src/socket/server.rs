@@ -6,9 +6,7 @@ use std::{sync::Arc, time::Duration};
 
 /// A `Server` socket is a socket used for advanced request-reply messaging.
 ///
-/// `Server` sockets are threadsafe and do not accept the [`MORE`] flag.
-///
-/// A `Server` socket talks to a set of [`Server`] sockets. The [`Server`] must
+/// A `Server` socket talks to a set of [`Client`] sockets. The [`Client`] must
 /// first initiate the conversation, which generates a [`routing_id`] associated
 /// with the connection. Each message received from a `Server` will have this
 /// [`routing_id`]. To send messages back to the server, you must
@@ -79,7 +77,7 @@ use std::{sync::Arc, time::Duration};
 /// ```
 ///
 /// [`MORE`]: constant.MORE.html
-/// [`Server`]: struct.Server.html
+/// [`Client`]: struct.Client.html
 /// [`routing_id`]: ../msg/struct.Msg.html#method.routing_id
 /// [`set_routing_id`]: ../msg/struct.Msg.html#method.set_routing_id
 /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.host-unreachable

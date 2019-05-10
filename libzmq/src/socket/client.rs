@@ -17,7 +17,7 @@ use std::{sync::Arc, time::Duration};
 ///
 /// # Mute State
 /// When `Client` socket enters the mute state due to having reached the high water
-/// mark, or if there are no peers at all, then any `send operations
+/// mark, or if there are no peers at all, then any send operations
 /// on the socket shall block unitl the mute state ends or at least one peer becomes
 /// available for sending; messages are not discarded.
 ///
