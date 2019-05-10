@@ -198,6 +198,7 @@ impl Msg {
     /// * [`InvalidInput`] (if contract is not followed)
     ///
     /// See [`zmq_msg_set_routing_id`].
+    ///
     /// [`zmq_msg_set_routing_id`]: http://api.zeromq.org/master:zmq-msg-set-routing-id
     /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
     pub fn set_routing_id(&mut self, routing_id: RoutingId) {
@@ -250,6 +251,8 @@ impl Msg {
     ///
     /// # Returned Error Variants
     /// * [`InvalidInput`] (if contract is not followed)
+    ///
+    /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
     pub fn set_group<'a, G>(&mut self, group: G)
     where
         G: Into<&'a Group>,

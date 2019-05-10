@@ -681,6 +681,7 @@ impl GetSocketConfig for SocketConfig {
     }
 }
 
+/// A set of provided methods for a socket configuration.
 pub trait ConfigureSocket: GetSocketConfig {
     fn connect(&self) -> Option<&[Endpoint]> {
         self.socket_config().connect.as_ref().map(Vec::as_slice)
@@ -761,6 +762,7 @@ pub trait ConfigureSocket: GetSocketConfig {
 
 impl ConfigureSocket for SocketConfig {}
 
+/// A set of provided methods for a socket builder.
 pub trait BuildSocket: GetSocketConfig + Sized {
     fn connect<I, E>(&mut self, endpoints: I) -> &mut Self
     where

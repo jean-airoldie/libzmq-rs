@@ -215,6 +215,7 @@ pub trait GetRecvConfig: private::Sealed {
     fn recv_config_mut(&mut self) -> &mut RecvConfig;
 }
 
+/// A set of provided methods for the configuration of a socket that implements `RecvMsg`.
 pub trait ConfigureRecv: GetRecvConfig {
     fn recv_high_water_mark(&self) -> Option<i32> {
         self.recv_config().recv_high_water_mark
@@ -225,6 +226,7 @@ pub trait ConfigureRecv: GetRecvConfig {
     }
 }
 
+/// A set of provided methods for the builder of a socket that implements `RecvMsg`.
 pub trait BuildRecv: GetRecvConfig {
     fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
         let mut config = self.recv_config_mut();

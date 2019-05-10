@@ -49,6 +49,8 @@ pub fn zmq_has(capability: &str) -> bool {
     unsafe { sys::zmq_has(c_str.as_ptr()) == 1 }
 }
 
+/// Start built-in ØMQ proxy between a frontend and a backend socket.
+///
 /// # Returned Errors
 /// * [`CtxTerminated`]
 ///

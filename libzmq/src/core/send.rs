@@ -252,6 +252,7 @@ pub trait GetSendConfig: private::Sealed {
     fn send_config_mut(&mut self) -> &mut SendConfig;
 }
 
+/// A set of provided methods for the configuration of socket that implements `SendMsg`.
 pub trait ConfigureSend: GetSendConfig {
     fn send_high_water_mark(&self) -> Option<i32> {
         self.send_config().send_high_water_mark
@@ -262,6 +263,7 @@ pub trait ConfigureSend: GetSendConfig {
     }
 }
 
+/// A set of provided methods for the builder of a socket that implements `SendMsg`.
 pub trait BuildSend: GetSendConfig + Sized {
     fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
         let mut config = self.send_config_mut();
