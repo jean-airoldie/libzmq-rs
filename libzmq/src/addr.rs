@@ -1146,7 +1146,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// // IPv4 addr with TCP transport.
 /// let addr: TcpAddr = "127.0.0.1:9090".try_into()?;
 /// let endpoint: Endpoint = addr.into();
-/// assert!(endpoint.is_tcp());
+/// assert_eq!(endpoint, "tcp://127.0.0.1:9090".try_into().unwrap());
 /// #
 /// #     Ok(())
 /// # }
@@ -1244,6 +1244,42 @@ impl fmt::Display for Endpoint {
         }
     }
 }
+
+impl FromStr for Endpoint {
+    type Err = AddrParseError;
+
+    fn from_str(s: &str) -> Result<Self, AddrParseError> {
+        if let Some(index) = s.find("://") {
+            match &s[0..index] {
+                "tcp" => {
+                    let addr = TcpAddr::from_str(&s[index + 3..])?;
+                    Ok(Endpoint::Tcp(addr))
+                }
+                "inproc" => {
+                    let addr = InprocAddr::from_str(&s[index + 3..])?;
+                    Ok(Endpoint::Inproc(addr))
+                }
+                "udp" => {
+                    let addr = UdpAddr::from_str(&s[index + 3..])?;
+                    Ok(Endpoint::Udp(addr))
+                }
+                "pgm" => {
+                    let addr = PgmAddr::from_str(&s[index + 3..])?;
+                    Ok(Endpoint::Pgm(addr))
+                }
+                "epgm" => {
+                    let addr = EpgmAddr::from_str(&s[index + 3..])?;
+                    Ok(Endpoint::Epgm(addr))
+                }
+                _ => Err(AddrParseError::new("invalid transport")),
+            }
+        } else {
+            Err(AddrParseError::new("invalid endpoint format"))
+        }
+    }
+}
+
+tryfrom_fromstr!(Endpoint);
 
 impl IntoIterator for Endpoint {
     type Item = Endpoint;
