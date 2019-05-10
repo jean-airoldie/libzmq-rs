@@ -1146,6 +1146,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// // IPv4 addr with TCP transport.
 /// let addr: TcpAddr = "127.0.0.1:9090".try_into()?;
 /// let endpoint: Endpoint = addr.into();
+/// // A endpoint can be parsed directly from a string.
 /// assert_eq!(endpoint, "tcp://127.0.0.1:9090".try_into().unwrap());
 /// #
 /// #     Ok(())
@@ -1163,8 +1164,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// [`zmq_inproc`]: http://api.zeromq.org/master:zmq_inproc
 /// [`zmq_pgm`]: http://api.zeromq.org/master:zmq_pgm
 /// [`zmq_vmci`]: http://api.zeromq.org/master:zmq_vmci
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Endpoint {
     /// Unicast transport using TCP, see [`zmq_tcp`].
     ///
@@ -1239,8 +1239,8 @@ impl fmt::Display for Endpoint {
             Endpoint::Tcp(addr) => write!(f, "tcp://{}", addr),
             Endpoint::Inproc(addr) => write!(f, "inproc://{}", addr),
             Endpoint::Udp(addr) => write!(f, "udp://{}", addr),
-            Endpoint::Epgm(addr) => write!(f, "pgm://{}", addr),
-            Endpoint::Pgm(addr) => write!(f, "epgm://{}", addr),
+            Endpoint::Epgm(addr) => write!(f, "epgm://{}", addr),
+            Endpoint::Pgm(addr) => write!(f, "pgm://{}", addr),
         }
     }
 }
@@ -1298,6 +1298,8 @@ impl<'a> IntoIterator for &'a Endpoint {
         Some(self).into_iter()
     }
 }
+
+serde_display_tryfrom!(Endpoint);
 
 #[cfg(test)]
 mod test {
