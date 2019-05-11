@@ -150,7 +150,7 @@ pub(crate) fn getsockopt_string(
     }
 }
 
-pub(crate) fn getsockopt_duration(
+pub(crate) fn getsockopt_option_duration(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     none_value: i32,
@@ -161,6 +161,14 @@ pub(crate) fn getsockopt_duration(
     } else {
         Ok(Some(Duration::from_millis(ms as u64)))
     }
+}
+
+pub(crate) fn getsockopt_duration(
+    mut_sock_ptr: *mut c_void,
+    option: SocketOption,
+) -> Result<Duration, Error> {
+    let ms: i32 = getsockopt_scalar(mut_sock_ptr, option)?;
+    Ok(Duration::from_millis(ms as u64))
 }
 
 fn setsockopt(
@@ -250,7 +258,7 @@ pub(crate) fn setsockopt_null(
     setsockopt(mut_sock_ptr, option, ptr::null(), 0)
 }
 
-pub(crate) fn setsockopt_duration(
+pub(crate) fn setsockopt_option_duration(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
     maybe_duration: Option<Duration>,
@@ -263,6 +271,15 @@ pub(crate) fn setsockopt_duration(
         }
         None => setsockopt_scalar(mut_sock_ptr, option, none_value),
     }
+}
+
+pub(crate) fn setsockopt_duration(
+    mut_sock_ptr: *mut c_void,
+    option: SocketOption,
+    duration: Duration,
+) -> Result<(), Error> {
+    let ms = checked_duration_ms(duration)?;
+    setsockopt_scalar(mut_sock_ptr, option, ms)
 }
 
 fn checked_duration_ms(duration: Duration) -> Result<i32, Error> {

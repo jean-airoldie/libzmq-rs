@@ -11,7 +11,7 @@ use std::{
     fmt,
     os::raw::c_void,
     ptr, slice,
-    str::{self, Utf8Error},
+    str::{self, FromStr, Utf8Error},
 };
 
 /// A generated ID used to route messages to the approriate client.
@@ -54,6 +54,17 @@ use std::{
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct RoutingId(u32);
+
+impl RoutingId {
+    pub(crate) fn from_str(s: &str) -> Option<Self> {
+        if let Ok(id) = u32::from_str(s) {
+            if id != 0 {
+                return Some(RoutingId(id));
+            }
+        }
+        return None;
+    }
+}
 
 impl From<RoutingId> for u32 {
     fn from(r: RoutingId) -> u32 {
@@ -332,6 +343,11 @@ impl Msg {
 
     pub(crate) fn as_ptr(&self) -> *const sys::zmq_msg_t {
         &self.msg
+    }
+
+    pub(crate) fn has_more(&self) -> bool {
+        let rc = unsafe { sys::zmq_msg_more(self.as_ptr()) };
+        rc != 0
     }
 }
 

@@ -7,6 +7,7 @@ pub use failure;
 #[macro_use]
 mod core;
 pub mod addr;
+mod auth;
 pub mod ctx;
 mod error;
 pub mod group;

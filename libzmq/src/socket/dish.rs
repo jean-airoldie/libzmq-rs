@@ -1,4 +1,10 @@
-use crate::{addr::Endpoint, core::*, error::*, Ctx, GroupOwned};
+use crate::{
+    addr::Endpoint,
+    auth::{Creds, Mechanism},
+    core::*,
+    error::*,
+    Ctx, GroupOwned,
+};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -409,6 +415,9 @@ struct FlatDishConfig {
     #[serde(with = "serde_humantime")]
     recv_timeout: Option<Duration>,
     groups: Option<Vec<GroupOwned>>,
+    auth_role: Option<AuthRole>,
+    creds: Option<Creds>,
+    mechanism: Option<Mechanism>,
 }
 
 impl From<DishConfig> for FlatDishConfig {
@@ -424,6 +433,9 @@ impl From<DishConfig> for FlatDishConfig {
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
             linger: socket_config.linger,
+            auth_role: socket_config.auth_role,
+            creds: socket_config.creds,
+            mechanism: socket_config.mechanism,
             recv_high_water_mark: recv_config.recv_high_water_mark,
             recv_timeout: recv_config.recv_timeout,
             groups: config.groups,
@@ -442,6 +454,9 @@ impl From<FlatDishConfig> for DishConfig {
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
             linger: flat.linger,
+            auth_role: flat.auth_role,
+            creds: flat.creds,
+            mechanism: flat.mechanism,
         };
         let recv_config = RecvConfig {
             recv_high_water_mark: flat.recv_high_water_mark,
