@@ -162,11 +162,11 @@ impl ServerConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, Error<usize>> {
-        self.build_with_ctx(Ctx::global())
+    pub fn build(&self) -> Result<Server, failure::Error> {
+        self.with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -328,11 +328,11 @@ impl ServerBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
     where
         C: Into<Ctx>,
     {
-        self.inner.build_with_ctx(ctx)
+        self.inner.with_ctx(ctx)
     }
 }
 

@@ -115,11 +115,11 @@ impl ClientConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Client, Error<usize>> {
-        self.build_with_ctx(Ctx::global())
+    pub fn build(&self) -> Result<Client, failure::Error> {
+        self.with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Client, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -278,11 +278,11 @@ impl ClientBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Client, failure::Error>
     where
         C: Into<Ctx>,
     {
-        self.inner.build_with_ctx(ctx)
+        self.inner.with_ctx(ctx)
     }
 }
 
