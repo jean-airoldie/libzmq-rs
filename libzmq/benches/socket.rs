@@ -13,7 +13,8 @@ const MSG_AMOUNT: usize = 100_000;
 const MSG_SIZE_BYTES: [usize; 3] = [10, 50, 100];
 
 lazy_static! {
-    static ref ENDPOINT: Endpoint = "inproc://bench".try_into().unwrap();
+    static ref INPROC: InprocAddr = "bench".try_into().unwrap();
+    static ref GROUP: &'static Group = "group".try_into().unwrap();
 }
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
@@ -39,9 +40,9 @@ pub(crate) fn bench(c: &mut Criterion) {
             })
             .with_function("server-client", move |b| {
                 let producer = Server::new().unwrap();
-                producer.bind(&*ENDPOINT).unwrap();
+                producer.bind(&*INPROC).unwrap();
                 let consumer = Client::new().unwrap();
-                consumer.connect(&*ENDPOINT).unwrap();
+                consumer.connect(&*INPROC).unwrap();
 
                 consumer.send("").unwrap();
                 let mut msg = producer.recv_msg().unwrap();
@@ -51,21 +52,21 @@ pub(crate) fn bench(c: &mut Criterion) {
                     let dataset = gen_dataset(MSG_AMOUNT, *msg_size);
                     for data in dataset {
                         let mut data: Msg = data.into();
-                        data.set_routing_id(routing_id).unwrap();
+                        data.set_routing_id(routing_id);
 
                         producer.send(data).unwrap();
                         consumer.recv(&mut msg).unwrap();
                     }
                 });
 
-                producer.unbind(&*ENDPOINT).unwrap();
-                consumer.disconnect(&*ENDPOINT).unwrap();
+                producer.unbind(&*INPROC).unwrap();
+                consumer.disconnect(&*INPROC).unwrap();
             })
             .with_function("radio", move |b| {
                 let producer = Radio::new().unwrap();
-                producer.bind(&*ENDPOINT).unwrap();
+                producer.bind(&*INPROC).unwrap();
                 let consumer = Dish::new().unwrap();
-                consumer.connect(&*ENDPOINT).unwrap();
+                consumer.connect(&*INPROC).unwrap();
 
                 let mut msg = Msg::new();
 
@@ -73,13 +74,13 @@ pub(crate) fn bench(c: &mut Criterion) {
                     let dataset = gen_dataset(MSG_AMOUNT, *msg_size);
                     for data in dataset {
                         let mut data: Msg = data.into();
-                        data.set_group("group").unwrap();
+                        data.set_group(*GROUP);
                         producer.send(data).unwrap();
                         let _ = consumer.try_recv(&mut msg);
                     }
                 });
 
-                producer.unbind(&*ENDPOINT).unwrap();
+                producer.unbind(&*INPROC).unwrap();
             })
             .with_function("mscp", move |b| {
                 use std::sync::mpsc::channel;

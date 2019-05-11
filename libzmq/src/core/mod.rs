@@ -5,7 +5,8 @@ mod recv;
 mod send;
 pub(crate) mod sockopt;
 
-pub(crate) use raw::{GetRawSocket, RawSocket, RawSocketType};
+pub use raw::AuthRole;
+pub(crate) use raw::*;
 
 pub use recv::*;
 pub use send::*;
@@ -32,10 +33,15 @@ mod private {
     impl Sealed for DishConfig {}
     impl Sealed for DishBuilder {}
     impl Sealed for SocketType {}
+
+    // Pub crate
+    use crate::auth::Dealer;
+    impl Sealed for Dealer {}
 }
 
 use crate::{
     addr::Endpoint,
+    auth::{Creds, Mechanism},
     error::{msg_from_errno, Error, ErrorKind},
 };
 use libzmq_sys as sys;
@@ -500,7 +506,7 @@ pub trait Socket: GetRawSocket {
     /// [`connect`]: #method.connect
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn connect_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
+        getsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::ConnectTimeout,
             -1,
@@ -519,29 +525,30 @@ pub trait Socket: GetRawSocket {
     /// All (TCP transport)
     fn set_connect_timeout(
         &self,
-        maybe_duration: Option<Duration>,
+        maybe: Option<Duration>,
     ) -> Result<(), Error> {
-        if let Some(ref duration) = maybe_duration {
+        if let Some(ref duration) = maybe {
             assert!(
                 duration.as_millis() > 0,
                 "number of ms in duration cannot be zero"
             );
         }
-        setsockopt_duration(
+        setsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::ConnectTimeout,
-            maybe_duration,
+            maybe,
             0,
         )
     }
 
     /// The interval between sending ZMTP heartbeats.
-    fn heartbeat_interval(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
+    fn heartbeat_interval(&self) -> Result<Duration, Error> {
+        getsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatInterval,
-            0,
+            -1,
         )
+        .map(|d| d.unwrap())
     }
 
     /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
@@ -551,25 +558,20 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Applicable Socket Type
     /// All (connection oriented transports)
-    fn set_heartbeat_interval(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
+    fn set_heartbeat_interval(&self, duration: Duration) -> Result<(), Error> {
         setsockopt_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatInterval,
-            maybe_duration,
-            0,
+            duration,
         )
     }
 
     /// How long to wait before timing-out a connection after sending a
     /// PING ZMTP command and not receiving any traffic.
-    fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error> {
+    fn heartbeat_timeout(&self) -> Result<Duration, Error> {
         getsockopt_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatTimeout,
-            0,
         )
     }
 
@@ -579,15 +581,11 @@ pub trait Socket: GetRawSocket {
     /// # Default Value
     /// `None`. If `heartbeat_interval` is set, then it uses the same value
     /// by default.
-    fn set_heartbeat_timeout(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
+    fn set_heartbeat_timeout(&self, duration: Duration) -> Result<(), Error> {
         setsockopt_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatTimeout,
-            maybe_duration,
-            0,
+            duration,
         )
     }
 
@@ -595,11 +593,10 @@ pub trait Socket: GetRawSocket {
     /// If this option and `heartbeat_interval` is not `None` the remote
     /// side shall time out the connection if it does not receive any more
     /// traffic within the TTL period.
-    fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error> {
+    fn heartbeat_ttl(&self) -> Result<Duration, Error> {
         getsockopt_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatTtl,
-            0,
         )
     }
 
@@ -610,29 +607,23 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default value
     /// `None`
-    fn set_heartbeat_ttl(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        if let Some(ref duration) = maybe_duration {
-            let ms = duration.as_millis();
-            if ms > MAX_HB_TTL as u128 {
-                return Err(Error::new(ErrorKind::InvalidInput {
-                    msg: "duration ms cannot exceed 6553599",
-                }));
-            }
+    fn set_heartbeat_ttl(&self, duration: Duration) -> Result<(), Error> {
+        let ms = duration.as_millis();
+        if ms > MAX_HB_TTL as u128 {
+            return Err(Error::new(ErrorKind::InvalidInput {
+                msg: "duration ms cannot exceed 6553599",
+            }));
         }
         setsockopt_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::HeartbeatTtl,
-            maybe_duration,
-            0,
+            duration,
         )
     }
 
     /// Returns the linger period for the socket shutdown.
     fn linger(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
+        getsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::Linger,
             -1,
@@ -649,16 +640,41 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        setsockopt_duration(
+    fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
+        setsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::Linger,
-            maybe_duration,
+            maybe,
             -1,
         )
+    }
+
+    fn mechanism(&self) -> Mechanism {
+        self.raw_socket().mechanism()
+    }
+
+    fn set_mechanism(&self, mechanism: Mechanism) -> Result<(), Error> {
+        self.raw_socket().set_mechanism(mechanism)
+    }
+
+    fn auth_role(&self) -> AuthRole {
+        self.raw_socket().auth_role()
+    }
+
+    fn set_auth_role(&self, role: AuthRole) -> Result<(), Error> {
+        self.raw_socket().set_auth_role(role)
+    }
+
+    fn creds(&self) -> Creds {
+        self.raw_socket().creds()
+    }
+
+    fn set_creds<C>(&self, creds: C) -> Result<(), Error>
+    where
+        C: Into<Creds>,
+    {
+        let creds = creds.into();
+        self.raw_socket().set_creds(creds)
     }
 }
 
@@ -673,6 +689,9 @@ pub struct SocketConfig {
     pub(crate) heartbeat_timeout: Option<Duration>,
     pub(crate) heartbeat_ttl: Option<Duration>,
     pub(crate) linger: Option<Duration>,
+    pub(crate) auth_role: Option<AuthRole>,
+    pub(crate) mechanism: Option<Mechanism>,
+    pub(crate) creds: Option<Creds>,
 }
 
 impl SocketConfig {
@@ -683,11 +702,26 @@ impl SocketConfig {
         if let Some(value) = self.backlog {
             socket.set_backlog(value).map_err(Error::cast)?;
         }
-        socket.set_connect_timeout(self.connect_timeout).map_err(Error::cast)?;
-        socket.set_heartbeat_interval(self.heartbeat_interval).map_err(Error::cast)?;
-        socket.set_heartbeat_timeout(self.heartbeat_timeout).map_err(Error::cast)?;
-        socket.set_heartbeat_ttl(self.heartbeat_ttl).map_err(Error::cast)?;
-        socket.set_linger(self.linger).map_err(Error::cast)?;
+        socket.set_connect_timeout(self.connect_timeout)?;
+        if let Some(value) = self.heartbeat_interval {
+            socket.set_heartbeat_interval(value)?;
+        }
+        if let Some(value) = self.heartbeat_timeout {
+            socket.set_heartbeat_timeout(value)?;
+        }
+        if let Some(value) = self.heartbeat_ttl {
+            socket.set_heartbeat_ttl(value)?;
+        }
+        socket.set_linger(self.linger)?;
+        if let Some(ref creds) = self.creds {
+            socket.set_creds(creds)?;
+        }
+        if let Some(mechanism) = self.mechanism {
+            socket.set_mechanism(mechanism)?;
+        }
+        if let Some(role) = self.auth_role {
+            socket.set_auth_role(role)?;
+        }
 
         // We connect as the last step because some socket options
         // only affect subsequent connections.
@@ -728,76 +762,100 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config().connect.as_ref().map(Vec::as_slice)
     }
 
-    fn set_connect<I, E>(&mut self, maybe_endpoints: Option<I>)
+    fn set_connect<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().map(Into::into).collect());
-        self.socket_config_mut().connect = maybe_vec;
+        let maybe: Option<Vec<Endpoint>> =
+            maybe.map(|e| e.into_iter().map(Into::into).collect());
+        self.socket_config_mut().connect = maybe;
     }
 
     fn bind(&self) -> Option<&[Endpoint]> {
         self.socket_config().bind.as_ref().map(Vec::as_slice)
     }
 
-    fn set_bind<I, E>(&mut self, maybe_endpoints: Option<I>)
+    fn set_bind<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().map(Into::into).collect());
-        self.socket_config_mut().bind = maybe_vec;
+        let maybe: Option<Vec<Endpoint>> =
+            maybe.map(|e| e.into_iter().map(Into::into).collect());
+        self.socket_config_mut().bind = maybe;
     }
 
     fn backlog(&self) -> Option<i32> {
         self.socket_config().backlog
     }
 
-    fn set_backlog(&mut self, maybe_backlog: Option<i32>) {
-        self.socket_config_mut().backlog = maybe_backlog;
+    fn set_backlog(&mut self, maybe: Option<i32>) {
+        self.socket_config_mut().backlog = maybe;
     }
 
     fn connect_timeout(&self) -> Option<Duration> {
         self.socket_config().connect_timeout
     }
 
-    fn set_connect_timeout(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().connect_timeout = maybe_duration;
+    fn set_connect_timeout(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().connect_timeout = maybe;
     }
 
     fn heartbeat_interval(&self) -> Option<Duration> {
         self.socket_config().heartbeat_interval
     }
 
-    fn set_heartbeat_interval(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().heartbeat_interval = maybe_duration;
+    fn set_heartbeat_interval(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().heartbeat_interval = maybe;
     }
 
     fn heartbeat_timeout(&self) -> Option<Duration> {
         self.socket_config().heartbeat_timeout
     }
 
-    fn set_heartbeat_timeout(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().heartbeat_timeout = maybe_duration;
+    fn set_heartbeat_timeout(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().heartbeat_timeout = maybe;
     }
 
     fn heartbeat_ttl(&self) -> Option<Duration> {
         self.socket_config().heartbeat_ttl
     }
 
-    fn set_heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().heartbeat_ttl = maybe_duration;
+    fn set_heartbeat_ttl(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().heartbeat_ttl = maybe;
     }
 
     fn linger(&self) -> Option<Duration> {
         self.socket_config().linger
     }
 
-    fn set_linger(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().linger = maybe_duration;
+    fn set_linger(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().linger = maybe;
+    }
+
+    fn auth_role(&self) -> Option<AuthRole> {
+        self.socket_config().auth_role
+    }
+
+    fn set_auth_role(&mut self, maybe: Option<AuthRole>) {
+        self.socket_config_mut().auth_role = maybe;
+    }
+
+    fn mechanism(&self) -> Option<Mechanism> {
+        self.socket_config().mechanism
+    }
+
+    fn set_mechanism(&mut self, maybe: Option<Mechanism>) {
+        self.socket_config_mut().mechanism = maybe;
+    }
+
+    fn creds(&self) -> Option<&Creds> {
+        self.socket_config().creds.as_ref()
+    }
+
+    fn set_creds(&mut self, maybe: Option<Creds>) {
+        self.socket_config_mut().creds = maybe;
     }
 }
 
@@ -828,39 +886,45 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn connect_timeout(
-        &mut self,
-        maybe_duration: Option<Duration>,
-    ) -> &mut Self {
-        self.socket_config_mut().set_connect_timeout(maybe_duration);
+    fn connect_timeout(&mut self, maybe: Option<Duration>) -> &mut Self {
+        self.socket_config_mut().set_connect_timeout(maybe);
         self
     }
 
-    fn heartbeat_interval(
-        &mut self,
-        maybe_duration: Option<Duration>,
-    ) -> &mut Self {
+    fn heartbeat_interval(&mut self, duration: Duration) -> &mut Self {
         self.socket_config_mut()
-            .set_heartbeat_interval(maybe_duration);
+            .set_heartbeat_interval(Some(duration));
         self
     }
 
-    fn heartbeat_timeout(
-        &mut self,
-        maybe_duration: Option<Duration>,
-    ) -> &mut Self {
+    fn heartbeat_timeout(&mut self, duration: Duration) -> &mut Self {
         self.socket_config_mut()
-            .set_heartbeat_timeout(maybe_duration);
+            .set_heartbeat_timeout(Some(duration));
         self
     }
 
-    fn heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        self.socket_config_mut().set_heartbeat_ttl(maybe_duration);
+    fn heartbeat_ttl(&mut self, duration: Duration) -> &mut Self {
+        self.socket_config_mut().set_heartbeat_ttl(Some(duration));
         self
     }
 
-    fn linger(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        self.socket_config_mut().set_linger(maybe_duration);
+    fn linger(&mut self, maybe: Option<Duration>) -> &mut Self {
+        self.socket_config_mut().set_linger(maybe);
+        self
+    }
+
+    fn auth_role(&mut self, role: AuthRole) -> &mut Self {
+        self.socket_config_mut().set_auth_role(Some(role));
+        self
+    }
+
+    fn mechanism(&mut self, mechanism: Mechanism) -> &mut Self {
+        self.socket_config_mut().set_mechanism(Some(mechanism));
+        self
+    }
+
+    fn creds(&mut self, creds: Creds) -> &mut Self {
+        self.socket_config_mut().set_creds(Some(creds));
         self
     }
 }

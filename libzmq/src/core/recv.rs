@@ -141,10 +141,10 @@ pub trait RecvMsg: GetRawSocket {
     /// 1000
     fn set_recv_high_water_mark(
         &self,
-        maybe_limit: Option<i32>,
+        maybe: Option<i32>,
     ) -> Result<(), Error> {
         let socket_ptr = self.raw_socket().as_mut_ptr();
-        match maybe_limit {
+        match maybe {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
                 setsockopt_scalar(
@@ -167,7 +167,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
     fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
+        getsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::RecvTimeout,
             -1,
@@ -179,14 +179,11 @@ pub trait RecvMsg: GetRawSocket {
     /// If some timeout is specified, [`recv`] will return
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
-    fn set_recv_timeout(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        setsockopt_duration(
+    fn set_recv_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
+        setsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::RecvTimeout,
-            maybe_duration,
+            maybe,
             -1,
         )
     }

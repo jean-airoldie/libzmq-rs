@@ -1,5 +1,6 @@
 use crate::{
     addr::Endpoint,
+    auth::{Creds, Mechanism},
     core::{sockopt::*, *},
     error::*,
     Ctx,
@@ -251,6 +252,9 @@ struct FlatRadioConfig {
     #[serde(with = "serde_humantime")]
     send_timeout: Option<Duration>,
     no_drop: Option<bool>,
+    auth_role: Option<AuthRole>,
+    creds: Option<Creds>,
+    mechanism: Option<Mechanism>,
 }
 
 impl From<RadioConfig> for FlatRadioConfig {
@@ -269,6 +273,9 @@ impl From<RadioConfig> for FlatRadioConfig {
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
             no_drop: config.no_drop,
+            auth_role: socket_config.auth_role,
+            creds: socket_config.creds,
+            mechanism: socket_config.mechanism,
         }
     }
 }
@@ -284,6 +291,9 @@ impl From<FlatRadioConfig> for RadioConfig {
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
             linger: flat.linger,
+            auth_role: flat.auth_role,
+            creds: flat.creds,
+            mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,

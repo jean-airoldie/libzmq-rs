@@ -158,10 +158,10 @@ pub trait SendMsg: GetRawSocket {
     /// 1000
     fn set_send_high_water_mark(
         &self,
-        high_water_mark: Option<i32>,
+        maybe: Option<i32>,
     ) -> Result<(), Error> {
         let socket_ptr = self.raw_socket().as_mut_ptr();
-        match high_water_mark {
+        match maybe {
             Some(limit) => {
                 assert!(limit != 0, "high water mark cannot be zero");
                 setsockopt_scalar(
@@ -184,7 +184,7 @@ pub trait SendMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise,
     /// it will block until the message is sent.
     fn send_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
+        getsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::SendTimeout,
             -1,
@@ -219,11 +219,11 @@ pub trait SendMsg: GetRawSocket {
     /// #     Ok(())
     /// # }
     /// ```
-    fn set_send_timeout(&self, timeout: Option<Duration>) -> Result<(), Error> {
-        setsockopt_duration(
+    fn set_send_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
+        setsockopt_option_duration(
             self.raw_socket().as_mut_ptr(),
             SocketOption::SendTimeout,
-            timeout,
+            maybe,
             -1,
         )
     }
