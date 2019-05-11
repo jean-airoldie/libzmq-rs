@@ -2,7 +2,7 @@ mod dealer;
 
 pub(crate) use dealer::Dealer;
 
-use crate::{poll::*, Error, Msg, RoutingId, Server};
+use crate::{poll::*, *};
 
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};
@@ -172,15 +172,26 @@ struct AuthResult {
 }
 
 impl Authenticator {
-    pub fn new(handler: Dealer, command: Server) -> Self {
-        Authenticator {
+    pub fn new() -> Result<Self, Error> {
+        Self::with_ctx(Ctx::global())
+    }
+
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx = ctx.into();
+        let handler = Dealer::with_ctx(&ctx)?;
+        let command = Server::with_ctx(ctx)?;
+
+        Ok(Self {
             handler,
             command,
             verbose: false,
             whitelist: HashSet::default(),
             blacklist: HashSet::default(),
             passwords: HashMap::default(),
-        }
+        })
     }
 
     fn run(&mut self) -> Result<(), Error> {
@@ -327,14 +338,14 @@ mod test {
             .bind(&addr)
             .auth_role(AuthRole::Server)
             .mechanism(Mechanism::Null)
-            .build_with_ctx(&ctx)
+            .with_ctx(&ctx)
             .unwrap();
 
         let _client = ClientBuilder::new()
             .connect(addr)
             .auth_role(AuthRole::Client)
             .mechanism(Mechanism::Null)
-            .build_with_ctx(&ctx)
+            .with_ctx(&ctx)
             .unwrap();
     }
 
@@ -346,7 +357,7 @@ mod test {
         let mut map = HashMap::new();
         map.insert("jane", "doe");
 
-        //let zap = AuthHandlerBuilder::new()
+        //let zap = AuthenticatorBuilder::new()
         //    .plain(map)
         //    .build()?;
 
@@ -354,14 +365,14 @@ mod test {
             .bind(&addr)
             .auth_role(AuthRole::Server)
             .mechanism(Mechanism::Plain)
-            .build_with_ctx(&ctx)
+            .with_ctx(&ctx)
             .unwrap();
 
         let _client = ClientBuilder::new()
             .connect(addr)
             .auth_role(AuthRole::Client)
             .mechanism(Mechanism::Plain)
-            .build_with_ctx(&ctx)
+            .with_ctx(&ctx)
             .unwrap();
     }
 }

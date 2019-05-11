@@ -350,10 +350,10 @@ impl DishConfig {
     }
 
     pub fn build(&self) -> Result<Dish, failure::Error> {
-        self.build_with_ctx(Ctx::global())
+        self.with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
     where
         C: Into<Ctx>,
     {
@@ -507,11 +507,11 @@ impl DishBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
     where
         C: Into<Ctx>,
     {
-        self.inner.build_with_ctx(ctx)
+        self.inner.with_ctx(ctx)
     }
 
     pub fn join<I, G>(&mut self, groups: I) -> &mut Self
