@@ -1,9 +1,4 @@
-use crate::{
-    addr::Endpoint,
-    auth::{Creds, Mechanism},
-    error::*,
-    Ctx,
-};
+use crate::{addr::Endpoint, auth::*, error::*, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -11,11 +6,9 @@ use log::error;
 use serde::{Deserialize, Serialize};
 
 use std::{
+    ffi::CString,
     os::raw::{c_int, c_void},
-    sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
-        Mutex,
-    },
+    sync::Mutex,
 };
 
 #[doc(hidden)]
@@ -74,6 +67,117 @@ impl Default for AuthRole {
     }
 }
 
+fn connect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_connect(socket_ptr, c_string.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol not supported",
+                }),
+                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol incompatible",
+                }),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::EMTHREAD => panic!("no i/o thread available"),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+fn bind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_bind(socket_ptr, c_string.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol not supported",
+                }),
+                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol incompatible",
+                }),
+                errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
+                errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
+                errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::EMTHREAD => panic!("no i/o thread available"),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+fn disconnect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_disconnect(socket_ptr, c_string.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::ENOENT => Error::new(ErrorKind::NotFound {
+                    msg: "endpoint was not connected to",
+                }),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_unbind(socket_ptr, c_str.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::ENOENT => Error::new(ErrorKind::NotFound {
+                    msg: "endpoint was not bound to",
+                }),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 #[doc(hidden)]
 pub struct RawSocket {
@@ -81,9 +185,7 @@ pub struct RawSocket {
     ctx: Ctx,
     connected: Mutex<Vec<Endpoint>>,
     bound: Mutex<Vec<Endpoint>>,
-    creds: Mutex<Creds>,
-    mechanism: AtomicU8,
-    auth_role: AtomicBool,
+    mechanism: Mutex<Mechanism>,
 }
 
 impl RawSocket {
@@ -116,11 +218,29 @@ impl RawSocket {
                 socket_mut_ptr,
                 connected: Mutex::default(),
                 bound: Mutex::default(),
-                mechanism: AtomicU8::default(),
-                creds: Mutex::default(),
-                auth_role: AtomicBool::default(),
+                mechanism: Mutex::default(),
             })
         }
+    }
+
+    pub(crate) fn connect(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        connect(self.as_mut_ptr(), c_string)
+    }
+
+    pub(crate) fn disconnect(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        disconnect(self.as_mut_ptr(), c_string)
+    }
+
+    pub(crate) fn bind(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        bind(self.as_mut_ptr(), c_string)
+    }
+
+    pub(crate) fn unbind(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        unbind(self.as_mut_ptr(), c_string)
     }
 
     pub(crate) fn ctx(&self) -> &Ctx {
@@ -140,33 +260,8 @@ impl RawSocket {
         &self.bound
     }
 
-    pub(crate) fn creds(&self) -> Creds {
-        self.creds.lock().unwrap().to_owned()
-    }
-
-    pub(crate) fn set_creds(&self, _creds: Creds) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    pub(crate) fn mechanism(&self) -> Mechanism {
-        self.mechanism.load(Ordering::Relaxed).into()
-    }
-
-    pub(crate) fn set_mechanism(
-        &self,
-        mechanism: Mechanism,
-    ) -> Result<(), Error> {
-        self.mechanism.store(mechanism.into(), Ordering::Relaxed);
-        unimplemented!()
-    }
-
-    pub(crate) fn auth_role(&self) -> AuthRole {
-        self.auth_role.load(Ordering::Relaxed).into()
-    }
-
-    pub(crate) fn set_auth_role(&self, role: AuthRole) -> Result<(), Error> {
-        self.auth_role.store(role.into(), Ordering::Relaxed);
-        unimplemented!()
+    pub(crate) fn mechanism(&self) -> &Mutex<Mechanism> {
+        &self.mechanism
     }
 }
 
@@ -185,6 +280,20 @@ impl Drop for RawSocket {
     ///
     /// [`zmq_close`]: http://api.zeromq.org/master:zmq-close
     fn drop(&mut self) {
+        // This allows for the endpoints to be available as soon as the socket
+        // is dropped, as opposed to when ØMQ decides so.
+        if let Ok(bound) = self.bound.lock() {
+            for endpoint in &*bound {
+                let _ = self.unbind(&endpoint);
+            }
+        }
+
+        if let Ok(connected) = self.connected.lock() {
+            for endpoint in &*connected {
+                let _ = self.disconnect(&endpoint);
+            }
+        }
+
         let rc = unsafe { sys::zmq_close(self.socket_mut_ptr) };
 
         if rc == -1 {

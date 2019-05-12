@@ -58,9 +58,6 @@ pub(crate) fn bench(c: &mut Criterion) {
                         consumer.recv(&mut msg).unwrap();
                     }
                 });
-
-                producer.unbind(&*INPROC).unwrap();
-                consumer.disconnect(&*INPROC).unwrap();
             })
             .with_function("radio", move |b| {
                 let producer = Radio::new().unwrap();
@@ -79,8 +76,6 @@ pub(crate) fn bench(c: &mut Criterion) {
                         let _ = consumer.try_recv(&mut msg);
                     }
                 });
-
-                producer.unbind(&*INPROC).unwrap();
             })
             .with_function("mscp", move |b| {
                 use std::sync::mpsc::channel;
