@@ -6,34 +6,35 @@ use crate::{poll::*, *};
 
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 use std::{convert::TryFrom, fmt, net::IpAddr};
 
 const ZAP_VERSION: &str = "1.0";
+lazy_static! {
+    static ref ZAP_ENDPOINT: InprocAddr = "zeromq.zap.01".parse().unwrap();
+}
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PlainCreds {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Mechanism {
-    Null = 0,
-    Plain,
+    /// No encryption or authentication.
+    ///
+    /// This is the default mechanism.
+    Null,
+    PlainClient(PlainCreds),
+    PlainServer,
 }
 
-impl From<u8> for Mechanism {
-    fn from(u: u8) -> Self {
-        match u {
-            u if u == Mechanism::Null as u8 => Mechanism::Null,
-            u if u == Mechanism::Plain as u8 => Mechanism::Plain,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl From<Mechanism> for u8 {
-    fn from(r: Mechanism) -> Self {
-        match r {
-            Mechanism::Null => Mechanism::Null as u8,
-            Mechanism::Plain => Mechanism::Plain as u8,
-        }
+impl<'a> From<&'a Mechanism> for Mechanism {
+    fn from(mechanism: &'a Mechanism) -> Self {
+        mechanism.to_owned()
     }
 }
 
@@ -43,56 +44,26 @@ impl Default for Mechanism {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum MechanismName {
+    Null = 0,
+    Plain,
+}
+
 #[derive(Debug, Fail)]
 #[fail(display = "unsupported mechanism")]
-pub struct InvalidMechanism;
+struct InvalidMechanismName;
 
-impl<'a> TryFrom<&'a str> for Mechanism {
-    type Error = InvalidMechanism;
+impl<'a> TryFrom<&'a str> for MechanismName {
+    type Error = InvalidMechanismName;
 
-    fn try_from(s: &'a str) -> Result<Mechanism, InvalidMechanism> {
+    fn try_from(s: &'a str) -> Result<MechanismName, InvalidMechanismName> {
         match s {
-            "NULL" => Ok(Mechanism::Null),
-            "PLAIN" => Ok(Mechanism::Plain),
-            _ => Err(InvalidMechanism),
+            "NULL" => Ok(MechanismName::Null),
+            "PLAIN" => Ok(MechanismName::Plain),
+            _ => Err(InvalidMechanismName),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Creds {
-    Null,
-    Plain(PlainCreds),
-}
-
-impl From<PlainCreds> for Creds {
-    fn from(creds: PlainCreds) -> Self {
-        Creds::Plain(creds)
-    }
-}
-
-impl<'a> From<&'a PlainCreds> for Creds {
-    fn from(creds: &'a PlainCreds) -> Self {
-        Creds::Plain(creds.to_owned())
-    }
-}
-
-impl<'a> From<&'a Creds> for Creds {
-    fn from(creds: &'a Creds) -> Self {
-        creds.to_owned()
-    }
-}
-
-impl Default for Creds {
-    fn default() -> Self {
-        Creds::Null
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PlainCreds {
-    pub username: String,
-    pub password: String,
 }
 
 enum Status {
@@ -243,15 +214,15 @@ impl Authenticator {
 
         if !denied {
             if let Ok(mechanism) =
-                Mechanism::try_from(request.mechanism.as_str())
+                MechanismName::try_from(request.mechanism.as_str())
             {
                 result = {
                     match mechanism {
-                        Mechanism::Null => Some(AuthResult {
+                        MechanismName::Null => Some(AuthResult {
                             user_id: String::new(),
                             metadata: vec![],
                         }),
-                        Mechanism::Plain => {
+                        MechanismName::Plain => {
                             let username = request
                                 .credentials
                                 .pop()
@@ -321,7 +292,7 @@ impl Authenticator {
 
 #[cfg(test)]
 mod test {
-    use crate::{auth::Mechanism, prelude::*, socket::*, *};
+    use crate::{auth::*, prelude::*, socket::*};
 
     use hashbrown::HashMap;
 
@@ -332,18 +303,14 @@ mod test {
         let ctx = Ctx::new();
         let addr: InprocAddr = "test".try_into().unwrap();
 
-        //let zap = Authenticator::new();
-
-        let _server = ServerBuilder::new()
+        let server = ServerBuilder::new()
             .bind(&addr)
-            .auth_role(AuthRole::Server)
             .mechanism(Mechanism::Null)
             .with_ctx(&ctx)
             .unwrap();
 
-        let _client = ClientBuilder::new()
+        let client = ClientBuilder::new()
             .connect(addr)
-            .auth_role(AuthRole::Client)
             .mechanism(Mechanism::Null)
             .with_ctx(&ctx)
             .unwrap();
@@ -357,21 +324,19 @@ mod test {
         let mut map = HashMap::new();
         map.insert("jane", "doe");
 
-        //let zap = AuthenticatorBuilder::new()
-        //    .plain(map)
-        //    .build()?;
-
-        let _server = ServerBuilder::new()
+        let server = ServerBuilder::new()
             .bind(&addr)
-            .auth_role(AuthRole::Server)
-            .mechanism(Mechanism::Plain)
+            .mechanism(Mechanism::PlainServer)
             .with_ctx(&ctx)
             .unwrap();
 
-        let _client = ClientBuilder::new()
+        let creds = PlainCreds {
+            username: "ok".to_owned(),
+            password: "lo".to_owned(),
+        };
+        let client = ClientBuilder::new()
             .connect(addr)
-            .auth_role(AuthRole::Client)
-            .mechanism(Mechanism::Plain)
+            .mechanism(Mechanism::PlainClient(creds))
             .with_ctx(&ctx)
             .unwrap();
     }

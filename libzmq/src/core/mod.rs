@@ -41,7 +41,7 @@ mod private {
 
 use crate::{
     addr::Endpoint,
-    auth::{Creds, Mechanism},
+    auth::*,
     error::{msg_from_errno, Error, ErrorKind},
 };
 use libzmq_sys as sys;
@@ -51,117 +51,6 @@ use sys::errno;
 use std::{ffi::CString, os::raw::c_void, time::Duration};
 
 const MAX_HB_TTL: i64 = 6_553_599;
-
-fn connect(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_connect(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol not supported",
-                }),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol incompatible",
-                }),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
-
-fn bind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_bind(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol not supported",
-                }),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol incompatible",
-                }),
-                errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
-                errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
-                errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
-
-fn disconnect(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_disconnect(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => Error::new(ErrorKind::NotFound {
-                    msg: "endpoint was not connected to",
-                }),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
-
-fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_unbind(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => Error::new(ErrorKind::NotFound {
-                    msg: "endpoint was not bound to",
-                }),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
 
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
@@ -203,8 +92,8 @@ pub trait Socket: GetRawSocket {
 
         for endpoint in endpoints.into_iter() {
             let endpoint: Endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            connect(raw_socket.as_mut_ptr(), c_str)
+            raw_socket
+                .connect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             guard.push(endpoint);
@@ -280,8 +169,8 @@ pub trait Socket: GetRawSocket {
 
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            disconnect(raw_socket.as_mut_ptr(), c_str)
+            raw_socket
+                .disconnect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             let position = guard.iter().position(|e| e == &endpoint).unwrap();
@@ -330,14 +219,16 @@ pub trait Socket: GetRawSocket {
         E: Into<Endpoint>,
     {
         let mut count = 0;
+        let raw_socket = self.raw_socket();
+        let mut guard = raw_socket.bound().lock().unwrap();
+
         for endpoint in endpoints.into_iter() {
-            let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            let raw_socket = self.raw_socket();
-            bind(self.raw_socket().as_mut_ptr(), c_str)
+            let endpoint: Endpoint = endpoint.into();
+            raw_socket
+                .bind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            raw_socket.bound().lock().unwrap().push(endpoint);
+            guard.push(endpoint);
             count += 1;
         }
         Ok(())
@@ -409,20 +300,24 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error>
+    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
+        let mut count = 0;
+        let raw_socket = self.raw_socket();
+        let mut guard = raw_socket.bound().lock().unwrap();
+
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            let raw_socket = self.raw_socket();
-            unbind(self.raw_socket().as_mut_ptr(), c_str)?;
+            raw_socket
+                .unbind(&endpoint)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            let mut bound = raw_socket.bound().lock().unwrap();
-            let position = bound.iter().position(|e| e == &endpoint).unwrap();
-            bound.remove(position);
+            let position = guard.iter().position(|e| e == &endpoint).unwrap();
+            guard.remove(position);
+            count += 1;
         }
         Ok(())
     }
@@ -650,31 +545,72 @@ pub trait Socket: GetRawSocket {
     }
 
     fn mechanism(&self) -> Mechanism {
-        self.raw_socket().mechanism()
+        self.raw_socket().mechanism().lock().unwrap().to_owned()
     }
 
-    fn set_mechanism(&self, mechanism: Mechanism) -> Result<(), Error> {
-        self.raw_socket().set_mechanism(mechanism)
-    }
-
-    fn auth_role(&self) -> AuthRole {
-        self.raw_socket().auth_role()
-    }
-
-    fn set_auth_role(&self, role: AuthRole) -> Result<(), Error> {
-        self.raw_socket().set_auth_role(role)
-    }
-
-    fn creds(&self) -> Creds {
-        self.raw_socket().creds()
-    }
-
-    fn set_creds<C>(&self, creds: C) -> Result<(), Error>
+    fn set_mechanism<M>(&self, mechanism: M) -> Result<(), Error>
     where
-        C: Into<Creds>,
+        M: Into<Mechanism>,
     {
-        let creds = creds.into();
-        self.raw_socket().set_creds(creds)
+        let mechanism = mechanism.into();
+        let raw_socket = self.raw_socket();
+        let mut mutex = raw_socket.mechanism().lock().unwrap();
+
+        if &*mutex == &mechanism {
+            return Ok(());
+        }
+
+        // Undo previous mechanism
+        match &*mutex {
+            Mechanism::Null => (),
+            Mechanism::PlainClient(_) => {
+                setsockopt_str(
+                    raw_socket.as_mut_ptr(),
+                    SocketOption::PlainUsername,
+                    None,
+                )?;
+                setsockopt_str(
+                    raw_socket.as_mut_ptr(),
+                    SocketOption::PlainPassword,
+                    None,
+                )?;
+            }
+            Mechanism::PlainServer => {
+                setsockopt_bool(
+                    raw_socket.as_mut_ptr(),
+                    SocketOption::PlainServer,
+                    false,
+                )?;
+            }
+        }
+
+        // Apply new mechanism
+        match &mechanism {
+            Mechanism::Null => (),
+            Mechanism::PlainClient(creds) => {
+                setsockopt_str(
+                    raw_socket.as_mut_ptr(),
+                    SocketOption::PlainUsername,
+                    Some(&creds.username),
+                )?;
+                setsockopt_str(
+                    raw_socket.as_mut_ptr(),
+                    SocketOption::PlainPassword,
+                    Some(&creds.password),
+                )?;
+            }
+            Mechanism::PlainServer => {
+                setsockopt_bool(
+                    raw_socket.as_mut_ptr(),
+                    SocketOption::PlainServer,
+                    true,
+                )?;
+            }
+        }
+
+        // Update mechanism
+        *mutex = mechanism;
+        Ok(())
     }
 }
 
@@ -689,9 +625,7 @@ pub struct SocketConfig {
     pub(crate) heartbeat_timeout: Option<Duration>,
     pub(crate) heartbeat_ttl: Option<Duration>,
     pub(crate) linger: Option<Duration>,
-    pub(crate) auth_role: Option<AuthRole>,
     pub(crate) mechanism: Option<Mechanism>,
-    pub(crate) creds: Option<Creds>,
 }
 
 impl SocketConfig {
@@ -713,16 +647,9 @@ impl SocketConfig {
             socket.set_heartbeat_ttl(value)?;
         }
         socket.set_linger(self.linger)?;
-        if let Some(ref creds) = self.creds {
-            socket.set_creds(creds)?;
-        }
-        if let Some(mechanism) = self.mechanism {
+        if let Some(ref mechanism) = self.mechanism {
             socket.set_mechanism(mechanism)?;
         }
-        if let Some(role) = self.auth_role {
-            socket.set_auth_role(role)?;
-        }
-
         // We connect as the last step because some socket options
         // only affect subsequent connections.
         if let Some(ref endpoints) = self.connect {
@@ -834,28 +761,12 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config_mut().linger = maybe;
     }
 
-    fn auth_role(&self) -> Option<AuthRole> {
-        self.socket_config().auth_role
-    }
-
-    fn set_auth_role(&mut self, maybe: Option<AuthRole>) {
-        self.socket_config_mut().auth_role = maybe;
-    }
-
-    fn mechanism(&self) -> Option<Mechanism> {
-        self.socket_config().mechanism
+    fn mechanism(&self) -> Option<&Mechanism> {
+        self.socket_config().mechanism.as_ref()
     }
 
     fn set_mechanism(&mut self, maybe: Option<Mechanism>) {
         self.socket_config_mut().mechanism = maybe;
-    }
-
-    fn creds(&self) -> Option<&Creds> {
-        self.socket_config().creds.as_ref()
-    }
-
-    fn set_creds(&mut self, maybe: Option<Creds>) {
-        self.socket_config_mut().creds = maybe;
     }
 }
 
@@ -913,18 +824,46 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn auth_role(&mut self, role: AuthRole) -> &mut Self {
-        self.socket_config_mut().set_auth_role(Some(role));
-        self
-    }
-
     fn mechanism(&mut self, mechanism: Mechanism) -> &mut Self {
         self.socket_config_mut().set_mechanism(Some(mechanism));
         self
     }
+}
 
-    fn creds(&mut self, creds: Creds) -> &mut Self {
-        self.socket_config_mut().set_creds(Some(creds));
-        self
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn test() {
+        use crate::{
+            addr::{Endpoint, InprocAddr},
+            prelude::*,
+            Radio,
+        };
+        use std::convert::TryInto;
+
+        let first: InprocAddr = "test1".try_into().unwrap();
+        let second: InprocAddr = "test2".try_into().unwrap();
+
+        let radio = Radio::new().unwrap();
+        assert!(radio.bound().is_empty());
+
+        radio.bind(vec![&first, &second]).unwrap();
+        {
+            let bound = radio.bound();
+            let first = Endpoint::from(&first);
+            assert!(bound.contains(&first));
+            let second = Endpoint::from(&second);
+            assert!(bound.contains(&second));
+        }
+
+        radio.unbind(&first).unwrap();
+        {
+            let bound = radio.bound();
+            let first = Endpoint::from(&first);
+            assert!(!bound.contains((&first).into()));
+            let second = Endpoint::from(&second);
+            assert!(bound.contains((&second).into()));
+        }
     }
 }

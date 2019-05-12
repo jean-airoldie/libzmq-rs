@@ -1,10 +1,4 @@
-use crate::{
-    addr::Endpoint,
-    auth::{Creds, Mechanism},
-    core::*,
-    error::*,
-    Ctx,
-};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
@@ -217,8 +211,6 @@ struct FlatServerConfig {
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     recv_timeout: Option<Duration>,
-    auth_role: Option<AuthRole>,
-    creds: Option<Creds>,
     mechanism: Option<Mechanism>,
 }
 
@@ -236,8 +228,6 @@ impl From<ServerConfig> for FlatServerConfig {
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
             linger: socket_config.linger,
-            auth_role: socket_config.auth_role,
-            creds: socket_config.creds,
             mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
@@ -258,8 +248,6 @@ impl From<FlatServerConfig> for ServerConfig {
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
             linger: flat.linger,
-            auth_role: flat.auth_role,
-            creds: flat.creds,
             mechanism: flat.mechanism,
         };
         let send_config = SendConfig {

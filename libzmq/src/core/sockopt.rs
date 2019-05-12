@@ -5,7 +5,6 @@ use sys::errno;
 use libc::{c_int, size_t};
 
 use std::{
-    borrow::Borrow,
     ffi::CString,
     os::raw::c_void,
     time::Duration,
@@ -31,6 +30,9 @@ pub(crate) enum SocketOption {
     NoDrop,
     Linger,
     LastEndpoint,
+    PlainPassword,
+    PlainUsername,
+    PlainServer,
 }
 
 impl From<SocketOption> for c_int {
@@ -51,6 +53,9 @@ impl From<SocketOption> for c_int {
             SocketOption::NoDrop => sys::ZMQ_XPUB_NODROP as c_int,
             SocketOption::Linger => sys::ZMQ_LINGER as c_int,
             SocketOption::LastEndpoint => sys::ZMQ_LAST_ENDPOINT as c_int,
+            SocketOption::PlainPassword => sys::ZMQ_PLAIN_PASSWORD as c_int,
+            SocketOption::PlainUsername => sys::ZMQ_PLAIN_USERNAME as c_int,
+            SocketOption::PlainServer => sys::ZMQ_PLAIN_SERVER as c_int,
         }
     }
 }
@@ -233,19 +238,16 @@ pub(crate) fn setsockopt_bytes(
     setsockopt(mut_sock_ptr, option, value_ptr, size)
 }
 
-pub(crate) fn setsockopt_str<S>(
+pub(crate) fn setsockopt_str<'a>(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-    maybe_string: Option<S>,
-) -> Result<(), Error>
-where
-    S: Borrow<str>,
-{
-    match maybe_string {
+    maybe: Option<&'a str>,
+) -> Result<(), Error> {
+    match maybe {
         Some(string) => {
             // No need to add a terminating zero byte.
             // http://api.zeromq.org/master:zmq-setsockopt
-            setsockopt_bytes(mut_sock_ptr, option, string.borrow().as_bytes())
+            setsockopt_bytes(mut_sock_ptr, option, string.as_bytes())
         }
         None => setsockopt_null(mut_sock_ptr, option),
     }
@@ -261,10 +263,10 @@ pub(crate) fn setsockopt_null(
 pub(crate) fn setsockopt_option_duration(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-    maybe_duration: Option<Duration>,
+    maybe: Option<Duration>,
     none_value: i32,
 ) -> Result<(), Error> {
-    match maybe_duration {
+    match maybe {
         Some(duration) => {
             let ms = checked_duration_ms(duration)?;
             setsockopt_scalar(mut_sock_ptr, option, ms)
