@@ -3,7 +3,7 @@
 
 > libzmq-rs
 
-A strict subset of ØMQ with a high level API.
+A strict subset of ØMQ with an ergonomic API.
 
 # Installation
 This crate builds and generates bindings from source. This means that you
