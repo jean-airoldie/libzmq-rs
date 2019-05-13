@@ -35,8 +35,8 @@ mod private {
     impl Sealed for SocketType {}
 
     // Pub crate
-    use crate::auth::Dealer;
-    impl Sealed for Dealer {}
+    use crate::auth::OldSocket;
+    impl Sealed for OldSocket {}
 }
 
 use crate::{
@@ -48,7 +48,7 @@ use libzmq_sys as sys;
 use sockopt::*;
 use sys::errno;
 
-use std::{ffi::CString, os::raw::c_void, time::Duration};
+use std::time::Duration;
 
 const MAX_HB_TTL: i64 = 6_553_599;
 
@@ -285,6 +285,9 @@ pub trait Socket: GetRawSocket {
     /// of the iterator before the failure. This represents the number of
     /// unbinds that succeeded before the failure.
     ///
+    /// When a socket is dropped, it is unbound from all its associated endpoints
+    /// so that they become available for binding immediately.
+    ///
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
     /// * The endpoint must be currently bound.
@@ -474,7 +477,7 @@ pub trait Socket: GetRawSocket {
     /// PING ZMTP command and not receiving any traffic.
     ///
     /// # Default Value
-    /// `None`. If `heartbeat_interval` is set, then it uses the same value
+    /// `0`. If `heartbeat_interval` is set, then it uses the same value
     /// by default.
     fn set_heartbeat_timeout(&self, duration: Duration) -> Result<(), Error> {
         setsockopt_duration(
@@ -544,6 +547,19 @@ pub trait Socket: GetRawSocket {
         )
     }
 
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Server, auth::Mechanism};
+    ///
+    /// let server = Server::new()?;
+    /// assert_eq!(server.mechanism(), Mechanism::Null);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     fn mechanism(&self) -> Mechanism {
         self.raw_socket().mechanism().lock().unwrap().to_owned()
     }

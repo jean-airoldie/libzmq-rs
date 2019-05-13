@@ -33,6 +33,8 @@ pub(crate) enum SocketOption {
     PlainPassword,
     PlainUsername,
     PlainServer,
+    EnforceDomain,
+    ZapDomain,
 }
 
 impl From<SocketOption> for c_int {
@@ -56,6 +58,8 @@ impl From<SocketOption> for c_int {
             SocketOption::PlainPassword => sys::ZMQ_PLAIN_PASSWORD as c_int,
             SocketOption::PlainUsername => sys::ZMQ_PLAIN_USERNAME as c_int,
             SocketOption::PlainServer => sys::ZMQ_PLAIN_SERVER as c_int,
+            SocketOption::EnforceDomain => sys::ZMQ_ZAP_ENFORCE_DOMAIN as c_int,
+            SocketOption::ZapDomain => sys::ZMQ_ZAP_DOMAIN as c_int,
         }
     }
 }
