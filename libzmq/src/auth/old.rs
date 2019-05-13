@@ -1,4 +1,5 @@
 use crate::{
+    addr::Endpoint,
     core::{GetRawSocket, RawSocket, RawSocketType},
     error::*,
     Ctx, Msg,
@@ -62,24 +63,43 @@ fn recv(mut_sock_ptr: *mut c_void, msg: &mut Msg) -> Result<(), Error> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Dealer {
-    inner: Arc<RawSocket>,
+pub(crate) enum OldSocketType {
+    Router,
+    Dealer,
+    Pair,
 }
 
-impl Dealer {
-    pub(crate) fn new() -> Result<Self, Error> {
-        let inner = Arc::new(RawSocket::new(RawSocketType::Dealer)?);
+impl From<OldSocketType> for RawSocketType {
+    fn from(socket: OldSocketType) -> Self {
+        match socket {
+            OldSocketType::Router => RawSocketType::Router,
+            OldSocketType::Dealer => RawSocketType::Dealer,
+            OldSocketType::Pair => RawSocketType::Pair,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct OldSocket {
+    inner: RawSocket,
+}
+
+impl OldSocket {
+    pub(crate) fn new(socket: OldSocketType) -> Result<Self, Error> {
+        let inner = RawSocket::new(socket.into())?;
 
         Ok(Self { inner })
     }
 
-    pub(crate) fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    pub(crate) fn with_ctx<C>(
+        socket: OldSocketType,
+        ctx: C,
+    ) -> Result<Self, Error>
     where
         C: Into<Ctx>,
     {
         let ctx = ctx.into();
-        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dealer, ctx)?);
+        let inner = RawSocket::with_ctx(socket.into(), ctx)?;
 
         Ok(Self { inner })
     }
@@ -88,11 +108,31 @@ impl Dealer {
         self.inner.ctx()
     }
 
-    pub(crate) fn send_multipart<I, M>(
-        &mut self,
-        iter: I,
-        _more: bool,
-    ) -> Result<(), Error>
+    pub(crate) fn bind<E>(&mut self, endpoint: E) -> Result<(), Error>
+    where
+        E: Into<Endpoint>,
+    {
+        let endpoint = endpoint.into();
+        self.inner.bind(&endpoint)
+    }
+
+    pub(crate) fn connect<E>(&mut self, endpoint: E) -> Result<(), Error>
+    where
+        E: Into<Endpoint>,
+    {
+        let endpoint = endpoint.into();
+        self.inner.connect(&endpoint)
+    }
+
+    pub(crate) fn send<M>(&mut self, msg: M, more: bool) -> Result<(), Error>
+    where
+        M: Into<Msg>,
+    {
+        let msg = msg.into();
+        send(self.raw_socket().as_mut_ptr(), msg, more)
+    }
+
+    pub(crate) fn send_multipart<I, M>(&mut self, iter: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = M>,
         M: Into<Msg>,
@@ -105,12 +145,12 @@ impl Dealer {
             if last == None {
                 last = Some(msg);
             } else {
-                send(raw.as_mut_ptr(), last.take().unwrap(), true)?;
+                self.send(last.take().unwrap(), true)?;
                 last = Some(msg);
             }
         }
         if let Some(msg) = last {
-            send(raw.as_mut_ptr(), msg, false)?;
+            self.send(msg, false)?;
         }
         Ok(())
     }
@@ -132,7 +172,9 @@ impl Dealer {
     }
 }
 
-impl GetRawSocket for Dealer {
+unsafe impl Send for OldSocket {}
+
+impl GetRawSocket for OldSocket {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

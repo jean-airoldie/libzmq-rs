@@ -1333,6 +1333,12 @@ impl<'a> IntoIterator for &'a Endpoint {
     }
 }
 
+impl<'a> From<&'a Endpoint> for Endpoint {
+    fn from(e: &'a Endpoint) -> Self {
+        e.to_owned()
+    }
+}
+
 #[cfg(test)]
 mod test {
     macro_rules! test_addr_ser_de {

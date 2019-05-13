@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, auth::*, error::*, Ctx};
+use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -22,6 +22,8 @@ pub(crate) enum RawSocketType {
     Radio,
     Dish,
     Dealer,
+    Router,
+    Pair,
 }
 
 impl From<RawSocketType> for c_int {
@@ -32,6 +34,8 @@ impl From<RawSocketType> for c_int {
             RawSocketType::Radio => sys::ZMQ_RADIO as c_int,
             RawSocketType::Dish => sys::ZMQ_DISH as c_int,
             RawSocketType::Dealer => sys::ZMQ_DEALER as c_int,
+            RawSocketType::Router => sys::ZMQ_ROUTER as c_int,
+            RawSocketType::Pair => sys::ZMQ_PAIR as c_int,
         }
     }
 }
@@ -213,6 +217,17 @@ impl RawSocket {
 
             Err(err)
         } else {
+            // Set ZAP domain handling to strictly adhere the RFC.
+            // This will eventually be enabled by default by ØMQ.
+            setsockopt_bool(socket_mut_ptr, SocketOption::EnforceDomain, true)?;
+            // We hardset the same domain name for each sockets because I don't
+            // see any use cases for them.
+            setsockopt_str(
+                socket_mut_ptr,
+                SocketOption::ZapDomain,
+                Some("global"),
+            )?;
+
             Ok(Self {
                 ctx,
                 socket_mut_ptr,
@@ -280,17 +295,11 @@ impl Drop for RawSocket {
     ///
     /// [`zmq_close`]: http://api.zeromq.org/master:zmq-close
     fn drop(&mut self) {
-        // This allows for the endpoints to be available as soon as the socket
-        // is dropped, as opposed to when ØMQ decides so.
+        // This allows for the endpoints to be available for binding as soon as
+        // the socket is dropped, as opposed to when ØMQ decides so.
         if let Ok(bound) = self.bound.lock() {
             for endpoint in &*bound {
                 let _ = self.unbind(&endpoint);
-            }
-        }
-
-        if let Ok(connected) = self.connected.lock() {
-            for endpoint in &*connected {
-                let _ = self.disconnect(&endpoint);
             }
         }
 
