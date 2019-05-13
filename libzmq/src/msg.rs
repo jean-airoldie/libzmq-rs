@@ -24,17 +24,19 @@ use std::{
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, Msg, addr::InprocAddr};
+/// use libzmq::{prelude::*, socket::*, Msg, addr::TcpAddr};
 /// use std::convert::TryInto;
 ///
-/// let addr: InprocAddr = "test".try_into()?;
-///
-/// let client = ClientBuilder::new()
-///     .connect(&addr)
-///     .build()?;
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
 /// let server = ServerBuilder::new()
 ///     .bind(addr)
+///     .build()?;
+///
+/// let bound = server.last_endpoint()?;
+///
+/// let client = ClientBuilder::new()
+///     .connect(bound)
 ///     .build()?;
 ///
 /// // The client initiates the conversation.

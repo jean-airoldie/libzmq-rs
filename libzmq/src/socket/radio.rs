@@ -25,10 +25,10 @@ use std::{sync::Arc, time::Duration};
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, InprocAddr, Msg, Group, ErrorKind};
+/// use libzmq::{prelude::*, socket::*, TcpAddr, Msg, Group, ErrorKind};
 /// use std::convert::TryInto;
 ///
-/// let addr: InprocAddr = "test".try_into()?;
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
 /// let a: &Group = "A".try_into()?;
 /// let b: &Group = "B".try_into()?;
@@ -42,26 +42,28 @@ use std::{sync::Arc, time::Duration};
 ///     .no_drop()
 ///     .build()?;
 ///
+/// let bound = radio.last_endpoint()?;
+///
 /// let dish_a = DishBuilder::new()
-///     .connect(&addr)
+///     .connect(&bound)
 ///     .join(a)
 ///     .build()?;
 ///
 /// let dish_b = DishBuilder::new()
-///     .connect(&addr)
+///     .connect(&bound)
 ///     .join(b)
 ///     .build()?;
 ///
 /// // Lets publish some messages to subscribers.
 /// let mut msg: Msg = "first msg".into();
 /// msg.set_group(a);
-/// radio.send(msg)?;
+/// radio.try_send(msg)?;
 /// let mut msg: Msg = "second msg".into();
 /// msg.set_group(b);
-/// radio.send(msg)?;
+/// radio.try_send(msg)?;
 ///
 /// // Lets receive the publisher's messages.
-/// let mut msg = dish_a.recv_msg()?;
+/// let mut msg = dish_a.try_recv_msg()?;
 /// assert_eq!(msg.group().unwrap(), a);
 /// assert_eq!(msg.to_str().unwrap(), "first msg");
 /// let err = dish_a.try_recv(&mut msg).unwrap_err();
@@ -69,7 +71,7 @@ use std::{sync::Arc, time::Duration};
 /// // Only the message from the first group was received.
 /// assert_eq!(ErrorKind::WouldBlock, err.kind());
 ///
-/// dish_b.recv(&mut msg)?;
+/// dish_b.try_recv(&mut msg)?;
 /// assert_eq!(msg.group().unwrap(), b);
 /// assert_eq!(msg.to_str().unwrap(), "second msg");
 /// let err = dish_b.try_recv(&mut msg).unwrap_err();

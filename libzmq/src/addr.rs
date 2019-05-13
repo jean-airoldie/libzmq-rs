@@ -1028,8 +1028,9 @@ impl<'a> From<&'a EpgmAddr> for Endpoint {
 /// use std::convert::TryInto;
 ///
 /// // Can be any arbitrary string.
-/// let test: InprocAddr = "test".try_into()?;
-/// let rand: InprocAddr = "LKH*O&_[::O2134KG".try_into()?;
+/// let addr: InprocAddr = "test".try_into()?;
+/// // Any character is allowed.
+/// let addr: InprocAddr = "LKH*O&_[::O2134KG".try_into()?;
 /// #
 /// #     Ok(())
 /// # }
@@ -1336,6 +1337,12 @@ impl<'a> IntoIterator for &'a Endpoint {
 impl<'a> From<&'a Endpoint> for Endpoint {
     fn from(e: &'a Endpoint) -> Self {
         e.to_owned()
+    }
+}
+
+impl AsRef<Endpoint> for Endpoint {
+    fn as_ref(&self) -> &Endpoint {
+        &self
     }
 }
 

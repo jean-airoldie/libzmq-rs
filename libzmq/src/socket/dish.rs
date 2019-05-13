@@ -81,29 +81,31 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// #
 /// # use failure::Error;
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, InprocAddr, socket::*, Msg, Group};
+/// use libzmq::{prelude::*, TcpAddr, socket::*, Msg, Group};
 /// use std::convert::TryInto;
 ///
-/// let addr: InprocAddr = "test".try_into()?;
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 /// let group: &Group = "some group".try_into()?;
 ///
 /// // Setting `no_drop = true` is an anti pattern meant for illustration
 /// // purposes.
 /// let radio = RadioBuilder::new()
-///     .bind(&addr)
+///     .bind(addr)
 ///     .no_drop()
 ///     .build()?;
 ///
+/// let bound = radio.last_endpoint()?;
+///
 /// let dish = DishBuilder::new()
-///     .connect(&addr)
+///     .connect(bound)
 ///     .join(group)
 ///     .build()?;
 ///
 /// let mut msg: Msg = "".into();
 /// msg.set_group(group);
 ///
-/// radio.send(msg)?;
-/// let msg = dish.recv_msg()?;
+/// radio.try_send(msg)?;
+/// let msg = dish.try_recv_msg()?;
 /// assert!(msg.is_empty());
 /// assert_eq!(msg.group().unwrap(), group);
 /// #

@@ -112,16 +112,16 @@ pub trait Socket: GetRawSocket {
     /// use libzmq::{prelude::*, Client, addr::{InprocAddr, Endpoint}};
     /// use std::convert::TryInto;
     ///
-    /// let inproc: InprocAddr = "test".try_into()?;
+    /// let addr: InprocAddr = "test".try_into()?;
     ///
     /// let client = Client::new()?;
     /// assert!(client.connected().is_empty());
     ///
-    /// client.connect(&inproc)?;
-    /// let endpoint = Endpoint::from(&inproc);
+    /// client.connect(&addr)?;
+    /// let endpoint = Endpoint::from(&addr);
     /// assert!(client.connected().contains((&endpoint).into()));
     ///
-    /// client.disconnect(inproc)?;
+    /// client.disconnect(addr)?;
     /// assert!(client.connected().is_empty());
     /// #
     /// #     Ok(())
@@ -843,43 +843,5 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     fn mechanism(&mut self, mechanism: Mechanism) -> &mut Self {
         self.socket_config_mut().set_mechanism(Some(mechanism));
         self
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    #[test]
-    fn test() {
-        use crate::{
-            addr::{Endpoint, InprocAddr},
-            prelude::*,
-            Radio,
-        };
-        use std::convert::TryInto;
-
-        let first: InprocAddr = "test1".try_into().unwrap();
-        let second: InprocAddr = "test2".try_into().unwrap();
-
-        let radio = Radio::new().unwrap();
-        assert!(radio.bound().is_empty());
-
-        radio.bind(vec![&first, &second]).unwrap();
-        {
-            let bound = radio.bound();
-            let first = Endpoint::from(&first);
-            assert!(bound.contains(&first));
-            let second = Endpoint::from(&second);
-            assert!(bound.contains(&second));
-        }
-
-        radio.unbind(&first).unwrap();
-        {
-            let bound = radio.bound();
-            let first = Endpoint::from(&first);
-            assert!(!bound.contains((&first).into()));
-            let second = Endpoint::from(&second);
-            assert!(bound.contains((&second).into()));
-        }
     }
 }
