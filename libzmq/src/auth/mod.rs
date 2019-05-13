@@ -408,21 +408,20 @@ mod test {
 
     #[test]
     fn test_null_mechanism() {
-        let ctx = Ctx::new();
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(Mechanism::Null)
-            .with_ctx(&ctx)
+            .build()
             .unwrap();
 
-        let addr = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap().unwrap();
 
         let client = ClientBuilder::new()
-            .connect(addr)
+            .connect(bound)
             .mechanism(Mechanism::Null)
-            .with_ctx(&ctx)
+            .build()
             .unwrap();
 
         client.send("").unwrap();
@@ -441,23 +440,22 @@ mod test {
             dbg!((id, value));
         }
 
-        let ctx = Ctx::new();
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(Mechanism::PlainServer)
-            .with_ctx(&ctx)
+            .build()
             .unwrap();
 
         let inproc: InprocAddr = "server-events".try_into().unwrap();
         monitor_socket(&server, &inproc);
 
         let mut server_events =
-            OldSocket::with_ctx(OldSocketType::Pair, &ctx).unwrap();
+            OldSocket::new(OldSocketType::Pair).unwrap();
         server_events.connect(inproc).unwrap();
 
-        let addr = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap().unwrap();
 
         //let client = ClientBuilder::new()
         //    .connect(addr)
@@ -465,7 +463,7 @@ mod test {
         //    .with_ctx(&ctx)
         //    .unwrap();
 
-        let client = Client::with_ctx(&ctx).unwrap();
+        let client = Client::new().unwrap();
 
         let inproc: InprocAddr = "client-events".try_into().unwrap();
 
@@ -476,10 +474,10 @@ mod test {
             password: "lo".to_owned(),
         };
         client.set_mechanism(Mechanism::PlainClient(creds)).unwrap();
-        client.connect(&addr).unwrap();
+        client.connect(&bound).unwrap();
 
         let mut client_events =
-            OldSocket::with_ctx(OldSocketType::Pair, &ctx).unwrap();
+            OldSocket::new(OldSocketType::Pair).unwrap();
         client_events.connect(inproc).unwrap();
 
         println!("client");
