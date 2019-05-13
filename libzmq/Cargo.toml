@@ -30,6 +30,7 @@ libzmq-sys = { path = "../libzmq-sys", version = "0.1", features = ["draft"] }
 bitflags = "1.0"
 hashbrown = "0.2"
 log = "0.4"
+uuid = { version = "0.7", features = ["v4"] }
 
 [dev-dependencies]
 rand = "0.6"

@@ -2,6 +2,7 @@
 
 use failure::Fail;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use uuid::Uuid;
 
 use std::{
     convert::TryFrom,
@@ -1056,6 +1057,32 @@ impl InprocAddr {
         } else {
             Ok(Self { host })
         }
+    }
+
+    /// Creates a new unique `InprocAddr` by generating a [uuid v4].
+    ///
+    /// This is the `inproc` equivalent of a system assigned port.
+    ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, InprocAddr, socket::ServerBuilder};
+    ///
+    /// let addr = InprocAddr::new_unique();
+    ///
+    /// let server = ServerBuilder::new()
+    ///     .bind(addr)
+    ///     .build()?;
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [uuid v4]: https://docs.rs/uuid/0.7.4/uuid/struct.Uuid.html#method.new_v4
+    pub fn new_unique() -> Self {
+        Self::new(Uuid::new_v4().to_string()).unwrap()
     }
 
     pub fn as_str(&self) -> &str {
