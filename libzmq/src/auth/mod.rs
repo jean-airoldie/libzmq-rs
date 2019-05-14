@@ -20,8 +20,8 @@ use std::{
 const ZAP_VERSION: &str = "1.0";
 lazy_static! {
     static ref ZAP_ENDPOINT: InprocAddr = "zeromq.zap.01".try_into().unwrap();
-    static ref COMMAND_ENDPOINT: InprocAddr =
-        "zeromq.command.01".try_into().unwrap();
+    static ref COMMAND_ENDPOINT: InprocAddr = InprocAddr::new_unique();
+    static ref AUTH_EVENT_ENDPOINT: InprocAddr = InprocAddr::new_unique();
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -489,7 +489,7 @@ mod test {
             log(&mut server_events);
         }
 
-        client.send("").unwrap();
+        let err = client.try_send("").unwrap()
         let err = server.try_recv_msg().unwrap_err();
         assert_eq!(err.kind(), ErrorKind::WouldBlock);
     }
