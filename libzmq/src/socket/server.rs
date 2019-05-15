@@ -156,25 +156,25 @@ impl ServerConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, failure::Error> {
+    pub fn build(&self) -> Result<Server, Error<usize>> {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
     where
         C: Into<Ctx>,
     {
         let ctx: Ctx = ctx.into();
-        let server = Server::with_ctx(ctx)?;
+        let server = Server::with_ctx(ctx).map_err(Error::cast)?;
         self.apply(&server)?;
 
         Ok(server)
     }
 
-    pub fn apply(&self, server: &Server) -> Result<(), failure::Error> {
+    pub fn apply(&self, server: &Server) -> Result<(), Error<usize>> {
         self.socket_config.apply(server)?;
-        self.send_config.apply(server)?;
-        self.recv_config.apply(server)?;
+        self.send_config.apply(server).map_err(Error::cast)?;
+        self.recv_config.apply(server).map_err(Error::cast)?;
 
         Ok(())
     }
@@ -309,11 +309,11 @@ impl ServerBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, failure::Error> {
+    pub fn build(&self) -> Result<Server, Error<usize>> {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
     where
         C: Into<Ctx>,
     {

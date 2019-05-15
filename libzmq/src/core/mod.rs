@@ -679,15 +679,15 @@ impl SocketConfig {
     pub(crate) fn apply<S: Socket>(
         &self,
         socket: &S,
-    ) -> Result<(), failure::Error> {
+    ) -> Result<(), Error<usize>> {
         if let Some(value) = self.backlog {
-            socket.set_backlog(value)?;
+            socket.set_backlog(value).map_err(Error::cast)?;
         }
-        socket.set_connect_timeout(self.connect_timeout)?;
-        socket.set_heartbeat_interval(self.heartbeat_interval)?;
-        socket.set_heartbeat_timeout(self.heartbeat_timeout)?;
-        socket.set_heartbeat_ttl(self.heartbeat_ttl)?;
-        socket.set_linger(self.linger)?;
+        socket.set_connect_timeout(self.connect_timeout).map_err(Error::cast)?;
+        socket.set_heartbeat_interval(self.heartbeat_interval).map_err(Error::cast)?;
+        socket.set_heartbeat_timeout(self.heartbeat_timeout).map_err(Error::cast)?;
+        socket.set_heartbeat_ttl(self.heartbeat_ttl).map_err(Error::cast)?;
+        socket.set_linger(self.linger).map_err(Error::cast)?;
 
         // We connect as the last step because some socket options
         // only affect subsequent connections.

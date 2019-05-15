@@ -343,16 +343,16 @@ impl DishConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, failure::Error> {
+    pub fn build(&self) -> Result<Dish, Error<usize>> {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
     where
         C: Into<Ctx>,
     {
         let ctx: Ctx = ctx.into();
-        let dish = Dish::with_ctx(ctx)?;
+        let dish = Dish::with_ctx(ctx).map_err(Error::cast)?;
         self.apply(&dish)?;
 
         Ok(dish)
@@ -370,9 +370,9 @@ impl DishConfig {
         self.groups = groups;
     }
 
-    pub fn apply(&self, dish: &Dish) -> Result<(), failure::Error> {
+    pub fn apply(&self, dish: &Dish) -> Result<(), Error<usize>> {
         self.socket_config.apply(dish)?;
-        self.recv_config.apply(dish)?;
+        self.recv_config.apply(dish).map_err(Error::cast)?;
 
         if let Some(ref groups) = self.groups {
             for group in groups {
@@ -488,11 +488,11 @@ impl DishBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, failure::Error> {
+    pub fn build(&self) -> Result<Dish, Error<usize>> {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
     where
         C: Into<Ctx>,
     {

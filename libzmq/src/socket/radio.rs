@@ -186,16 +186,16 @@ impl RadioConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Radio, failure::Error> {
+    pub fn build(&self) -> Result<Radio, Error<usize>> {
         self.build_with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, failure::Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
     where
         C: Into<Ctx>,
     {
         let ctx: Ctx = ctx.into();
-        let radio = Radio::with_ctx(ctx)?;
+        let radio = Radio::with_ctx(ctx).map_err(Error::cast)?;
         self.apply(&radio)?;
 
         Ok(radio)
@@ -211,12 +211,12 @@ impl RadioConfig {
         self.no_drop = Some(cond);
     }
 
-    pub fn apply(&self, radio: &Radio) -> Result<(), failure::Error> {
+    pub fn apply(&self, radio: &Radio) -> Result<(), Error<usize>> {
         self.socket_config.apply(radio)?;
-        self.send_config.apply(radio)?;
+        self.send_config.apply(radio).map_err(Error::cast)?;
 
         if let Some(enabled) = self.no_drop {
-            radio.set_no_drop(enabled)?;
+            radio.set_no_drop(enabled).map_err(Error::cast)?;
         }
 
         Ok(())
@@ -336,11 +336,11 @@ impl RadioBuilder {
         self
     }
 
-    pub fn build(&self) -> Result<Radio, failure::Error> {
+    pub fn build(&self) -> Result<Radio, Error<usize>> {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, failure::Error>
+    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
     where
         C: Into<Ctx>,
     {
