@@ -93,7 +93,7 @@ impl<T> Error<T> {
     ///
     /// This is not implemented as `Into<Error<I>>` to be explicit since
     /// information is lost in the conversion.
-    pub fn into_any<I>(self) -> Error<I> {
+    pub fn cast<I>(self) -> Error<I> {
         Error {
             inner: self.inner,
             content: None,
