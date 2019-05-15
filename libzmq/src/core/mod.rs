@@ -35,7 +35,7 @@ mod private {
     impl Sealed for SocketType {}
 
     // Pub crate
-    use crate::auth::OldSocket;
+    use crate::old::OldSocket;
     impl Sealed for OldSocket {}
 }
 
