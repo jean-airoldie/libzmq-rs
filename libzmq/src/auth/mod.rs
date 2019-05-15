@@ -1,8 +1,4 @@
-mod old;
-
-pub(crate) use old::*;
-
-use crate::{addr::Endpoint, poll::*, prelude::*, socket::*, *};
+use crate::{addr::Endpoint, poll::*, prelude::*, socket::*, *, old::*};
 
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};
@@ -188,7 +184,7 @@ struct ProxyCommand {
 enum Command {
 }
 
-pub struct AuthCommand {
+pub struct AuthChannel {
     command: Client,
 }
 
@@ -430,16 +426,6 @@ mod test {
 
     #[test]
     fn test_null_plain() {
-        fn log(pipe: &mut OldSocket) {
-            let mut parts = pipe.recv_msg_multipart().unwrap();
-            let event = parts.remove(0);
-            let bytes = event.as_bytes();
-            let id = u16::from_le_bytes([bytes[0], bytes[1]]);
-            let value =
-                u32::from_le_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]);
-            dbg!((id, value));
-        }
-
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server = ServerBuilder::new()
@@ -448,49 +434,23 @@ mod test {
             .build()
             .unwrap();
 
-        let inproc: InprocAddr = "server-events".try_into().unwrap();
-        monitor_socket(&server, &inproc);
-
-        let mut server_events =
-            OldSocket::new(OldSocketType::Pair).unwrap();
-        server_events.connect(inproc).unwrap();
-
         let bound = server.last_endpoint().unwrap().unwrap();
 
-        //let client = ClientBuilder::new()
-        //    .connect(addr)
-        //    .mechanism(Mechanism::Null)
-        //    .with_ctx(&ctx)
-        //    .unwrap();
-
-        let client = Client::new().unwrap();
-
-        let inproc: InprocAddr = "client-events".try_into().unwrap();
-
-        monitor_socket(&client, &inproc);
+        let username = "ok".to_owned();
+        let password = "lo".to_owned();
 
         let creds = PlainCreds {
-            username: "ok".to_owned(),
-            password: "lo".to_owned(),
+            username,
+            password,
         };
-        client.set_mechanism(Mechanism::PlainClient(creds)).unwrap();
-        client.connect(&bound).unwrap();
 
-        let mut client_events =
-            OldSocket::new(OldSocketType::Pair).unwrap();
-        client_events.connect(inproc).unwrap();
+        let client = ClientBuilder::new()
+            .connect(bound)
+            .mechanism(Mechanism::PlainClient(creds))
+            .build()
+            .unwrap();
 
-        println!("client");
-        for i in 0..3 {
-            log(&mut client_events);
-        }
-        println!("server");
-        for i in 0..2 {
-            log(&mut server_events);
-        }
-
-        let err = client.try_send("").unwrap()
-        let err = server.try_recv_msg().unwrap_err();
-        assert_eq!(err.kind(), ErrorKind::WouldBlock);
+        client.try_send("").unwrap();
+        server.try_recv_msg().unwrap();
     }
 }

@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
+use crate::{InprocAddr, addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -190,6 +190,7 @@ pub struct RawSocket {
     connected: Mutex<Vec<Endpoint>>,
     bound: Mutex<Vec<Endpoint>>,
     mechanism: Mutex<Mechanism>,
+    monitor_addr: InprocAddr,
 }
 
 impl RawSocket {
@@ -228,12 +229,15 @@ impl RawSocket {
                 Some("global"),
             )?;
 
+            let monitor_addr = InprocAddr::new_unique();
+
             Ok(Self {
                 ctx,
                 socket_mut_ptr,
                 connected: Mutex::default(),
                 bound: Mutex::default(),
                 mechanism: Mutex::default(),
+                monitor_addr,
             })
         }
     }
@@ -277,6 +281,10 @@ impl RawSocket {
 
     pub(crate) fn mechanism(&self) -> &Mutex<Mechanism> {
         &self.mechanism
+    }
+
+    pub(crate) fn monitor_addr(&self) -> &InprocAddr {
+        &self.monitor_addr
     }
 }
 
