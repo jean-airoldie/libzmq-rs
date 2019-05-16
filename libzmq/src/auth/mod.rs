@@ -1,10 +1,12 @@
-use crate::{addr::Endpoint, poll::*, prelude::*, socket::*, *, old::*};
+use crate::{addr::Endpoint, old::*, poll::*, prelude::*, socket::*, *};
 
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};
 use lazy_static::lazy_static;
+use log::info;
 use serde::{Deserialize, Serialize};
-use log::{info, warn};
+
+use libc::c_long;
 
 use std::{
     convert::{TryFrom, TryInto},
@@ -73,17 +75,56 @@ impl<'a> TryFrom<&'a str> for MechanismName {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Status {
-    Allowed,
-    Denied,
+pub enum StatusCode {
+    Allowed = 200,
+    TemporaryError = 300,
+    Denied = 400,
+    InternalError = 500,
 }
 
-impl fmt::Display for Status {
+impl fmt::Display for StatusCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Status::Allowed => write!(f, "200"),
-            Status::Denied => write!(f, "400"),
+            StatusCode::Allowed => write!(f, "{}", StatusCode::Allowed as i32),
+            StatusCode::TemporaryError => {
+                write!(f, "{}", StatusCode::TemporaryError as i32)
+            }
+            StatusCode::Denied => write!(f, "{}", StatusCode::Denied as i32),
+            StatusCode::InternalError => {
+                write!(f, "{}", StatusCode::InternalError as i32)
+            }
         }
+    }
+}
+
+#[derive(Debug, Fail)]
+#[fail(display = "unable to parse status code")]
+pub struct StatusCodeParseError(());
+
+impl TryFrom<c_long> for StatusCode {
+    type Error = StatusCodeParseError;
+    fn try_from(i: c_long) -> Result<Self, Self::Error> {
+        match i {
+            i if i == StatusCode::Allowed as c_long => Ok(StatusCode::Allowed),
+            i if i == StatusCode::TemporaryError as c_long => {
+                Ok(StatusCode::TemporaryError)
+            }
+            i if i == StatusCode::Denied as c_long => Ok(StatusCode::Denied),
+            i if i == StatusCode::InternalError as c_long => {
+                Ok(StatusCode::InternalError)
+            }
+            _ => Err(StatusCodeParseError(())),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for StatusCode {
+    type Error = StatusCodeParseError;
+    fn try_from(a: &'a [u8]) -> Result<Self, Self::Error> {
+        let mut bytes: [u8; 8] = Default::default();
+        bytes.copy_from_slice(a);
+        let code = dbg!(c_long::from_ne_bytes(bytes));
+        Self::try_from(code)
     }
 }
 
@@ -127,7 +168,7 @@ impl ZapRequest {
 struct ZapReply {
     version: String, //  Version number, must be "1.0"
     request_id: Msg, //  Sequence number of request
-    status_code: Status,
+    status_code: StatusCode,
     status_text: String,
     user_id: String,
     metadata: Vec<u8>,
@@ -240,10 +281,6 @@ pub(crate) struct AuthHandler {
 }
 
 impl AuthHandler {
-    pub(crate) fn new() -> Result<Self, Error> {
-        Self::with_ctx(Ctx::global())
-    }
-
     pub(crate) fn with_ctx<C>(ctx: C) -> Result<Self, Error>
     where
         C: Into<Ctx>,
@@ -253,7 +290,7 @@ impl AuthHandler {
         handler.bind(&*ZAP_ENDPOINT)?;
 
         let command = Server::with_ctx(ctx)?;
-        command.bind(&*COMMAND_ENDPOINT).map_err(|e| e.into_any())?;
+        command.bind(&*COMMAND_ENDPOINT).map_err(Error::cast)?;
 
         Ok(Self {
             handler,
@@ -284,8 +321,8 @@ impl AuthHandler {
                             let routing_id = parts.remove(0);
                             assert!(parts.remove(0).is_empty());
 
-                            let request = dbg!(ZapRequest::new(parts));
-                            let reply = dbg!(self.on_zap(request)?);
+                            let request = ZapRequest::new(parts);
+                            let reply = self.on_zap(request)?;
 
                             self.handler.send(routing_id, true)?;
                             self.handler.send("", true)?;
@@ -293,8 +330,7 @@ impl AuthHandler {
                         }
                         PollId(1) => {
                             let msg = self.command.recv_msg()?;
-                            let command = bincode::deserialize(msg.as_bytes()).unwrap();
-                            self.on_command(command);
+                            unimplemented!();
                         }
                         _ => unreachable!(),
                     }
@@ -303,63 +339,57 @@ impl AuthHandler {
         }
     }
 
-    fn on_command(&mut self, command: Command) -> Result<(), Error> {
-        match command {
-        }
-    }
-
     fn on_zap(&mut self, mut request: ZapRequest) -> Result<ZapReply, Error> {
-        let mut denied = false;
-
-        if !self.whitelist.is_empty() {
-            if !self.whitelist.contains(&request.addr) {
+        let denied = {
+            if !self.whitelist.is_empty()
+                && !self.whitelist.contains(&request.addr)
+            {
                 info!("denied addr {}, not whitelisted", &request.addr);
-                denied = true;
-            }
-        }
-
-        if !self.blacklist.is_empty() && !denied {
-            if self.blacklist.contains(&request.addr) {
+                true
+            } else if !self.blacklist.is_empty()
+                && self.blacklist.contains(&request.addr)
+            {
                 info!("denied addr {}, blacklisted", &request.addr);
-                denied = true;
+                true
+            } else {
+                false
             }
-        }
+        };
 
         let mut result = None;
 
         if !denied {
             if self.proxy {
                 unimplemented!()
-            } else {
-                if let Ok(mechanism) =
-                    MechanismName::try_from(request.mechanism.as_str())
-                {
-                    result = {
-                        match mechanism {
-                            MechanismName::Null => Some(AuthResult {
-                                user_id: String::new(),
-                                metadata: vec![],
-                            }),
-                            MechanismName::Plain => {
-                                let username = request
-                                    .credentials.remove(0)
-                                    .to_str()
-                                    .unwrap()
-                                    .to_owned();
+            } else if let Ok(mechanism) =
+                MechanismName::try_from(request.mechanism.as_str())
+            {
+                result = {
+                    match mechanism {
+                        MechanismName::Null => Some(AuthResult {
+                            user_id: String::new(),
+                            metadata: vec![],
+                        }),
+                        MechanismName::Plain => {
+                            let username = request
+                                .credentials
+                                .remove(0)
+                                .to_str()
+                                .unwrap()
+                                .to_owned();
 
-                                let password = request
-                                    .credentials
-                                    .remove(0)
-                                    .to_str()
-                                    .unwrap()
-                                    .to_owned();
+                            let password = request
+                                .credentials
+                                .remove(0)
+                                .to_str()
+                                .unwrap()
+                                .to_owned();
 
-                                let creds = PlainCreds { username, password };
-                                self.auth_plain(creds)
-                            }
+                            let creds = PlainCreds { username, password };
+                            self.auth_plain(creds)
                         }
-                    };
-                }
+                    }
+                };
             }
         }
 
@@ -369,7 +399,7 @@ impl AuthHandler {
                 user_id: result.user_id,
                 metadata: result.metadata,
                 version: ZAP_VERSION.to_owned(),
-                status_code: Status::Allowed,
+                status_code: StatusCode::Allowed,
                 status_text: "OK".to_owned(),
             })
         } else {
@@ -378,7 +408,7 @@ impl AuthHandler {
                 user_id: String::new(),
                 metadata: vec![],
                 version: ZAP_VERSION.to_owned(),
-                status_code: Status::Denied,
+                status_code: StatusCode::Denied,
                 status_text: "NOT OK".to_owned(),
             })
         }
@@ -405,63 +435,50 @@ impl AuthHandler {
     }
 }
 
-use crate::core::GetRawSocket;
-use libzmq_sys as sys;
-use std::ffi::CString;
-
-fn monitor_socket<S, E>(socket: &S, endpoint: E)
-where
-    S: GetRawSocket,
-    E: Into<Endpoint>,
-{
-    let endpoint = endpoint.into();
-    let c_string = CString::new(endpoint.to_zmq()).unwrap();
-    let events = sys::ZMQ_EVENT_ALL;
-
-    let rc = unsafe {
-        sys::zmq_socket_monitor(
-            socket.raw_socket().as_mut_ptr(),
-            c_string.as_ptr(),
-            events as i32,
-        )
-    };
-
-    assert_ne!(rc, -1);
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{auth::*, prelude::*, socket::*};
+    use crate::{auth::*, monitor::*, prelude::*, socket::*};
 
     use hashbrown::HashMap;
 
     use std::{convert::TryInto, thread, time::Duration};
 
-    #[test]
-    fn test_null_mechanism() {
-        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
-
-        let server = ServerBuilder::new()
-            .bind(&addr)
-            .mechanism(Mechanism::Null)
-            .build()
-            .unwrap();
-
-        let bound = server.last_endpoint().unwrap().unwrap();
-
-        let client = ClientBuilder::new()
-            .connect(bound)
-            .mechanism(Mechanism::Null)
-            .build()
-            .unwrap();
-
-        client.send("").unwrap();
-        server.recv_msg().unwrap();
+    fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
+        let event = dbg!(monitor.next_event().unwrap());
+        assert_eq!(event.event_type(), expected);
     }
 
     #[test]
-    fn test_null_plain() {
+    fn test_null_mechanism() {
+        let mut monitor = SocketMonitor::new().unwrap();
+        monitor.subscribe(EventCode::HandshakeSucceeded).unwrap();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+        let server = ServerBuilder::new().bind(&addr).build().unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+        let client = ClientBuilder::new().connect(bound).build().unwrap();
+
+        monitor.register(&server).unwrap();
+        monitor.register(&client).unwrap();
+
+        expect_event(&mut monitor, EventType::HandshakeSucceeded);
+        expect_event(&mut monitor, EventType::HandshakeSucceeded);
+    }
+
+    #[test]
+    fn test_plain_mechanism_invalid_creds() {
+        let mut monitor = SocketMonitor::new().unwrap();
+        monitor.subscribe(EventCode::HandshakeSucceeded).unwrap();
+        monitor.subscribe(EventCode::HandshakeFailedAuth).unwrap();
+        monitor
+            .subscribe(EventCode::HandshakeFailedNoDetail)
+            .unwrap();
+        monitor
+            .subscribe(EventCode::HandshakeFailedProtocol)
+            .unwrap();
+
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server = ServerBuilder::new()
@@ -475,17 +492,24 @@ mod test {
         let username = "ok".to_owned();
         let password = "lo".to_owned();
 
-        let creds = PlainCreds {
-            username,
-            password,
-        };
+        let creds = PlainCreds { username, password };
 
         let client = ClientBuilder::new()
-            .connect(&bound)
+            .connect(bound)
             .mechanism(Mechanism::PlainClient(creds))
             .build()
             .unwrap();
 
-        client.try_send("").unwrap();
+        monitor.register(&server).unwrap();
+        monitor.register(&client).unwrap();
+
+        expect_event(
+            &mut monitor,
+            EventType::HandshakeFailedAuth(StatusCode::Denied),
+        );
+        expect_event(
+            &mut monitor,
+            EventType::HandshakeFailedAuth(StatusCode::Denied),
+        );
     }
 }

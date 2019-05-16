@@ -17,49 +17,63 @@ const MAX_OPTION_SIZE: size_t = 255;
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum SocketOption {
-    Backlog,
-    ConnectTimeout,
-    FileDescriptor,
-    HeartbeatInterval,
-    HeartbeatTimeout,
-    HeartbeatTtl,
-    SendHighWaterMark,
-    SendTimeout,
-    RecvHighWaterMark,
-    RecvTimeout,
-    NoDrop,
-    Linger,
-    LastEndpoint,
-    PlainPassword,
-    PlainUsername,
-    PlainServer,
-    EnforceDomain,
-    ZapDomain,
+    Backlog = sys::ZMQ_BACKLOG as isize,
+    ConnectTimeout = sys::ZMQ_CONNECT_TIMEOUT as isize,
+    FileDescriptor = sys::ZMQ_FD as isize,
+    HeartbeatInterval = sys::ZMQ_HEARTBEAT_IVL as isize,
+    HeartbeatTimeout = sys::ZMQ_HEARTBEAT_TIMEOUT as isize,
+    HeartbeatTtl = sys::ZMQ_HEARTBEAT_TTL as isize,
+    SendHighWaterMark = sys::ZMQ_SNDHWM as isize,
+    SendTimeout = sys::ZMQ_SNDTIMEO as isize,
+    RecvHighWaterMark = sys::ZMQ_RCVHWM as isize,
+    RecvTimeout = sys::ZMQ_RCVTIMEO as isize,
+    NoDrop = sys::ZMQ_XPUB_NODROP as isize,
+    Linger = sys::ZMQ_LINGER as isize,
+    LastEndpoint = sys::ZMQ_LAST_ENDPOINT as isize,
+    PlainPassword = sys::ZMQ_PLAIN_PASSWORD as isize,
+    PlainUsername = sys::ZMQ_PLAIN_USERNAME as isize,
+    PlainServer = sys::ZMQ_PLAIN_SERVER as isize,
+    EnforceDomain = sys::ZMQ_ZAP_ENFORCE_DOMAIN as isize,
+    ZapDomain = sys::ZMQ_ZAP_DOMAIN as isize,
+    Subscribe = sys::ZMQ_SUBSCRIBE as isize,
+    Unsubscribe = sys::ZMQ_UNSUBSCRIBE as isize,
 }
 
 impl From<SocketOption> for c_int {
     fn from(s: SocketOption) -> c_int {
         match s {
-            SocketOption::Backlog => sys::ZMQ_BACKLOG as c_int,
-            SocketOption::ConnectTimeout => sys::ZMQ_CONNECT_TIMEOUT as c_int,
-            SocketOption::FileDescriptor => sys::ZMQ_FD as c_int,
-            SocketOption::HeartbeatInterval => sys::ZMQ_HEARTBEAT_IVL as c_int,
-            SocketOption::HeartbeatTimeout => {
-                sys::ZMQ_HEARTBEAT_TIMEOUT as c_int
+            SocketOption::Backlog => SocketOption::Backlog as c_int,
+            SocketOption::ConnectTimeout => {
+                SocketOption::ConnectTimeout as c_int
             }
-            SocketOption::HeartbeatTtl => sys::ZMQ_HEARTBEAT_TTL as c_int,
-            SocketOption::SendHighWaterMark => sys::ZMQ_SNDHWM as c_int,
-            SocketOption::SendTimeout => sys::ZMQ_SNDTIMEO as c_int,
-            SocketOption::RecvHighWaterMark => sys::ZMQ_RCVHWM as c_int,
-            SocketOption::RecvTimeout => sys::ZMQ_RCVTIMEO as c_int,
-            SocketOption::NoDrop => sys::ZMQ_XPUB_NODROP as c_int,
-            SocketOption::Linger => sys::ZMQ_LINGER as c_int,
-            SocketOption::LastEndpoint => sys::ZMQ_LAST_ENDPOINT as c_int,
-            SocketOption::PlainPassword => sys::ZMQ_PLAIN_PASSWORD as c_int,
-            SocketOption::PlainUsername => sys::ZMQ_PLAIN_USERNAME as c_int,
-            SocketOption::PlainServer => sys::ZMQ_PLAIN_SERVER as c_int,
-            SocketOption::EnforceDomain => sys::ZMQ_ZAP_ENFORCE_DOMAIN as c_int,
-            SocketOption::ZapDomain => sys::ZMQ_ZAP_DOMAIN as c_int,
+            SocketOption::FileDescriptor => {
+                SocketOption::FileDescriptor as c_int
+            }
+            SocketOption::HeartbeatInterval => {
+                SocketOption::HeartbeatInterval as c_int
+            }
+            SocketOption::HeartbeatTimeout => {
+                SocketOption::HeartbeatTimeout as c_int
+            }
+            SocketOption::HeartbeatTtl => SocketOption::HeartbeatTtl as c_int,
+            SocketOption::SendHighWaterMark => {
+                SocketOption::SendHighWaterMark as c_int
+            }
+            SocketOption::SendTimeout => SocketOption::SendTimeout as c_int,
+            SocketOption::RecvHighWaterMark => {
+                SocketOption::RecvHighWaterMark as c_int
+            }
+            SocketOption::RecvTimeout => SocketOption::RecvTimeout as c_int,
+            SocketOption::NoDrop => SocketOption::NoDrop as c_int,
+            SocketOption::Linger => SocketOption::Linger as c_int,
+            SocketOption::LastEndpoint => SocketOption::LastEndpoint as c_int,
+            SocketOption::PlainPassword => SocketOption::PlainPassword as c_int,
+            SocketOption::PlainUsername => SocketOption::PlainUsername as c_int,
+            SocketOption::PlainServer => SocketOption::PlainServer as c_int,
+            SocketOption::EnforceDomain => SocketOption::EnforceDomain as c_int,
+            SocketOption::ZapDomain => SocketOption::ZapDomain as c_int,
+            SocketOption::Subscribe => SocketOption::Subscribe as c_int,
+            SocketOption::Unsubscribe => SocketOption::Unsubscribe as c_int,
         }
     }
 }
@@ -234,27 +248,26 @@ pub(crate) fn setsockopt_scalar<T>(
 pub(crate) fn setsockopt_bytes(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-    bytes: &[u8],
-) -> Result<(), Error> {
-    let size = bytes.len();
-    let value_ptr = bytes.as_ptr() as *const c_void;
-
-    setsockopt(mut_sock_ptr, option, value_ptr, size)
-}
-
-pub(crate) fn setsockopt_str<'a>(
-    mut_sock_ptr: *mut c_void,
-    option: SocketOption,
-    maybe: Option<&'a str>,
+    maybe: Option<&[u8]>,
 ) -> Result<(), Error> {
     match maybe {
-        Some(string) => {
-            // No need to add a terminating zero byte.
-            // http://api.zeromq.org/master:zmq-setsockopt
-            setsockopt_bytes(mut_sock_ptr, option, string.as_bytes())
+        Some(bytes) => {
+            let size = bytes.len();
+            let value_ptr = bytes.as_ptr() as *const c_void;
+            setsockopt(mut_sock_ptr, option, value_ptr, size)
         }
         None => setsockopt_null(mut_sock_ptr, option),
     }
+}
+
+pub(crate) fn setsockopt_str(
+    mut_sock_ptr: *mut c_void,
+    option: SocketOption,
+    maybe: Option<&str>,
+) -> Result<(), Error> {
+    // No need to add a terminating zero byte.
+    // http://api.zeromq.org/master:zmq-setsockopt
+    setsockopt_bytes(mut_sock_ptr, option, maybe.map(str::as_bytes))
 }
 
 pub(crate) fn setsockopt_null(

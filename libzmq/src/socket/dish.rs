@@ -105,6 +105,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// msg.set_group(group);
 ///
 /// radio.send(msg)?;
+/// radio.try_send(msg)?;
 /// let msg = dish.try_recv_msg()?;
 /// assert!(msg.is_empty());
 /// assert_eq!(msg.group().unwrap(), group);
@@ -345,16 +346,16 @@ impl DishConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, failure::Error> {
+    pub fn build(&self) -> Result<Dish, Error<usize>> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
     where
         C: Into<Ctx>,
     {
         let ctx: Ctx = ctx.into();
-        let dish = Dish::with_ctx(ctx)?;
+        let dish = Dish::with_ctx(ctx).map_err(Error::cast)?;
         self.apply(&dish)?;
 
         Ok(dish)
@@ -372,9 +373,9 @@ impl DishConfig {
         self.groups = groups;
     }
 
-    pub fn apply(&self, dish: &Dish) -> Result<(), failure::Error> {
+    pub fn apply(&self, dish: &Dish) -> Result<(), Error<usize>> {
         self.socket_config.apply(dish)?;
-        self.recv_config.apply(dish)?;
+        self.recv_config.apply(dish).map_err(Error::cast)?;
 
         if let Some(ref groups) = self.groups {
             for group in groups {
@@ -391,9 +392,6 @@ struct FlatDishConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    connect_timeout: Option<Duration>,
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_interval: Option<Duration>,
@@ -422,7 +420,6 @@ impl From<DishConfig> for FlatDishConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             backlog: socket_config.backlog,
-            connect_timeout: socket_config.connect_timeout,
             heartbeat_interval: socket_config.heartbeat_interval,
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
@@ -441,7 +438,6 @@ impl From<FlatDishConfig> for DishConfig {
             connect: flat.connect,
             bind: flat.bind,
             backlog: flat.backlog,
-            connect_timeout: flat.connect_timeout,
             heartbeat_interval: flat.heartbeat_interval,
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
@@ -493,11 +489,11 @@ impl DishBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, failure::Error> {
+    pub fn build(&self) -> Result<Dish, Error<usize>> {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
     where
         C: Into<Ctx>,
     {
@@ -578,7 +574,7 @@ mod test {
         let mut msg: Msg = "".into();
         msg.set_group(group);
 
-        radio.try_send(msg).unwrap();
+        radio.send(msg).unwrap();
         let msg = dish.try_recv_msg().unwrap();
         assert!(msg.is_empty());
         assert_eq!(msg.group().unwrap(), group);

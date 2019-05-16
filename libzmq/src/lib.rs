@@ -11,11 +11,12 @@ pub mod auth;
 pub mod ctx;
 mod error;
 pub mod group;
+pub mod monitor;
 mod msg;
+mod old;
 pub mod poll;
 pub mod socket;
 mod utils;
-mod old;
 
 #[doc(inline)]
 pub use addr::{EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr};

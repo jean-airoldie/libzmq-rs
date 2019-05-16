@@ -10,7 +10,10 @@ pub use dish::*;
 pub use radio::*;
 pub use server::*;
 
-use crate::core::{GetRawSocket, RawSocket};
+use crate::{
+    core::{GetRawSocket, RawSocket},
+    Error,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +48,7 @@ pub enum ConfigType {
 }
 
 impl ConfigType {
-    pub fn build(&self) -> Result<SocketType, failure::Error> {
+    pub fn build(&self) -> Result<SocketType, Error<usize>> {
         match self {
             ConfigType::Client(config) => {
                 let client = config.build()?;

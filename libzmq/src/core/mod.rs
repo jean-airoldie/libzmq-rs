@@ -5,7 +5,6 @@ mod recv;
 mod send;
 pub(crate) mod sockopt;
 
-pub use raw::AuthRole;
 pub(crate) use raw::*;
 
 pub use recv::*;
@@ -42,11 +41,9 @@ mod private {
 use crate::{
     addr::Endpoint,
     auth::*,
-    error::{msg_from_errno, Error, ErrorKind},
+    error::{Error, ErrorKind},
 };
-use libzmq_sys as sys;
 use sockopt::*;
-use sys::errno;
 
 use std::time::Duration;
 
@@ -398,49 +395,6 @@ pub trait Socket: GetRawSocket {
         )
     }
 
-    /// Retrieves how many milliseconds to wait before timing-out a [`connect`]
-    /// call.
-    ///
-    /// See `ZMQ_CONNECT_TIMEOUT` in [`zmq_getsockopt`].
-    ///
-    /// [`connect`]: #method.connect
-    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-    fn connect_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_option_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::ConnectTimeout,
-            -1,
-        )
-    }
-
-    /// Sets how much time to wait before timing-out a [`connect`] call.
-    ///
-    /// The `connect` call normally takes a long time before it returns
-    /// a time out error.
-    ///
-    /// # Default Value
-    /// `None`
-    ///
-    /// # Applicable Socket Type
-    /// All (TCP transport)
-    fn set_connect_timeout(
-        &self,
-        maybe: Option<Duration>,
-    ) -> Result<(), Error> {
-        if let Some(ref duration) = maybe {
-            assert!(
-                duration.as_millis() > 0,
-                "number of ms in duration cannot be zero"
-            );
-        }
-        setsockopt_option_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::ConnectTimeout,
-            maybe,
-            0,
-        )
-    }
-
     /// The interval between sending ZMTP heartbeats.
     fn heartbeat_interval(&self) -> Result<Duration, Error> {
         getsockopt_option_duration(
@@ -448,7 +402,7 @@ pub trait Socket: GetRawSocket {
             SocketOption::HeartbeatInterval,
             -1,
         )
-        .map(|d| d.unwrap())
+        .map(Option::unwrap)
     }
 
     /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
@@ -574,7 +528,7 @@ pub trait Socket: GetRawSocket {
         let raw_socket = self.raw_socket();
         let mut mutex = raw_socket.mechanism().lock().unwrap();
 
-        if &*mutex == &mechanism {
+        if *mutex == mechanism {
             return Ok(());
         }
 
@@ -638,7 +592,6 @@ pub struct SocketConfig {
     pub(crate) connect: Option<Vec<Endpoint>>,
     pub(crate) bind: Option<Vec<Endpoint>>,
     pub(crate) backlog: Option<i32>,
-    pub(crate) connect_timeout: Option<Duration>,
     pub(crate) heartbeat_interval: Option<Duration>,
     pub(crate) heartbeat_timeout: Option<Duration>,
     pub(crate) heartbeat_ttl: Option<Duration>,
@@ -650,23 +603,22 @@ impl SocketConfig {
     pub(crate) fn apply<S: Socket>(
         &self,
         socket: &S,
-    ) -> Result<(), failure::Error> {
+    ) -> Result<(), Error<usize>> {
         if let Some(value) = self.backlog {
-            socket.set_backlog(value)?;
+            socket.set_backlog(value).map_err(Error::cast)?;
         }
-        socket.set_connect_timeout(self.connect_timeout)?;
         if let Some(value) = self.heartbeat_interval {
-            socket.set_heartbeat_interval(value)?;
+            socket.set_heartbeat_interval(value).map_err(Error::cast)?;
         }
         if let Some(value) = self.heartbeat_timeout {
-            socket.set_heartbeat_timeout(value)?;
+            socket.set_heartbeat_timeout(value).map_err(Error::cast)?;
         }
         if let Some(value) = self.heartbeat_ttl {
-            socket.set_heartbeat_ttl(value)?;
+            socket.set_heartbeat_ttl(value).map_err(Error::cast)?;
         }
-        socket.set_linger(self.linger)?;
+        socket.set_linger(self.linger).map_err(Error::cast)?;
         if let Some(ref mechanism) = self.mechanism {
-            socket.set_mechanism(mechanism)?;
+            socket.set_mechanism(mechanism).map_err(Error::cast)?;
         }
         // We connect as the last step because some socket options
         // only affect subsequent connections.
@@ -739,14 +691,6 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config_mut().backlog = maybe;
     }
 
-    fn connect_timeout(&self) -> Option<Duration> {
-        self.socket_config().connect_timeout
-    }
-
-    fn set_connect_timeout(&mut self, maybe: Option<Duration>) {
-        self.socket_config_mut().connect_timeout = maybe;
-    }
-
     fn heartbeat_interval(&self) -> Option<Duration> {
         self.socket_config().heartbeat_interval
     }
@@ -812,11 +756,6 @@ pub trait BuildSocket: GetSocketConfig + Sized {
 
     fn backlog(&mut self, len: i32) -> &mut Self {
         self.socket_config_mut().set_backlog(Some(len));
-        self
-    }
-
-    fn connect_timeout(&mut self, maybe: Option<Duration>) -> &mut Self {
-        self.socket_config_mut().set_connect_timeout(maybe);
         self
     }
 

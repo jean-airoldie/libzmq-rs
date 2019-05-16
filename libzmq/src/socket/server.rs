@@ -158,25 +158,25 @@ impl ServerConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, failure::Error> {
+    pub fn build(&self) -> Result<Server, Error<usize>> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
     where
         C: Into<Ctx>,
     {
         let ctx: Ctx = ctx.into();
-        let server = Server::with_ctx(ctx)?;
+        let server = Server::with_ctx(ctx).map_err(Error::cast)?;
         self.apply(&server)?;
 
         Ok(server)
     }
 
-    pub fn apply(&self, server: &Server) -> Result<(), failure::Error> {
+    pub fn apply(&self, server: &Server) -> Result<(), Error<usize>> {
         self.socket_config.apply(server)?;
-        self.send_config.apply(server)?;
-        self.recv_config.apply(server)?;
+        self.send_config.apply(server).map_err(Error::cast)?;
+        self.recv_config.apply(server).map_err(Error::cast)?;
 
         Ok(())
     }
@@ -190,9 +190,6 @@ struct FlatServerConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    connect_timeout: Option<Duration>,
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_interval: Option<Duration>,
@@ -225,7 +222,6 @@ impl From<ServerConfig> for FlatServerConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             backlog: socket_config.backlog,
-            connect_timeout: socket_config.connect_timeout,
             heartbeat_interval: socket_config.heartbeat_interval,
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
@@ -245,7 +241,6 @@ impl From<FlatServerConfig> for ServerConfig {
             connect: flat.connect,
             bind: flat.bind,
             backlog: flat.backlog,
-            connect_timeout: flat.connect_timeout,
             heartbeat_interval: flat.heartbeat_interval,
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
@@ -314,11 +309,11 @@ impl ServerBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, failure::Error> {
+    pub fn build(&self) -> Result<Server, Error<usize>> {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
     where
         C: Into<Ctx>,
     {

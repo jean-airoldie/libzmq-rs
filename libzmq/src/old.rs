@@ -4,7 +4,6 @@ use crate::{
     error::*,
     Ctx, Msg,
 };
-
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -67,6 +66,7 @@ pub(crate) enum OldSocketType {
     Router,
     Dealer,
     Pair,
+    Sub,
 }
 
 impl From<OldSocketType> for RawSocketType {
@@ -75,6 +75,7 @@ impl From<OldSocketType> for RawSocketType {
             OldSocketType::Router => RawSocketType::Router,
             OldSocketType::Dealer => RawSocketType::Dealer,
             OldSocketType::Pair => RawSocketType::Pair,
+            OldSocketType::Sub => RawSocketType::Sub,
         }
     }
 }
@@ -116,12 +117,28 @@ impl OldSocket {
         self.inner.bind(&endpoint)
     }
 
+    pub(crate) fn unbind<E>(&mut self, endpoint: E) -> Result<(), Error>
+    where
+        E: Into<Endpoint>,
+    {
+        let endpoint = endpoint.into();
+        self.inner.unbind(&endpoint)
+    }
+
     pub(crate) fn connect<E>(&mut self, endpoint: E) -> Result<(), Error>
     where
         E: Into<Endpoint>,
     {
         let endpoint = endpoint.into();
         self.inner.connect(&endpoint)
+    }
+
+    pub(crate) fn disconnect<E>(&mut self, endpoint: E) -> Result<(), Error>
+    where
+        E: Into<Endpoint>,
+    {
+        let endpoint = endpoint.into();
+        self.inner.disconnect(&endpoint)
     }
 
     pub(crate) fn send<M>(&mut self, msg: M, more: bool) -> Result<(), Error>
@@ -138,7 +155,6 @@ impl OldSocket {
         M: Into<Msg>,
     {
         let mut last = None;
-        let raw = self.raw_socket();
 
         for msg in iter.into_iter() {
             let msg: Msg = msg.into();
@@ -153,6 +169,10 @@ impl OldSocket {
             self.send(msg, false)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn recv(&mut self, msg: &mut Msg) -> Result<(), Error> {
+        recv(self.raw_socket().as_mut_ptr(), msg)
     }
 
     pub(crate) fn recv_msg_multipart(&mut self) -> Result<Vec<Msg>, Error> {

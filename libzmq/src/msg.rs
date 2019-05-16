@@ -64,7 +64,7 @@ impl RoutingId {
                 return Some(RoutingId(id));
             }
         }
-        return None;
+        None
     }
 }
 
