@@ -255,7 +255,7 @@ impl AuthHandler {
         handler.bind(&*ZAP_ENDPOINT)?;
 
         let command = Server::with_ctx(ctx)?;
-        command.bind(&*COMMAND_ENDPOINT).map_err(|e| e.into_any())?;
+        command.bind(&*COMMAND_ENDPOINT).map_err(|e| e.cast())?;
 
         Ok(Self {
             handler,

@@ -652,19 +652,19 @@ impl SocketConfig {
         if let Some(value) = self.backlog {
             socket.set_backlog(value).map_err(Error::cast)?;
         }
-        socket.set_connect_timeout(self.connect_timeout)?;
+        socket.set_connect_timeout(self.connect_timeout).map_err(Error::cast)?;
         if let Some(value) = self.heartbeat_interval {
-            socket.set_heartbeat_interval(value)?;
+            socket.set_heartbeat_interval(value).map_err(Error::cast)?;
         }
         if let Some(value) = self.heartbeat_timeout {
-            socket.set_heartbeat_timeout(value)?;
+            socket.set_heartbeat_timeout(value).map_err(Error::cast)?;
         }
         if let Some(value) = self.heartbeat_ttl {
-            socket.set_heartbeat_ttl(value)?;
+            socket.set_heartbeat_ttl(value).map_err(Error::cast)?;
         }
-        socket.set_linger(self.linger)?;
+        socket.set_linger(self.linger).map_err(Error::cast)?;
         if let Some(ref mechanism) = self.mechanism {
-            socket.set_mechanism(mechanism)?;
+            socket.set_mechanism(mechanism).map_err(Error::cast)?;
         }
         // We connect as the last step because some socket options
         // only affect subsequent connections.

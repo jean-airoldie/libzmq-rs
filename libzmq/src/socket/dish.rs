@@ -345,11 +345,11 @@ impl DishConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, failure::Error> {
+    pub fn build(&self) -> Result<Dish, Error<usize>> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
     where
         C: Into<Ctx>,
     {
@@ -497,7 +497,7 @@ impl DishBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
     where
         C: Into<Ctx>,
     {

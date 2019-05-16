@@ -1,5 +1,6 @@
 use crate::{
-    *, socket::*
+    *,
+    socket::*,
     addr::Endpoint,
     auth::StatusCode,
     core::{
@@ -153,30 +154,24 @@ pub struct SocketMonitor {
     addr: InprocAddr,
 }
 
-// * The first frame contains an event number (64 bits)
-// * Second frame contains the number of value frames that will follow it as
-//   a 64 bits integer
-// * The third frame to N-th frames contain an event value (64 bits) that
-//   provides additional data according to the event number.
-// * The second-to-last and last frames contain strings that specifies the
-//   affected connection or endpoint. The former frame contains a string
-//   denoting the local endpoint, while the latter frame contains a string
-//   denoting the remote endpoint. Either of these may be empty, depending on
-//   the event type and whether the connection uses a bound or connected local
-//   endpoint.
 impl SocketMonitor {
     fn new() -> Result<Self, Error> {
         let sub = OldSocket::new(OldSocketType::Sub)?;
         let addr = InprocAddr::new_unique();
         let channel = ServerBuilder::new()
             .bind(&addr)
-            .build()?;
+            .build()
+            .map_err(Error::cast)?;
 
         Ok(Self {
             sub,
             addr,
             channel,
         })
+    }
+
+    fn addr(&self) -> &InprocAddr {
+        &self.addr
     }
 
     fn monitor<F>(&mut self, mut f: F) -> Result<(), failure::Error>
@@ -279,6 +274,21 @@ pub(crate) struct SocketLogger {
 }
 
 impl SocketLogger {
+    fn new() -> Result<Self, Error> {
+        let inner = SocketMonitor::new()?;
+
+        // Subscribe to all events.
+        setsockopt_str(
+            inner.sub.raw_socket().as_mut_ptr(),
+            SocketOption::Subscribe,
+            Some(""),
+        )?;
+
+        Ok(Self{
+            inner
+        })
+    }
+
     fn run(&mut self) -> Result<(), failure::Error> {
         let log = |event| {
             Self::log(event)
@@ -321,7 +331,7 @@ impl SocketLoggerChannel {
     {
         let endpoint = socket.raw_socket().monitor_addr();
         let msg = Msg::new();
-        self.client.send(msg).map_err(Error::into_any)?;
+        self.client.send(msg).map_err(Error::cast)?;
         let msg = self.client.recv_msg()?;
         assert!(msg.is_empty());
 
@@ -334,7 +344,7 @@ impl SocketLoggerChannel {
     {
         let endpoint = socket.raw_socket().monitor_addr();
         let msg = Msg::new();
-        self.client.send(msg).map_err(Error::into_any)?;
+        self.client.send(msg).map_err(Error::cast)?;
         let msg = self.client.recv_msg()?;
         assert!(msg.is_empty());
 

@@ -189,11 +189,11 @@ impl RadioConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Radio, failure::Error> {
+    pub fn build(&self) -> Result<Radio, Error<usize>> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
     where
         C: Into<Ctx>,
     {
@@ -346,7 +346,7 @@ impl RadioBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, failure::Error>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
     where
         C: Into<Ctx>,
     {
