@@ -260,14 +260,14 @@ pub(crate) fn setsockopt_bytes(
     }
 }
 
-pub(crate) fn setsockopt_str<'a>(
+pub(crate) fn setsockopt_str(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
-    maybe: Option<&'a str>,
+    maybe: Option<&str>,
 ) -> Result<(), Error> {
     // No need to add a terminating zero byte.
     // http://api.zeromq.org/master:zmq-setsockopt
-    setsockopt_bytes(mut_sock_ptr, option, maybe.map(|s| s.as_bytes()))
+    setsockopt_bytes(mut_sock_ptr, option, maybe.map(str::as_bytes))
 }
 
 pub(crate) fn setsockopt_null(

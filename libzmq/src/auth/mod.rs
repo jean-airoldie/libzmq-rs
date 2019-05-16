@@ -3,7 +3,7 @@ use crate::{addr::Endpoint, old::*, poll::*, prelude::*, socket::*, *};
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};
 use lazy_static::lazy_static;
-use log::{info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 
 use libc::c_long;
@@ -224,10 +224,6 @@ struct ProxyCommand {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum Command {}
 
-pub struct AuthChannel {
-    command: Client,
-}
-
 struct AuthResult {
     user_id: String,
     metadata: Vec<u8>,
@@ -244,10 +240,6 @@ pub(crate) struct AuthHandler {
 }
 
 impl AuthHandler {
-    pub(crate) fn new() -> Result<Self, Error> {
-        Self::with_ctx(Ctx::global())
-    }
-
     pub(crate) fn with_ctx<C>(ctx: C) -> Result<Self, Error>
     where
         C: Into<Ctx>,
@@ -257,7 +249,7 @@ impl AuthHandler {
         handler.bind(&*ZAP_ENDPOINT)?;
 
         let command = Server::with_ctx(ctx)?;
-        command.bind(&*COMMAND_ENDPOINT).map_err(|e| e.cast())?;
+        command.bind(&*COMMAND_ENDPOINT).map_err(Error::cast)?;
 
         Ok(Self {
             handler,
@@ -297,9 +289,7 @@ impl AuthHandler {
                         }
                         PollId(1) => {
                             let msg = self.command.recv_msg()?;
-                            let command =
-                                bincode::deserialize(msg.as_bytes()).unwrap();
-                            self.on_command(command);
+                            unimplemented!();
                         }
                         _ => unreachable!(),
                     }
@@ -308,63 +298,57 @@ impl AuthHandler {
         }
     }
 
-    fn on_command(&mut self, command: Command) -> Result<(), Error> {
-        match command {}
-    }
-
     fn on_zap(&mut self, mut request: ZapRequest) -> Result<ZapReply, Error> {
-        let mut denied = false;
-
-        if !self.whitelist.is_empty() {
-            if !self.whitelist.contains(&request.addr) {
+        let denied = {
+            if !self.whitelist.is_empty()
+                && !self.whitelist.contains(&request.addr)
+            {
                 info!("denied addr {}, not whitelisted", &request.addr);
-                denied = true;
-            }
-        }
-
-        if !self.blacklist.is_empty() && !denied {
-            if self.blacklist.contains(&request.addr) {
+                true
+            } else if !self.blacklist.is_empty()
+                && self.blacklist.contains(&request.addr)
+            {
                 info!("denied addr {}, blacklisted", &request.addr);
-                denied = true;
+                true
+            } else {
+                false
             }
-        }
+        };
 
         let mut result = None;
 
         if !denied {
             if self.proxy {
                 unimplemented!()
-            } else {
-                if let Ok(mechanism) =
-                    MechanismName::try_from(request.mechanism.as_str())
-                {
-                    result = {
-                        match mechanism {
-                            MechanismName::Null => Some(AuthResult {
-                                user_id: String::new(),
-                                metadata: vec![],
-                            }),
-                            MechanismName::Plain => {
-                                let username = request
-                                    .credentials
-                                    .remove(0)
-                                    .to_str()
-                                    .unwrap()
-                                    .to_owned();
+            } else if let Ok(mechanism) =
+                MechanismName::try_from(request.mechanism.as_str())
+            {
+                result = {
+                    match mechanism {
+                        MechanismName::Null => Some(AuthResult {
+                            user_id: String::new(),
+                            metadata: vec![],
+                        }),
+                        MechanismName::Plain => {
+                            let username = request
+                                .credentials
+                                .remove(0)
+                                .to_str()
+                                .unwrap()
+                                .to_owned();
 
-                                let password = request
-                                    .credentials
-                                    .remove(0)
-                                    .to_str()
-                                    .unwrap()
-                                    .to_owned();
+                            let password = request
+                                .credentials
+                                .remove(0)
+                                .to_str()
+                                .unwrap()
+                                .to_owned();
 
-                                let creds = PlainCreds { username, password };
-                                self.auth_plain(creds)
-                            }
+                            let creds = PlainCreds { username, password };
+                            self.auth_plain(creds)
                         }
-                    };
-                }
+                    }
+                };
             }
         }
 
@@ -408,30 +392,6 @@ impl AuthHandler {
             }
         }
     }
-}
-
-use crate::core::GetRawSocket;
-use libzmq_sys as sys;
-use std::ffi::CString;
-
-fn monitor_socket<S, E>(socket: &S, endpoint: E)
-where
-    S: GetRawSocket,
-    E: Into<Endpoint>,
-{
-    let endpoint = endpoint.into();
-    let c_string = CString::new(endpoint.to_zmq()).unwrap();
-    let events = sys::ZMQ_EVENT_ALL;
-
-    let rc = unsafe {
-        sys::zmq_socket_monitor(
-            socket.raw_socket().as_mut_ptr(),
-            c_string.as_ptr(),
-            events as i32,
-        )
-    };
-
-    assert_ne!(rc, -1);
 }
 
 #[cfg(test)]

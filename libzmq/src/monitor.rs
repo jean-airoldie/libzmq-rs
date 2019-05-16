@@ -6,14 +6,12 @@ use crate::{
         GetRawSocket,
     },
     old::*,
-    prelude::*,
-    socket::*,
-    *, *,
+    *,
 };
 use libzmq_sys as sys;
 
 use failure::Fail;
-use libc::{c_long, c_void};
+use libc::c_void;
 use log::{error, info};
 
 use std::{
@@ -24,9 +22,9 @@ use std::{
 
 #[derive(Debug, Fail)]
 #[fail(display = "unable to parse event")]
-pub(crate) struct EventCodeParseError(());
+pub struct EventCodeParseError(());
 
-pub(crate) enum EventCode {
+pub enum EventCode {
     Connected = sys::ZMQ_EVENT_CONNECTED as isize,
     ConnectDelayed = sys::ZMQ_EVENT_CONNECT_DELAYED as isize,
     ConnectRetried = sys::ZMQ_EVENT_CONNECT_RETRIED as isize,
@@ -100,10 +98,10 @@ impl<'a> TryFrom<&'a [u8]> for EventCode {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(crate) enum HandshakeError {}
+pub enum HandshakeError {}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(crate) enum EventType {
+pub enum EventType {
     Connected,
     ConnectDelayed,
     Bound,
@@ -122,44 +120,38 @@ pub(crate) enum EventType {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct MonitorEvent {
+pub struct MonitorEvent {
     event_type: EventType,
     local_endpoint: Option<Endpoint>,
     remote_endpoint: Option<Endpoint>,
 }
 
 impl MonitorEvent {
-    pub(crate) fn event_type(&self) -> EventType {
+    pub fn event_type(&self) -> EventType {
         self.event_type
     }
 
-    pub(crate) fn local_endpoint(&self) -> Option<&Endpoint> {
+    pub fn local_endpoint(&self) -> Option<&Endpoint> {
         self.local_endpoint.as_ref()
     }
 
-    pub(crate) fn remote_endpoint(&self) -> Option<&Endpoint> {
+    pub fn remote_endpoint(&self) -> Option<&Endpoint> {
         self.remote_endpoint.as_ref()
     }
 }
 
-pub(crate) struct SocketMonitor {
+pub struct SocketMonitor {
     sub: OldSocket,
-    channel: Server,
 }
 
 impl SocketMonitor {
-    pub(crate) fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Self, Error> {
         let sub = OldSocket::new(OldSocketType::Sub)?;
-        let addr = InprocAddr::new_unique();
-        let channel = ServerBuilder::new()
-            .bind(addr)
-            .build()
-            .map_err(Error::cast)?;
 
-        Ok(Self { sub, channel })
+        Ok(Self { sub })
     }
 
-    pub(crate) fn monitor<F>(&mut self, mut f: F) -> Result<(), failure::Error>
+    pub fn monitor<F>(&mut self, mut f: F) -> Result<(), failure::Error>
     where
         F: FnMut(MonitorEvent) -> Result<(), failure::Error>,
     {
@@ -169,7 +161,7 @@ impl SocketMonitor {
         }
     }
 
-    pub(crate) fn register<S>(&mut self, socket: &S) -> Result<(), Error>
+    pub fn register<S>(&mut self, socket: &S) -> Result<(), Error>
     where
         S: GetRawSocket,
     {
@@ -177,7 +169,7 @@ impl SocketMonitor {
         self.sub.connect(addr)
     }
 
-    pub(crate) fn deregister<S>(&mut self, socket: &S) -> Result<(), Error>
+    pub fn deregister<S>(&mut self, socket: &S) -> Result<(), Error>
     where
         S: GetRawSocket,
     {
@@ -193,7 +185,7 @@ impl SocketMonitor {
         )
     }
 
-    pub(crate) fn subscribe(&mut self, topic: EventCode) -> Result<(), Error> {
+    pub fn subscribe(&mut self, topic: EventCode) -> Result<(), Error> {
         let topic = (topic as u64).to_ne_bytes();
         setsockopt_bytes(
             self.sub.raw_socket().as_mut_ptr(),
@@ -202,10 +194,7 @@ impl SocketMonitor {
         )
     }
 
-    pub(crate) fn unsubscribe(
-        &mut self,
-        topic: EventCode,
-    ) -> Result<(), Error> {
+    pub fn unsubscribe(&mut self, topic: EventCode) -> Result<(), Error> {
         let topic = (topic as u64).to_ne_bytes();
         setsockopt_bytes(
             self.sub.raw_socket().as_mut_ptr(),
@@ -214,7 +203,7 @@ impl SocketMonitor {
         )
     }
 
-    pub(crate) fn next_event(&mut self) -> Result<MonitorEvent, Error> {
+    pub fn next_event(&mut self) -> Result<MonitorEvent, Error> {
         let mut parts = self.sub.recv_msg_multipart()?;
 
         let remote_endpoint = {
@@ -288,7 +277,7 @@ impl SocketLogger {
     pub(crate) fn new() -> Result<Self, Error> {
         let mut inner = SocketMonitor::new()?;
 
-        inner.subscribe_all();
+        inner.subscribe_all()?;
 
         Ok(Self { inner })
     }
@@ -334,7 +323,7 @@ where
         sys::zmq_socket_monitor_versioned_typed(
             socket_mut_ptr,
             c_string.as_ptr(),
-            sys::ZMQ_EVENT_ALL_V2 as u64,
+            u64::from(sys::ZMQ_EVENT_ALL_V2),
             2,
             sys::ZMQ_PUB as i32,
         )

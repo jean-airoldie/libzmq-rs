@@ -143,9 +143,7 @@ pub struct CtxConfig {
 
 impl CtxConfig {
     pub fn new() -> Self {
-        let ctx = Self::default();
-
-        ctx
+        Self::default()
     }
 
     pub fn apply(&self, ctx: &Ctx) {

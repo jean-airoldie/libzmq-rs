@@ -42,11 +42,9 @@ mod private {
 use crate::{
     addr::Endpoint,
     auth::*,
-    error::{msg_from_errno, Error, ErrorKind},
+    error::{Error, ErrorKind},
 };
-use libzmq_sys as sys;
 use sockopt::*;
-use sys::errno;
 
 use std::time::Duration;
 
@@ -446,7 +444,7 @@ pub trait Socket: GetRawSocket {
             SocketOption::HeartbeatInterval,
             -1,
         )
-        .map(|d| d.unwrap())
+        .map(Option::unwrap)
     }
 
     /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
@@ -572,7 +570,7 @@ pub trait Socket: GetRawSocket {
         let raw_socket = self.raw_socket();
         let mut mutex = raw_socket.mechanism().lock().unwrap();
 
-        if &*mutex == &mechanism {
+        if *mutex == mechanism {
             return Ok(());
         }
 

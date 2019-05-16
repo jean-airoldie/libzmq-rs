@@ -4,13 +4,12 @@ use crate::{
     error::*,
     Ctx, Msg,
 };
-
 use libzmq_sys as sys;
 use sys::errno;
 
 use libc::c_int;
 
-use std::{os::raw::c_void, sync::Arc};
+use std::os::raw::c_void;
 
 fn send(
     mut_sock_ptr: *mut c_void,
@@ -156,7 +155,6 @@ impl OldSocket {
         M: Into<Msg>,
     {
         let mut last = None;
-        let raw = self.raw_socket();
 
         for msg in iter.into_iter() {
             let msg: Msg = msg.into();
