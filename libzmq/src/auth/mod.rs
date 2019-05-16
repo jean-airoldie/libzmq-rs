@@ -32,7 +32,9 @@ pub enum Mechanism {
     ///
     /// This is the default mechanism.
     Null,
+    /// Plain text authentication with no encryption.
     PlainClient(PlainCreds),
+    /// Plain text authentication with no encryption.
     PlainServer,
 }
 
@@ -148,44 +150,78 @@ impl IntoIterator for ZapReply {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-enum Action {
-    Add,
-    Remove,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct WhitelistCommand {
-    action: Action,
-    ips: Vec<IpAddr>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BlacklistCommand {
-    action: Action,
-    ips: Vec<IpAddr>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct PlainCommand {
-    action: Action,
-    creds: Vec<PlainCreds>,
-}
-
-/// Used to proxy the requests to a remote authentication server.
-/// The mechanism is used to authenticate to the authentication server.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ProxyCommand {
-    endpoint: Endpoint,
-    mechanism: Mechanism,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum Command {
 }
 
+pub struct Blacklist<'a> {
+    inner: &'a Client,
+}
+
+impl<'a> Blacklist<'a> {
+    pub fn insert(ip: IpAddr) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    pub fn remove(ip: IpAddr) -> Result<(), Error> {
+        unimplemented!()
+    }
+}
+
+pub struct Whitelist<'a> {
+    inner: &'a Client,
+}
+
+impl<'a> Whitelist<'a> {
+    pub fn insert(ip: IpAddr) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    pub fn remove(ip: IpAddr) -> Result<(), Error> {
+        unimplemented!()
+    }
+}
+
+pub struct PlainRegistry <'a> {
+    inner: &'a Client,
+}
+
+impl<'a> PlainRegistry <'a> {
+    pub fn insert(creds: PlainCreds) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    pub fn remove(username: String) -> Result<(), Error> {
+        unimplemented!()
+    }
+}
+
+/// A communication channel to the `AuthHandler`.
+///
+/// This allows for seemless thread safe state updates to the `AuthHandler` via
+/// RPC communication.
 pub struct AuthChannel {
-    command: Client,
+    client: Client,
+}
+
+impl AuthChannel {
+    pub fn blacklist(&self) -> Blacklist {
+        Blacklist {
+            inner: &self.client,
+        }
+    }
+
+    pub fn whitelist(&self) -> Whitelist {
+        Whitelist {
+            inner: &self.client,
+        }
+    }
+
+    pub fn plain(&self) -> PlainRegistry {
+        PlainRegistry {
+            inner: &self.client
+        }
+    }
 }
 
 struct AuthResult {
@@ -445,12 +481,11 @@ mod test {
         };
 
         let client = ClientBuilder::new()
-            .connect(bound)
+            .connect(&bound)
             .mechanism(Mechanism::PlainClient(creds))
             .build()
             .unwrap();
 
         client.try_send("").unwrap();
-        server.try_recv_msg().unwrap();
     }
 }

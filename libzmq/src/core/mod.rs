@@ -228,6 +228,8 @@ pub trait Socket: GetRawSocket {
                 .bind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
+            // In case the endpoint had a system assigned port.
+            let endpoint = self.last_endpoint().unwrap().unwrap();
             guard.push(endpoint);
             count += 1;
         }

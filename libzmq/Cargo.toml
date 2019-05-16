@@ -41,6 +41,9 @@ criterion = "0.2"
 version-sync = "0.8"
 ron = "0.5"
 
+[build-dependencies]
+flatc-rust = "0.1"
+
 [[bench]]
 name = "bench_main"
 harness = false

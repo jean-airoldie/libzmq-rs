@@ -15,7 +15,6 @@ mod msg;
 pub mod poll;
 pub mod socket;
 mod utils;
-mod monitor;
 mod old;
 
 #[doc(inline)]

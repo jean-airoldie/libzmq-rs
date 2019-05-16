@@ -104,7 +104,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// let mut msg: Msg = "".into();
 /// msg.set_group(group);
 ///
-/// radio.try_send(msg)?;
+/// radio.send(msg)?;
 /// let msg = dish.try_recv_msg()?;
 /// assert!(msg.is_empty());
 /// assert_eq!(msg.group().unwrap(), group);
@@ -550,5 +550,37 @@ mod test {
         let ron = ron::ser::to_string(&config).unwrap();
         let de: DishConfig = ron::de::from_str(&ron).unwrap();
         assert_eq!(config, de);
+    }
+
+    #[test]
+    fn test_dish() {
+        use crate::{prelude::*, TcpAddr, socket::*, Msg, Group};
+        use std::convert::TryInto;
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+        let group: &Group = "some group".try_into().unwrap();
+
+        // Setting `no_drop = true` is an anti pattern meant for illustration
+        // purposes.
+        let radio = RadioBuilder::new()
+            .bind(addr)
+            .no_drop()
+            .build().unwrap();
+
+        let bound = radio.last_endpoint().unwrap();
+
+        let dish = DishBuilder::new()
+            .connect(bound)
+            .join(group)
+            .build()
+            .unwrap();
+
+        let mut msg: Msg = "".into();
+        msg.set_group(group);
+
+        radio.try_send(msg).unwrap();
+        let msg = dish.try_recv_msg().unwrap();
+        assert!(msg.is_empty());
+        assert_eq!(msg.group().unwrap(), group);
     }
 }
