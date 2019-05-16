@@ -652,7 +652,9 @@ impl SocketConfig {
         if let Some(value) = self.backlog {
             socket.set_backlog(value).map_err(Error::cast)?;
         }
-        socket.set_connect_timeout(self.connect_timeout).map_err(Error::cast)?;
+        socket
+            .set_connect_timeout(self.connect_timeout)
+            .map_err(Error::cast)?;
         if let Some(value) = self.heartbeat_interval {
             socket.set_heartbeat_interval(value).map_err(Error::cast)?;
         }

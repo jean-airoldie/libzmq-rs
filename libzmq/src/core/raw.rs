@@ -1,5 +1,6 @@
 use crate::{
-    addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx, InprocAddr,
+    addr::Endpoint, auth::*, core::sockopt::*, error::*,
+    monitor::init_socket_monitor, Ctx, InprocAddr,
 };
 use libzmq_sys as sys;
 use sys::errno;
@@ -19,27 +20,27 @@ pub trait GetRawSocket: super::private::Sealed {
 }
 
 pub(crate) enum RawSocketType {
-    Client,
-    Server,
-    Radio,
-    Dish,
-    Dealer,
-    Router,
-    Pair,
-    Sub,
+    Client = sys::ZMQ_CLIENT as isize,
+    Server = sys::ZMQ_SERVER as isize,
+    Radio = sys::ZMQ_RADIO as isize,
+    Dish = sys::ZMQ_DISH as isize,
+    Dealer = sys::ZMQ_DEALER as isize,
+    Router = sys::ZMQ_ROUTER as isize,
+    Pair = sys::ZMQ_PAIR as isize,
+    Sub = sys::ZMQ_SUB as isize,
 }
 
 impl From<RawSocketType> for c_int {
     fn from(r: RawSocketType) -> c_int {
         match r {
-            RawSocketType::Client => sys::ZMQ_CLIENT as c_int,
-            RawSocketType::Server => sys::ZMQ_SERVER as c_int,
-            RawSocketType::Radio => sys::ZMQ_RADIO as c_int,
-            RawSocketType::Dish => sys::ZMQ_DISH as c_int,
-            RawSocketType::Dealer => sys::ZMQ_DEALER as c_int,
-            RawSocketType::Router => sys::ZMQ_ROUTER as c_int,
-            RawSocketType::Pair => sys::ZMQ_PAIR as c_int,
-            RawSocketType::Sub => sys::ZMQ_SUB as c_int,
+            RawSocketType::Client => RawSocketType::Client as c_int,
+            RawSocketType::Server => RawSocketType::Server as c_int,
+            RawSocketType::Radio => RawSocketType::Radio as c_int,
+            RawSocketType::Dish => RawSocketType::Dish as c_int,
+            RawSocketType::Dealer => RawSocketType::Dealer as c_int,
+            RawSocketType::Router => RawSocketType::Router as c_int,
+            RawSocketType::Pair => RawSocketType::Pair as c_int,
+            RawSocketType::Sub => RawSocketType::Sub as c_int,
         }
     }
 }
@@ -234,6 +235,8 @@ impl RawSocket {
             )?;
 
             let monitor_addr = InprocAddr::new_unique();
+
+            init_socket_monitor(socket_mut_ptr, &monitor_addr);
 
             Ok(Self {
                 ctx,

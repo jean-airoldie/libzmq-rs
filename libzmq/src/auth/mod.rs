@@ -116,10 +116,12 @@ impl TryFrom<c_long> for StatusCode {
     }
 }
 
-impl<'a> TryFrom<&'a str> for StatusCode {
+impl<'a> TryFrom<&'a [u8]> for StatusCode {
     type Error = StatusCodeParseError;
-    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
-        let code: i64 = s.parse().map_err(|_| StatusCodeParseError(()))?;
+    fn try_from(a: &'a [u8]) -> Result<Self, Self::Error> {
+        let mut bytes: [u8; 8] = Default::default();
+        bytes.copy_from_slice(a);
+        let code = dbg!(c_long::from_ne_bytes(bytes));
         Self::try_from(code)
     }
 }
@@ -286,8 +288,8 @@ impl AuthHandler {
                             let routing_id = parts.remove(0);
                             assert!(parts.remove(0).is_empty());
 
-                            let request = dbg!(ZapRequest::new(parts));
-                            let reply = dbg!(self.on_zap(request)?);
+                            let request = ZapRequest::new(parts);
+                            let reply = self.on_zap(request)?;
 
                             self.handler.send(routing_id, true)?;
                             self.handler.send("", true)?;
@@ -435,36 +437,47 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{auth::*, prelude::*, socket::*};
+    use crate::{auth::*, monitor::*, prelude::*, socket::*};
 
     use hashbrown::HashMap;
 
     use std::{convert::TryInto, thread, time::Duration};
 
-    #[test]
-    fn test_null_mechanism() {
-        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
-
-        let server = ServerBuilder::new()
-            .bind(&addr)
-            .mechanism(Mechanism::Null)
-            .build()
-            .unwrap();
-
-        let bound = server.last_endpoint().unwrap().unwrap();
-
-        let client = ClientBuilder::new()
-            .connect(bound)
-            .mechanism(Mechanism::Null)
-            .build()
-            .unwrap();
-
-        client.send("").unwrap();
-        server.recv_msg().unwrap();
+    fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
+        let event = dbg!(monitor.next_event().unwrap());
+        assert_eq!(event.event_type(), expected);
     }
 
     #[test]
-    fn test_null_plain() {
+    fn test_null_mechanism() {
+        let mut monitor = SocketMonitor::new().unwrap();
+        monitor.subscribe(EventCode::HandshakeSucceeded).unwrap();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+        let server = ServerBuilder::new().bind(&addr).build().unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+        let client = ClientBuilder::new().connect(bound).build().unwrap();
+
+        monitor.register(&server).unwrap();
+        monitor.register(&client).unwrap();
+
+        expect_event(&mut monitor, EventType::HandshakeSucceeded);
+        expect_event(&mut monitor, EventType::HandshakeSucceeded);
+    }
+
+    #[test]
+    fn test_plain_mechanism_invalid_creds() {
+        let mut monitor = SocketMonitor::new().unwrap();
+        monitor.subscribe(EventCode::HandshakeSucceeded).unwrap();
+        monitor.subscribe(EventCode::HandshakeFailedAuth).unwrap();
+        monitor
+            .subscribe(EventCode::HandshakeFailedNoDetail)
+            .unwrap();
+        monitor
+            .subscribe(EventCode::HandshakeFailedProtocol)
+            .unwrap();
+
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server = ServerBuilder::new()
@@ -486,7 +499,16 @@ mod test {
             .build()
             .unwrap();
 
-        client.try_send("").unwrap();
-        server.try_recv_msg().unwrap();
+        monitor.register(&server).unwrap();
+        monitor.register(&client).unwrap();
+
+        expect_event(
+            &mut monitor,
+            EventType::HandshakeFailedAuth(StatusCode::Denied),
+        );
+        expect_event(
+            &mut monitor,
+            EventType::HandshakeFailedAuth(StatusCode::Denied),
+        );
     }
 }
