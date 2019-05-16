@@ -67,6 +67,7 @@ pub(crate) enum OldSocketType {
     Router,
     Dealer,
     Pair,
+    Sub,
 }
 
 impl From<OldSocketType> for RawSocketType {
@@ -75,6 +76,7 @@ impl From<OldSocketType> for RawSocketType {
             OldSocketType::Router => RawSocketType::Router,
             OldSocketType::Dealer => RawSocketType::Dealer,
             OldSocketType::Pair => RawSocketType::Pair,
+            OldSocketType::Sub => RawSocketType::Sub,
         }
     }
 }
@@ -153,6 +155,10 @@ impl OldSocket {
             self.send(msg, false)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn recv(&mut self, msg: &mut Msg) -> Result<(), Error> {
+        recv(self.raw_socket().as_mut_ptr(), msg)
     }
 
     pub(crate) fn recv_msg_multipart(&mut self) -> Result<Vec<Msg>, Error> {

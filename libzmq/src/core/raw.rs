@@ -1,4 +1,6 @@
-use crate::{InprocAddr, addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
+use crate::{
+    addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx, InprocAddr,
+};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -24,6 +26,7 @@ pub(crate) enum RawSocketType {
     Dealer,
     Router,
     Pair,
+    Sub,
 }
 
 impl From<RawSocketType> for c_int {
@@ -36,6 +39,7 @@ impl From<RawSocketType> for c_int {
             RawSocketType::Dealer => sys::ZMQ_DEALER as c_int,
             RawSocketType::Router => sys::ZMQ_ROUTER as c_int,
             RawSocketType::Pair => sys::ZMQ_PAIR as c_int,
+            RawSocketType::Sub => sys::ZMQ_SUB as c_int,
         }
     }
 }

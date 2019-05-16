@@ -1,10 +1,12 @@
-use crate::{addr::Endpoint, poll::*, prelude::*, socket::*, *, old::*};
+use crate::{addr::Endpoint, old::*, poll::*, prelude::*, socket::*, *};
 
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};
 use lazy_static::lazy_static;
-use serde::{Deserialize, Serialize};
 use log::{info, warn};
+use serde::{Deserialize, Serialize};
+
+use libc::c_long;
 
 use std::{
     convert::{TryFrom, TryInto},
@@ -71,17 +73,54 @@ impl<'a> TryFrom<&'a str> for MechanismName {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Status {
-    Allowed,
-    Denied,
+pub enum StatusCode {
+    Allowed = 200,
+    TemporaryError = 300,
+    Denied = 400,
+    InternalError = 500,
 }
 
-impl fmt::Display for Status {
+impl fmt::Display for StatusCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Status::Allowed => write!(f, "200"),
-            Status::Denied => write!(f, "400"),
+            StatusCode::Allowed => write!(f, "{}", StatusCode::Allowed as i32),
+            StatusCode::TemporaryError => {
+                write!(f, "{}", StatusCode::TemporaryError as i32)
+            }
+            StatusCode::Denied => write!(f, "{}", StatusCode::Denied as i32),
+            StatusCode::InternalError => {
+                write!(f, "{}", StatusCode::InternalError as i32)
+            }
         }
+    }
+}
+
+#[derive(Debug, Fail)]
+#[fail(display = "unable to parse status code")]
+pub struct StatusCodeParseError(());
+
+impl TryFrom<c_long> for StatusCode {
+    type Error = StatusCodeParseError;
+    fn try_from(i: c_long) -> Result<Self, Self::Error> {
+        match i {
+            i if i == StatusCode::Allowed as c_long => Ok(StatusCode::Allowed),
+            i if i == StatusCode::TemporaryError as c_long => {
+                Ok(StatusCode::TemporaryError)
+            }
+            i if i == StatusCode::Denied as c_long => Ok(StatusCode::Denied),
+            i if i == StatusCode::InternalError as c_long => {
+                Ok(StatusCode::InternalError)
+            }
+            _ => Err(StatusCodeParseError(())),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a str> for StatusCode {
+    type Error = StatusCodeParseError;
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        let code: i64 = s.parse().map_err(|_| StatusCodeParseError(()))?;
+        Self::try_from(code)
     }
 }
 
@@ -125,7 +164,7 @@ impl ZapRequest {
 struct ZapReply {
     version: String, //  Version number, must be "1.0"
     request_id: Msg, //  Sequence number of request
-    status_code: Status,
+    status_code: StatusCode,
     status_text: String,
     user_id: String,
     metadata: Vec<u8>,
@@ -181,8 +220,7 @@ struct ProxyCommand {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum Command {
-}
+enum Command {}
 
 pub struct AuthChannel {
     command: Client,
@@ -257,7 +295,8 @@ impl AuthHandler {
                         }
                         PollId(1) => {
                             let msg = self.command.recv_msg()?;
-                            let command = bincode::deserialize(msg.as_bytes()).unwrap();
+                            let command =
+                                bincode::deserialize(msg.as_bytes()).unwrap();
                             self.on_command(command);
                         }
                         _ => unreachable!(),
@@ -268,8 +307,7 @@ impl AuthHandler {
     }
 
     fn on_command(&mut self, command: Command) -> Result<(), Error> {
-        match command {
-        }
+        match command {}
     }
 
     fn on_zap(&mut self, mut request: ZapRequest) -> Result<ZapReply, Error> {
@@ -306,7 +344,8 @@ impl AuthHandler {
                             }),
                             MechanismName::Plain => {
                                 let username = request
-                                    .credentials.remove(0)
+                                    .credentials
+                                    .remove(0)
                                     .to_str()
                                     .unwrap()
                                     .to_owned();
@@ -333,7 +372,7 @@ impl AuthHandler {
                 user_id: result.user_id,
                 metadata: result.metadata,
                 version: ZAP_VERSION.to_owned(),
-                status_code: Status::Allowed,
+                status_code: StatusCode::Allowed,
                 status_text: "OK".to_owned(),
             })
         } else {
@@ -342,7 +381,7 @@ impl AuthHandler {
                 user_id: String::new(),
                 metadata: vec![],
                 version: ZAP_VERSION.to_owned(),
-                status_code: Status::Denied,
+                status_code: StatusCode::Denied,
                 status_text: "NOT OK".to_owned(),
             })
         }
@@ -439,10 +478,7 @@ mod test {
         let username = "ok".to_owned();
         let password = "lo".to_owned();
 
-        let creds = PlainCreds {
-            username,
-            password,
-        };
+        let creds = PlainCreds { username, password };
 
         let client = ClientBuilder::new()
             .connect(bound)

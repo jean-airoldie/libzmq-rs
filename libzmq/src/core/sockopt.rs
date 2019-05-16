@@ -35,6 +35,8 @@ pub(crate) enum SocketOption {
     PlainServer,
     EnforceDomain,
     ZapDomain,
+    Subscribe,
+    Unsubscribe,
 }
 
 impl From<SocketOption> for c_int {
@@ -60,6 +62,8 @@ impl From<SocketOption> for c_int {
             SocketOption::PlainServer => sys::ZMQ_PLAIN_SERVER as c_int,
             SocketOption::EnforceDomain => sys::ZMQ_ZAP_ENFORCE_DOMAIN as c_int,
             SocketOption::ZapDomain => sys::ZMQ_ZAP_DOMAIN as c_int,
+            SocketOption::Subscribe => sys::ZMQ_SUBSCRIBE as c_int,
+            SocketOption::Unsubscribe => sys::ZMQ_UNSUBSCRIBE as c_int,
         }
     }
 }
