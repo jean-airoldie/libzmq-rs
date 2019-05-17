@@ -322,13 +322,11 @@ pub(crate) fn setsockopt_option_duration(
     maybe: Option<Duration>,
     none_value: i32,
 ) -> Result<(), Error> {
-    match maybe {
-        Some(duration) => {
-            let ms = checked_duration_ms(duration)?;
-            setsockopt_scalar(mut_sock_ptr, option, ms)
-        }
-        None => setsockopt_scalar(mut_sock_ptr, option, none_value),
+    if let Some(duration) = maybe {
+        check_duration(duration)?;
     }
+
+    setsockopt_option_scalar(mut_sock_ptr, option, maybe.map(|d| d.as_millis() as i32), none_value)
 }
 
 pub(crate) fn setsockopt_duration(
@@ -336,16 +334,16 @@ pub(crate) fn setsockopt_duration(
     option: SocketOption,
     duration: Duration,
 ) -> Result<(), Error> {
-    let ms = checked_duration_ms(duration)?;
-    setsockopt_scalar(mut_sock_ptr, option, ms)
+    check_duration(duration)?;
+    setsockopt_scalar(mut_sock_ptr, option, duration.as_millis() as i32)
 }
 
-fn checked_duration_ms(duration: Duration) -> Result<i32, Error> {
+fn check_duration(duration: Duration) -> Result<(), Error> {
     if duration.as_millis() > i32::max_value() as u128 {
         Err(Error::new(ErrorKind::InvalidInput {
             msg: "ms in duration cannot be greater than i32::MAX",
         }))
     } else {
-        Ok(duration.as_millis() as i32)
+        Ok(())
     }
 }
