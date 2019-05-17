@@ -43,8 +43,6 @@ use crate::{
     auth::*,
     error::{Error, ErrorKind},
 };
-use sockopt::*;
-
 use std::time::Duration;
 
 /// Methods shared by all thread-safe sockets.

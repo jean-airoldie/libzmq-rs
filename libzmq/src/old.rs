@@ -9,7 +9,7 @@ use sys::errno;
 
 use libc::c_int;
 
-use std::{os::raw::c_void, sync::Arc};
+use std::os::raw::c_void;
 
 fn send(
     mut_sock_ptr: *mut c_void,
@@ -146,7 +146,7 @@ impl OldSocket {
         M: Into<Msg>,
     {
         let msg = msg.into();
-        send(self.raw_socket().as_mut_ptr(), msg, more)
+        send(self.inner.as_mut_ptr(), msg, more)
     }
 
     pub(crate) fn send_multipart<I, M>(&mut self, iter: I) -> Result<(), Error>
@@ -172,16 +172,14 @@ impl OldSocket {
     }
 
     pub(crate) fn recv(&mut self, msg: &mut Msg) -> Result<(), Error> {
-        recv(self.raw_socket().as_mut_ptr(), msg)
+        recv(self.inner.as_mut_ptr(), msg)
     }
 
     pub(crate) fn recv_msg_multipart(&mut self) -> Result<Vec<Msg>, Error> {
         let mut vec = Vec::new();
-        let raw = self.raw_socket();
-
         loop {
             let mut msg = Msg::new();
-            recv(raw.as_mut_ptr(), &mut msg)?;
+            recv(self.inner.as_mut_ptr(), &mut msg)?;
             let has_more = msg.has_more();
             vec.push(msg);
             if !has_more {
@@ -189,6 +187,14 @@ impl OldSocket {
             }
         }
         Ok(vec)
+    }
+
+    pub fn subscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.inner.subscribe(bytes)
+    }
+
+    pub fn unsubscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.inner.unsubscribe(bytes)
     }
 }
 

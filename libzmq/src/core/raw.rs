@@ -6,7 +6,6 @@ use libzmq_sys as sys;
 use sys::errno;
 
 use log::error;
-use serde::{Deserialize, Serialize};
 
 use std::{
     ffi::CString,
@@ -463,6 +462,30 @@ impl RawSocket {
             SocketOption::SendTimeout,
             maybe,
             -1,
+        )
+    }
+
+    pub(crate) fn no_drop(&self) -> Result<bool, Error> {
+        getsockopt_bool(self.as_mut_ptr(), SocketOption::NoDrop)
+    }
+
+    pub(crate) fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
+        setsockopt_bool(self.as_mut_ptr(), SocketOption::NoDrop, enabled)
+    }
+
+    pub fn subscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::Subscribe,
+            Some(bytes),
+        )
+    }
+
+    pub fn unsubscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::Unsubscribe,
+            Some(bytes),
         )
     }
 }

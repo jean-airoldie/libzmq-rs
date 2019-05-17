@@ -1,10 +1,4 @@
-use crate::{
-    addr::Endpoint,
-    auth::*,
-    core::{sockopt::*, *},
-    error::*,
-    Ctx,
-};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
@@ -142,7 +136,7 @@ impl Radio {
 
     /// Returns `true` if the `no_drop` option is set.
     pub fn no_drop(&self) -> Result<bool, Error> {
-        getsockopt_bool(self.raw_socket().as_mut_ptr(), SocketOption::NoDrop)
+        self.inner.no_drop()
     }
 
     /// Sets the socket's behaviour to block instead of drop messages when
@@ -154,11 +148,7 @@ impl Radio {
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`send_high_water_mark`]: #method.send_high_water_mark
     pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
-        setsockopt_bool(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::NoDrop,
-            enabled,
-        )
+        self.inner.set_no_drop(enabled)
     }
 }
 

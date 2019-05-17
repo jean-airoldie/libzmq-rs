@@ -1,15 +1,6 @@
 //! Asynchronous socket event monitoring.
 
-use crate::{
-    addr::Endpoint,
-    auth::StatusCode,
-    core::{
-        sockopt::{setsockopt_bytes, SocketOption},
-        GetRawSocket,
-    },
-    old::*,
-    *,
-};
+use crate::{addr::Endpoint, auth::StatusCode, core::GetRawSocket, old::*, *};
 use libzmq_sys as sys;
 
 use failure::Fail;
@@ -180,29 +171,17 @@ impl SocketMonitor {
     }
 
     pub(crate) fn subscribe_all(&mut self) -> Result<(), Error> {
-        setsockopt_bytes(
-            self.sub.raw_socket().as_mut_ptr(),
-            SocketOption::Subscribe,
-            Some(b""),
-        )
+        self.sub.subscribe(b"")
     }
 
     pub fn subscribe(&mut self, topic: EventCode) -> Result<(), Error> {
         let topic = (topic as u64).to_ne_bytes();
-        setsockopt_bytes(
-            self.sub.raw_socket().as_mut_ptr(),
-            SocketOption::Subscribe,
-            Some(&topic),
-        )
+        self.sub.subscribe(&topic)
     }
 
     pub fn unsubscribe(&mut self, topic: EventCode) -> Result<(), Error> {
         let topic = (topic as u64).to_ne_bytes();
-        setsockopt_bytes(
-            self.sub.raw_socket().as_mut_ptr(),
-            SocketOption::Unsubscribe,
-            Some(&topic),
-        )
+        self.sub.unsubscribe(&topic)
     }
 
     pub fn recv_event(&mut self) -> Result<MonitorEvent, Error> {

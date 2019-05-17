@@ -1,6 +1,6 @@
 //! Socket authentication and encryption.
 
-use crate::{addr::Endpoint, old::*, poll::*, prelude::*, socket::*, *};
+use crate::{old::*, poll::*, prelude::*, socket::*, *};
 
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};

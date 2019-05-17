@@ -1,5 +1,5 @@
 use crate::{
-    core::{private, raw::GetRawSocket, sockopt::*},
+    core::{private, raw::GetRawSocket},
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
 };
