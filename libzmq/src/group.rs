@@ -110,6 +110,12 @@ impl PartialEq<Group> for str {
     }
 }
 
+impl<'a> PartialEq<GroupOwned> for Group {
+    fn eq(&self, other: &GroupOwned) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
 impl AsRef<str> for Group {
     fn as_ref(&self) -> &str {
         self.borrow()
@@ -253,6 +259,12 @@ impl ops::Deref for GroupOwned {
     #[inline]
     fn deref(&self) -> &Group {
         self.borrow()
+    }
+}
+
+impl<'a> PartialEq<Group> for GroupOwned {
+    fn eq(&self, other: &Group) -> bool {
+        self.as_str() == other.as_str()
     }
 }
 

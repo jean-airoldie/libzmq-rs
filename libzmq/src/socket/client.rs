@@ -125,9 +125,9 @@ impl ClientConfig {
     }
 
     pub fn apply(&self, client: &Client) -> Result<(), Error<usize>> {
-        self.socket_config.apply(client)?;
         self.send_config.apply(client).map_err(Error::cast)?;
         self.recv_config.apply(client).map_err(Error::cast)?;
+        self.socket_config.apply(client)?;
 
         Ok(())
     }

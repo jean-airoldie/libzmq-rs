@@ -78,37 +78,57 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 ///
 /// # Example
 /// ```
-/// #
 /// # use failure::Error;
+/// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, TcpAddr, socket::*, Msg, Group};
-/// use std::convert::TryInto;
+/// use std::{convert::TryInto, thread, time::Duration};
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
-/// let group: &Group = "some group".try_into()?;
 ///
-/// // Setting `no_drop = true` is an anti pattern meant for illustration
-/// // purposes.
 /// let radio = RadioBuilder::new()
 ///     .bind(addr)
-///     .no_drop()
 ///     .build()?;
 ///
-/// let bound = radio.last_endpoint()?;
+/// let bound = radio.last_endpoint().unwrap();
+/// let a: &Group = "group a".try_into()?;
 ///
 /// let dish = DishBuilder::new()
 ///     .connect(bound)
-///     .join(group)
+///     .join(a)
 ///     .build()?;
 ///
-/// let mut msg: Msg = "".into();
-/// msg.set_group(group);
+/// // Start the feed. It has no conceptual start nor end, thus we
+/// // don't synchronize with the subscribers.
+/// thread::spawn(move || {
+///     let a: &Group = "group a".try_into().unwrap();
+///     let b: &Group = "group b".try_into().unwrap();
+///     let mut count = 0;
+///     loop {
+///         let mut msg = Msg::new();
+///         // Alternate between the two groups.
+///         let group = {
+///             if count % 2 == 0 {
+///                 a
+///             } else {
+///                 b
+///             }
+///         };
 ///
-/// radio.send(msg)?;
-/// radio.try_send(msg)?;
-/// let msg = dish.try_recv_msg()?;
-/// assert!(msg.is_empty());
-/// assert_eq!(msg.group().unwrap(), group);
+///         msg.set_group(group);
+///         radio.send(msg).unwrap();
+///
+///         thread::sleep(Duration::from_millis(1));
+///         count += 1;
+///     }
+/// });
+///
+/// // The dish exclusively receives messages from the groups it joined.
+/// let msg = dish.recv_msg()?;
+/// assert_eq!(msg.group().unwrap(), a);
+///
+/// let msg = dish.recv_msg()?;
+/// assert_eq!(msg.group().unwrap(), a);
 /// #
 /// #     Ok(())
 /// # }
@@ -374,14 +394,11 @@ impl DishConfig {
     }
 
     pub fn apply(&self, dish: &Dish) -> Result<(), Error<usize>> {
-        self.socket_config.apply(dish)?;
-        self.recv_config.apply(dish).map_err(Error::cast)?;
-
         if let Some(ref groups) = self.groups {
-            for group in groups {
-                dish.join(group)?;
-            }
+            dish.join(groups)?;
         }
+        self.recv_config.apply(dish).map_err(Error::cast)?;
+        self.socket_config.apply(dish)?;
 
         Ok(())
     }
@@ -550,33 +567,48 @@ mod test {
 
     #[test]
     fn test_dish() {
-        use crate::{prelude::*, TcpAddr, socket::*, Msg, Group};
-        use std::convert::TryInto;
+        use crate::{monitor::*, prelude::*, socket::*, Group, Msg, TcpAddr};
+        use std::{convert::TryInto, thread};
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
-        let group: &Group = "some group".try_into().unwrap();
 
-        // Setting `no_drop = true` is an anti pattern meant for illustration
-        // purposes.
-        let radio = RadioBuilder::new()
-            .bind(addr)
-            .no_drop()
-            .build().unwrap();
+        let radio = RadioBuilder::new().bind(addr).build().unwrap();
 
         let bound = radio.last_endpoint().unwrap();
+        let a: &Group = "group a".try_into().unwrap();
 
-        let dish = DishBuilder::new()
-            .connect(bound)
-            .join(group)
-            .build()
-            .unwrap();
+        let dish = DishBuilder::new().connect(bound).join(a).build().unwrap();
 
-        let mut msg: Msg = "".into();
-        msg.set_group(group);
+        // Start the feed. It has no conceptual start nor end, thus we
+        // don't synchronize with the subscribers.
+        thread::spawn(move || {
+            let a: &Group = "group a".try_into().unwrap();
+            let b: &Group = "group b".try_into().unwrap();
+            let mut count = 0;
+            loop {
+                let mut msg = Msg::new();
+                // Alternate between the two groups.
+                let group = {
+                    if count % 2 == 0 {
+                        a
+                    } else {
+                        b
+                    }
+                };
 
-        radio.send(msg).unwrap();
-        let msg = dish.try_recv_msg().unwrap();
-        assert!(msg.is_empty());
-        assert_eq!(msg.group().unwrap(), group);
+                msg.set_group(group);
+                radio.send(msg).unwrap();
+
+                std::thread::sleep(Duration::from_millis(1));
+                count += 1;
+            }
+        });
+
+        // The dish exclusively receives messages from the groups it joined.
+        let msg = dish.recv_msg().unwrap();
+        assert_eq!(msg.group().unwrap(), a);
+
+        let msg = dish.recv_msg().unwrap();
+        assert_eq!(msg.group().unwrap(), a);
     }
 }

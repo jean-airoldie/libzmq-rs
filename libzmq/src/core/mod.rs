@@ -65,12 +65,13 @@ pub trait Socket: GetRawSocket {
     /// See [`zmq_connect`].
     ///
     /// # Usage Contract
-    /// * The endpoint must be valid (Endpoint does not do any validation atm).
-    /// * The endpoint's protocol must be supported by the socket..
+    /// * The endpoint(s) must be valid (Endpoint does not do any validation atm).
+    /// * The endpoint's protocol must be supported by the socket.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if endpoint is invalid)
-    /// * [`IncompatTransport`]
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`IncompatTransport`] (transport not supported)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
@@ -96,7 +97,15 @@ pub trait Socket: GetRawSocket {
             guard.push(endpoint);
             count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
 
     /// Returns a snapshot of the list of connected `Endpoint`.
@@ -143,10 +152,11 @@ pub trait Socket: GetRawSocket {
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
     /// * The endpoint must be already connected to.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if endpoint is invalid)
-    /// * [`NotFound`] (if endpoint not connected to)
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`NotFound`] (endpoint not connected to)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
@@ -174,7 +184,15 @@ pub trait Socket: GetRawSocket {
             guard.remove(position);
             count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
 
     /// Schedules a bind to one or more [`Endpoints`] and then accepts
@@ -195,12 +213,13 @@ pub trait Socket: GetRawSocket {
     /// * The transport must be supported by socket type.
     /// * The endpoint must not be in use.
     /// * The endpoint must be local.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if endpoint is invalid)
-    /// * [`IncompatTransport`] (if transport is not supported)
-    /// * [`AddrInUse`] (if addr already in use)
-    /// * [`AddrNotAvailable`] (if not local)
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`IncompatTransport`] (transport is not supported)
+    /// * [`AddrInUse`] (addr already in use)
+    /// * [`AddrNotAvailable`] (not local)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
@@ -230,7 +249,15 @@ pub trait Socket: GetRawSocket {
             guard.push(endpoint);
             count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
     /// Returns a snapshot of the list of bound `Endpoint`.
     ///
@@ -290,11 +317,12 @@ pub trait Socket: GetRawSocket {
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
     /// * The endpoint must be currently bound.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if usage contract not followed)
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
     /// * [`CtxTerminated`]
-    /// * [`NotFound`] (if endpoint was not bound to)
+    /// * [`NotFound`] (endpoint was not bound to)
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
@@ -321,7 +349,15 @@ pub trait Socket: GetRawSocket {
             guard.remove(position);
             count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
 
     /// Retrieve the last endpoint connected or bound to.

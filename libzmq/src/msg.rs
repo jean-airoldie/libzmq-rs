@@ -308,7 +308,7 @@ impl Msg {
         G: Into<&'a Group>,
     {
         let group: &Group = group.into();
-        let c_string = CString::new(group.as_str().as_bytes()).unwrap();
+        let c_string = CString::new(group.as_str()).unwrap();
         let rc = unsafe {
             sys::zmq_msg_set_group(self.as_mut_ptr(), c_string.as_ptr())
         };

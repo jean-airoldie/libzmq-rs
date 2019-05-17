@@ -15,7 +15,7 @@ use std::{ffi, os::raw::*, ptr, str};
 /// ```
 /// use libzmq::version;
 ///
-/// assert_eq!(version(), (4, 3, 1));
+/// assert_eq!(version(), (4, 3, 2));
 /// ```
 // This test acts as a canary when upgrading the libzmq
 // version.

@@ -21,28 +21,23 @@ use std::{sync::Arc, time::Duration};
 /// high water mark for a subscriber, then any messages that would be sent to
 /// the subscriber in question shall instead be dropped until the mute state ends.
 ///
+/// # Example
 /// ```
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, TcpAddr, Msg, Group, ErrorKind};
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::*, TcpAddr, socket::*, Msg, Group};
+/// use std::{convert::TryInto, thread, time::Duration};
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
-/// let a: &Group = "A".try_into()?;
-/// let b: &Group = "B".try_into()?;
-///
-/// // We configure the radio so that it doesnt drop in mute state.
-/// // However this means that a slow `Dish` would slow down
-/// // the `Radio`. We use this is this example because `connect`
-/// // takes a few milliseconds, enough for the `Radio` to drop a few messages.
 /// let radio = RadioBuilder::new()
-///     .bind(&addr)
-///     .no_drop()
+///     .bind(addr)
 ///     .build()?;
 ///
-/// let bound = radio.last_endpoint()?;
+/// let bound = radio.last_endpoint().unwrap();
+/// let a: &Group = "A".try_into()?;
+/// let b: &Group = "B".try_into()?;
 ///
 /// let dish_a = DishBuilder::new()
 ///     .connect(&bound)
@@ -50,38 +45,45 @@ use std::{sync::Arc, time::Duration};
 ///     .build()?;
 ///
 /// let dish_b = DishBuilder::new()
-///     .connect(&bound)
+///     .connect(bound)
 ///     .join(b)
 ///     .build()?;
 ///
-/// // Lets publish some messages to subscribers.
-/// let mut msg: Msg = "first msg".into();
-/// msg.set_group(a);
-/// radio.try_send(msg)?;
-/// let mut msg: Msg = "second msg".into();
-/// msg.set_group(b);
-/// radio.try_send(msg)?;
+/// // Start the feed. It has no conceptual start nor end, thus we
+/// // don't synchronize with the subscribers.
+/// thread::spawn(move || {
+///     let a: &Group = "A".try_into().unwrap();
+///     let b: &Group = "B".try_into().unwrap();
+///     let mut count = 0;
+///     loop {
+///         let mut msg = Msg::new();
+///         // Alternate between the two groups.
+///         let group = {
+///             if count % 2 == 0 {
+///                 a
+///             } else {
+///                 b
+///             }
+///         };
 ///
-/// // Lets receive the publisher's messages.
-/// let mut msg = dish_a.try_recv_msg()?;
+///         msg.set_group(group);
+///         radio.send(msg).unwrap();
+///
+///         thread::sleep(Duration::from_millis(1));
+///         count += 1;
+///     }
+/// });
+///
+/// // Each dish will only receive the messages from their respective groups.
+/// let msg = dish_a.recv_msg()?;
 /// assert_eq!(msg.group().unwrap(), a);
-/// assert_eq!(msg.to_str().unwrap(), "first msg");
-/// let err = dish_a.try_recv(&mut msg).unwrap_err();
 ///
-/// // Only the message from the first group was received.
-/// assert_eq!(ErrorKind::WouldBlock, err.kind());
-///
-/// dish_b.try_recv(&mut msg)?;
+/// let msg = dish_b.recv_msg()?;
 /// assert_eq!(msg.group().unwrap(), b);
-/// assert_eq!(msg.to_str().unwrap(), "second msg");
-/// let err = dish_b.try_recv(&mut msg).unwrap_err();
-/// // Only the message from the second group was received.
-/// assert_eq!(ErrorKind::WouldBlock, err.kind());
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-///
 /// # Summary of Characteristics
 /// | Characteristic            | Value          |
 /// |:-------------------------:|:--------------:|
@@ -215,12 +217,11 @@ impl RadioConfig {
     }
 
     pub fn apply(&self, radio: &Radio) -> Result<(), Error<usize>> {
-        self.socket_config.apply(radio)?;
-        self.send_config.apply(radio).map_err(Error::cast)?;
-
         if let Some(enabled) = self.no_drop {
             radio.set_no_drop(enabled).map_err(Error::cast)?;
         }
+        self.send_config.apply(radio).map_err(Error::cast)?;
+        self.socket_config.apply(radio)?;
 
         Ok(())
     }

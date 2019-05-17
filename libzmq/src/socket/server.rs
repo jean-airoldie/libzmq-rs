@@ -174,9 +174,9 @@ impl ServerConfig {
     }
 
     pub fn apply(&self, server: &Server) -> Result<(), Error<usize>> {
-        self.socket_config.apply(server)?;
         self.send_config.apply(server).map_err(Error::cast)?;
         self.recv_config.apply(server).map_err(Error::cast)?;
+        self.socket_config.apply(server)?;
 
         Ok(())
     }

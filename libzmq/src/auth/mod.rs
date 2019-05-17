@@ -192,8 +192,7 @@ impl IntoIterator for ZapReply {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum Command {
-}
+enum Command {}
 
 pub struct Blacklist<'a> {
     inner: &'a Client,
@@ -223,11 +222,11 @@ impl<'a> Whitelist<'a> {
     }
 }
 
-pub struct PlainRegistry <'a> {
+pub struct PlainRegistry<'a> {
     inner: &'a Client,
 }
 
-impl<'a> PlainRegistry <'a> {
+impl<'a> PlainRegistry<'a> {
     pub fn insert(creds: PlainCreds) -> Result<(), Error> {
         unimplemented!()
     }
@@ -260,7 +259,7 @@ impl AuthChannel {
 
     pub fn plain(&self) -> PlainRegistry {
         PlainRegistry {
-            inner: &self.client
+            inner: &self.client,
         }
     }
 }
