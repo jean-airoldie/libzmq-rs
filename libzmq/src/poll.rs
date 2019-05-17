@@ -1,3 +1,5 @@
+//! Asynchronous polling mechanims.
+
 use crate::{
     core::GetRawSocket,
     error::{msg_from_errno, Error, ErrorKind},

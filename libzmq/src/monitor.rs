@@ -331,46 +331,34 @@ mod test {
 
     #[test]
     fn test_socket_monitor() {
-        let mut monitor = SocketMonitor::new().unwrap();
-        // Subscribe to all events.
-        monitor.subscribe_all().unwrap();
+        let mut client_monitor = SocketMonitor::new().unwrap();
+        client_monitor.subscribe_all().unwrap();
+
+        let mut server_monitor = SocketMonitor::new().unwrap();
+        server_monitor.subscribe_all().unwrap();
         {
             let client = Client::new().unwrap();
             let server = Server::new().unwrap();
 
             // Register both sockets for monitoring.
-            monitor.register(&client).unwrap();
-            monitor.register(&server).unwrap();
+            client_monitor.register(&client).unwrap();
+            server_monitor.register(&server).unwrap();
 
             let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
             server.bind(addr).unwrap();
 
-            expect_event(&mut monitor, EventType::Bound);
+            expect_event(&mut server_monitor, EventType::Bound);
 
             let addr = server.last_endpoint().unwrap().unwrap();
             client.connect(addr).unwrap();
 
             // The order is random.
-            expect_any_events(
-                &mut monitor,
-                &[EventType::Accepted, EventType::ConnectDelayed],
-            );
-            expect_any_events(
-                &mut monitor,
-                &[
-                    EventType::Accepted,
-                    EventType::Connected,
-                    EventType::ConnectDelayed,
-                ],
-            );
-            expect_any_events(
-                &mut monitor,
-                &[EventType::Accepted, EventType::Connected],
-            );
+            expect_event(&mut server_monitor, EventType::Accepted);
+            expect_event(&mut server_monitor, EventType::HandshakeSucceeded);
 
-            // ZAP Null mechanism handshake.
-            expect_event(&mut monitor, EventType::HandshakeSucceeded);
-            expect_event(&mut monitor, EventType::HandshakeSucceeded);
+            expect_event(&mut client_monitor, EventType::ConnectDelayed);
+            expect_event(&mut client_monitor, EventType::Connected);
+            expect_event(&mut client_monitor, EventType::HandshakeSucceeded);
         }
     }
 

@@ -451,7 +451,7 @@ impl AuthHandler {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{auth::*, monitor::*, prelude::*, socket::*};
+    use crate::{auth::*, monitor::*, Client, prelude::*, socket::*};
 
     use std::convert::TryInto;
 
@@ -469,26 +469,19 @@ mod test {
         let server = ServerBuilder::new().bind(&addr).build().unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
-        let client = ClientBuilder::new().connect(bound).build().unwrap();
+        let client = Client::new().unwrap();
 
-        monitor.register(&server).unwrap();
         monitor.register(&client).unwrap();
 
-        expect_event(&mut monitor, EventType::HandshakeSucceeded);
+        client.connect(bound).unwrap();
+
         expect_event(&mut monitor, EventType::HandshakeSucceeded);
     }
 
     #[test]
     fn test_plain_mechanism_invalid_creds() {
         let mut monitor = SocketMonitor::new().unwrap();
-        monitor.subscribe(EventCode::HandshakeSucceeded).unwrap();
         monitor.subscribe(EventCode::HandshakeFailedAuth).unwrap();
-        monitor
-            .subscribe(EventCode::HandshakeFailedNoDetail)
-            .unwrap();
-        monitor
-            .subscribe(EventCode::HandshakeFailedProtocol)
-            .unwrap();
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
@@ -505,19 +498,13 @@ mod test {
 
         let creds = PlainCreds { username, password };
 
-        let client = ClientBuilder::new()
-            .connect(bound)
-            .mechanism(Mechanism::PlainClient(creds))
-            .build()
-            .unwrap();
+        let client = Client::new().unwrap();
 
-        monitor.register(&server).unwrap();
         monitor.register(&client).unwrap();
 
-        expect_event(
-            &mut monitor,
-            EventType::HandshakeFailedAuth(StatusCode::Denied),
-        );
+        client.set_mechanism(Mechanism::PlainClient(creds)).unwrap();
+        client.connect(bound).unwrap();
+
         expect_event(
             &mut monitor,
             EventType::HandshakeFailedAuth(StatusCode::Denied),
