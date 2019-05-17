@@ -567,7 +567,7 @@ mod test {
 
     #[test]
     fn test_dish() {
-        use crate::{monitor::*, prelude::*, socket::*, Group, Msg, TcpAddr};
+        use crate::{prelude::*, socket::*, Group, Msg, TcpAddr};
         use std::{convert::TryInto, thread};
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();

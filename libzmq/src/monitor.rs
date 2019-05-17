@@ -316,7 +316,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{prelude::*, socket::*, *};
+    use crate::{prelude::*, socket::*};
 
     fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
         let event = dbg!(monitor.recv_event().unwrap());

@@ -213,11 +213,11 @@ pub struct Blacklist<'a> {
 }
 
 impl<'a> Blacklist<'a> {
-    pub fn insert(ip: IpAddr) -> Result<(), Error> {
+    pub fn insert(_ip: IpAddr) -> Result<(), Error> {
         unimplemented!()
     }
 
-    pub fn remove(ip: IpAddr) -> Result<(), Error> {
+    pub fn remove(_ip: IpAddr) -> Result<(), Error> {
         unimplemented!()
     }
 }
@@ -227,11 +227,11 @@ pub struct Whitelist<'a> {
 }
 
 impl<'a> Whitelist<'a> {
-    pub fn insert(ip: IpAddr) -> Result<(), Error> {
+    pub fn insert(_ip: IpAddr) -> Result<(), Error> {
         unimplemented!()
     }
 
-    pub fn remove(ip: IpAddr) -> Result<(), Error> {
+    pub fn remove(_ip: IpAddr) -> Result<(), Error> {
         unimplemented!()
     }
 }
@@ -241,11 +241,11 @@ pub struct PlainRegistry<'a> {
 }
 
 impl<'a> PlainRegistry<'a> {
-    pub fn insert(creds: PlainCreds) -> Result<(), Error> {
+    pub fn insert(_creds: PlainCreds) -> Result<(), Error> {
         unimplemented!()
     }
 
-    pub fn remove(username: String) -> Result<(), Error> {
+    pub fn remove(_username: String) -> Result<(), Error> {
         unimplemented!()
     }
 }
@@ -342,7 +342,7 @@ impl AuthHandler {
                             self.handler.send_multipart(reply)?;
                         }
                         PollId(1) => {
-                            let msg = self.command.recv_msg()?;
+                            let _msg = self.command.recv_msg()?;
                             unimplemented!();
                         }
                         _ => unreachable!(),
@@ -453,9 +453,7 @@ mod test {
     use super::*;
     use crate::{auth::*, monitor::*, prelude::*, socket::*};
 
-    use hashbrown::HashMap;
-
-    use std::{convert::TryInto, thread, time::Duration};
+    use std::convert::TryInto;
 
     fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
         let event = monitor.recv_event().unwrap();
