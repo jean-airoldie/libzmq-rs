@@ -116,16 +116,7 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
-        let limit = getsockopt_scalar(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::RecvHighWaterMark,
-        )?;
-
-        if limit == 0 {
-            Ok(None)
-        } else {
-            Ok(Some(limit))
-        }
+        self.raw_socket().recv_high_water_mark()
     }
 
     /// Set the high water mark for inbound messages on the specified socket.
@@ -143,22 +134,7 @@ pub trait RecvMsg: GetRawSocket {
         &self,
         maybe: Option<i32>,
     ) -> Result<(), Error> {
-        let socket_ptr = self.raw_socket().as_mut_ptr();
-        match maybe {
-            Some(limit) => {
-                assert!(limit != 0, "high water mark cannot be zero");
-                setsockopt_scalar(
-                    socket_ptr,
-                    SocketOption::RecvHighWaterMark,
-                    limit,
-                )
-            }
-            None => setsockopt_scalar(
-                socket_ptr,
-                SocketOption::RecvHighWaterMark,
-                0,
-            ),
-        }
+        self.raw_socket().set_recv_high_water_mark(maybe)
     }
 
     /// The timeout for [`recv`] on the socket.
@@ -167,11 +143,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
     fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_option_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::RecvTimeout,
-            -1,
-        )
+        self.raw_socket().recv_timeout()
     }
 
     /// Sets the timeout for [`recv`] on the socket.
@@ -180,12 +152,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
     fn set_recv_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
-        setsockopt_option_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::RecvTimeout,
-            maybe,
-            -1,
-        )
+        self.raw_socket().set_recv_timeout(maybe)
     }
 }
 

@@ -1,3 +1,5 @@
+//! Asynchronous socket event monitoring.
+
 use crate::{
     addr::Endpoint,
     auth::StatusCode,
@@ -156,7 +158,7 @@ impl SocketMonitor {
         F: FnMut(MonitorEvent) -> Result<(), failure::Error>,
     {
         loop {
-            let event = self.next_event()?;
+            let event = self.recv_event()?;
             f(event)?;
         }
     }
@@ -203,7 +205,7 @@ impl SocketMonitor {
         )
     }
 
-    pub fn next_event(&mut self) -> Result<MonitorEvent, Error> {
+    pub fn recv_event(&mut self) -> Result<MonitorEvent, Error> {
         let mut parts = self.sub.recv_msg_multipart()?;
 
         let remote_endpoint = {
@@ -338,18 +340,14 @@ mod test {
     use crate::{prelude::*, socket::*, *};
 
     fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
-        let event = dbg!(monitor.next_event().unwrap());
+        let event = dbg!(monitor.recv_event().unwrap());
         assert_eq!(event.event_type(), expected);
     }
 
-    fn expect_either_events(
-        monitor: &mut SocketMonitor,
-        first: EventType,
-        second: EventType,
-    ) {
-        let event = dbg!(monitor.next_event().unwrap());
+    fn expect_any_events(monitor: &mut SocketMonitor, events: &[EventType]) {
+        let event = dbg!(monitor.recv_event().unwrap());
         let event_type = event.event_type();
-        assert!({ event_type == first || event_type == second });
+        assert!(events.iter().position(|x| x == &event_type).is_some());
     }
 
     #[test]
@@ -374,20 +372,21 @@ mod test {
             client.connect(addr).unwrap();
 
             // The order is random.
-            expect_either_events(
+            expect_any_events(
                 &mut monitor,
-                EventType::Accepted,
-                EventType::ConnectDelayed,
+                &[EventType::Accepted, EventType::ConnectDelayed],
             );
-            expect_either_events(
+            expect_any_events(
                 &mut monitor,
-                EventType::Accepted,
-                EventType::Connected,
+                &[
+                    EventType::Accepted,
+                    EventType::Connected,
+                    EventType::ConnectDelayed,
+                ],
             );
-            expect_either_events(
+            expect_any_events(
                 &mut monitor,
-                EventType::Accepted,
-                EventType::Connected,
+                &[EventType::Accepted, EventType::Connected],
             );
 
             // ZAP Null mechanism handshake.

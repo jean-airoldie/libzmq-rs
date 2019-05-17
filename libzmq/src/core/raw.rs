@@ -12,7 +12,10 @@ use std::{
     ffi::CString,
     os::raw::{c_int, c_void},
     sync::Mutex,
+    time::Duration,
 };
+
+const MAX_HB_TTL: i64 = 6_553_599;
 
 #[doc(hidden)]
 pub trait GetRawSocket: super::private::Sealed {
@@ -156,6 +159,8 @@ fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
     }
 }
 
+/// This socket may or may not be thread safe depending on the `RawSocketType`.
+/// We prevent that it is always thread-safe and let the wrapping types decide.
 #[derive(Debug)]
 #[doc(hidden)]
 pub struct RawSocket {
@@ -262,6 +267,204 @@ impl RawSocket {
     pub(crate) fn monitor_addr(&self) -> &InprocAddr {
         &self.monitor_addr
     }
+
+    pub(crate) fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
+        let maybe =
+            getsockopt_string(self.as_mut_ptr(), SocketOption::LastEndpoint)?;
+
+        Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
+    }
+
+    pub(crate) fn backlog(&self) -> Result<i32, Error> {
+        getsockopt_scalar(self.as_mut_ptr(), SocketOption::Backlog)
+    }
+
+    pub(crate) fn set_backlog(&self, value: i32) -> Result<(), Error> {
+        setsockopt_scalar(self.as_mut_ptr(), SocketOption::Backlog, value)
+    }
+
+    pub(crate) fn heartbeat_interval(&self) -> Result<Duration, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatInterval,
+            -1,
+        )
+        .map(Option::unwrap)
+    }
+
+    pub(crate) fn set_heartbeat_interval(
+        &self,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        setsockopt_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatInterval,
+            duration,
+        )
+    }
+
+    pub(crate) fn heartbeat_timeout(&self) -> Result<Duration, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatTimeout,
+            -1,
+        )
+        .map(Option::unwrap)
+    }
+
+    pub(crate) fn set_heartbeat_timeout(
+        &self,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        setsockopt_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatTimeout,
+            duration,
+        )
+    }
+
+    pub(crate) fn heartbeat_ttl(&self) -> Result<Duration, Error> {
+        getsockopt_duration(self.as_mut_ptr(), SocketOption::HeartbeatTtl)
+    }
+
+    pub(crate) fn set_heartbeat_ttl(
+        &self,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        let ms = duration.as_millis();
+        if ms > MAX_HB_TTL as u128 {
+            return Err(Error::new(ErrorKind::InvalidInput {
+                msg: "duration ms cannot exceed 6553599",
+            }));
+        }
+        setsockopt_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatTtl,
+            duration,
+        )
+    }
+
+    pub(crate) fn linger(&self) -> Result<Option<Duration>, Error> {
+        getsockopt_option_duration(self.as_mut_ptr(), SocketOption::Linger, -1)
+    }
+
+    pub(crate) fn set_linger(
+        &self,
+        maybe: Option<Duration>,
+    ) -> Result<(), Error> {
+        setsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::Linger,
+            maybe,
+            -1,
+        )
+    }
+
+    pub(crate) fn set_username(
+        &self,
+        maybe: Option<&str>,
+    ) -> Result<(), Error> {
+        setsockopt_str(self.as_mut_ptr(), SocketOption::PlainUsername, maybe)
+    }
+
+    pub(crate) fn set_password(
+        &self,
+        maybe: Option<&str>,
+    ) -> Result<(), Error> {
+        setsockopt_str(self.as_mut_ptr(), SocketOption::PlainUsername, maybe)
+    }
+
+    pub(crate) fn set_plain_server(&self, cond: bool) -> Result<(), Error> {
+        setsockopt_bool(self.as_mut_ptr(), SocketOption::PlainServer, cond)
+    }
+
+    pub(crate) fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
+        getsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::RecvHighWaterMark,
+            0,
+        )
+    }
+
+    pub(crate) fn set_recv_high_water_mark(
+        &self,
+        maybe: Option<i32>,
+    ) -> Result<(), Error> {
+        if let Some(hwm) = maybe {
+            assert!(hwm != 0, "high water mark cannot be zero");
+        }
+
+        setsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::RecvHighWaterMark,
+            maybe,
+            0,
+        )
+    }
+
+    pub(crate) fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::RecvTimeout,
+            -1,
+        )
+    }
+
+    pub(crate) fn set_recv_timeout(
+        &self,
+        maybe: Option<Duration>,
+    ) -> Result<(), Error> {
+        setsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::RecvTimeout,
+            maybe,
+            -1,
+        )
+    }
+
+    pub(crate) fn send_high_water_mark(&self) -> Result<Option<i32>, Error> {
+        getsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::SendHighWaterMark,
+            0,
+        )
+    }
+
+    pub(crate) fn set_send_high_water_mark(
+        &self,
+        maybe: Option<i32>,
+    ) -> Result<(), Error> {
+        if let Some(hwm) = maybe {
+            assert!(hwm != 0, "high water mark cannot be zero");
+        }
+
+        setsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::SendHighWaterMark,
+            maybe,
+            0,
+        )
+    }
+
+    pub(crate) fn send_timeout(&self) -> Result<Option<Duration>, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::SendTimeout,
+            -1,
+        )
+    }
+
+    pub(crate) fn set_send_timeout(
+        &self,
+        maybe: Option<Duration>,
+    ) -> Result<(), Error> {
+        setsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::SendTimeout,
+            maybe,
+            -1,
+        )
+    }
 }
 
 impl PartialEq for RawSocket {
@@ -279,14 +482,6 @@ impl Drop for RawSocket {
     ///
     /// [`zmq_close`]: http://api.zeromq.org/master:zmq-close
     fn drop(&mut self) {
-        // This allows for the endpoints to be available for binding as soon as
-        // the socket is dropped, as opposed to when ØMQ decides so.
-        if let Ok(bound) = self.bound.lock() {
-            for endpoint in &*bound {
-                let _ = self.unbind(&endpoint);
-            }
-        }
-
         let rc = unsafe { sys::zmq_close(self.socket_mut_ptr) };
 
         if rc == -1 {

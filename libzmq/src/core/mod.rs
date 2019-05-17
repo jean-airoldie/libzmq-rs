@@ -47,8 +47,6 @@ use sockopt::*;
 
 use std::time::Duration;
 
-const MAX_HB_TTL: i64 = 6_553_599;
-
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
     /// Schedules a connection to one or more [`Endpoints`] and then accepts
@@ -393,12 +391,7 @@ pub trait Socket: GetRawSocket {
     /// # }
     /// ```
     fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
-        let maybe = getsockopt_string(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::LastEndpoint,
-        )?;
-
-        Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
+        self.raw_socket().last_endpoint()
     }
 
     /// Retrieve the maximum length of the queue of outstanding peer connections.
@@ -407,7 +400,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn backlog(&self) -> Result<i32, Error> {
-        getsockopt_scalar(self.raw_socket().as_mut_ptr(), SocketOption::Backlog)
+        self.raw_socket().backlog()
     }
 
     /// Set the maximum length of the queue of outstanding peer connections
@@ -424,21 +417,12 @@ pub trait Socket: GetRawSocket {
     ///
     /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
     fn set_backlog(&self, value: i32) -> Result<(), Error> {
-        setsockopt_scalar(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::Backlog,
-            value,
-        )
+        self.raw_socket().set_backlog(value)
     }
 
     /// The interval between sending ZMTP heartbeats.
     fn heartbeat_interval(&self) -> Result<Duration, Error> {
-        getsockopt_option_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatInterval,
-            -1,
-        )
-        .map(Option::unwrap)
+        self.raw_socket().heartbeat_interval()
     }
 
     /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
@@ -449,20 +433,13 @@ pub trait Socket: GetRawSocket {
     /// # Applicable Socket Type
     /// All (connection oriented transports)
     fn set_heartbeat_interval(&self, duration: Duration) -> Result<(), Error> {
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatInterval,
-            duration,
-        )
+        self.raw_socket().set_heartbeat_interval(duration)
     }
 
     /// How long to wait before timing-out a connection after sending a
     /// PING ZMTP command and not receiving any traffic.
     fn heartbeat_timeout(&self) -> Result<Duration, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTimeout,
-        )
+        self.raw_socket().heartbeat_timeout()
     }
 
     /// How long to wait before timing-out a connection after sending a
@@ -472,11 +449,7 @@ pub trait Socket: GetRawSocket {
     /// `0`. If `heartbeat_interval` is set, then it uses the same value
     /// by default.
     fn set_heartbeat_timeout(&self, duration: Duration) -> Result<(), Error> {
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTimeout,
-            duration,
-        )
+        self.raw_socket().set_heartbeat_timeout(duration)
     }
 
     /// The timeout on the remote peer for ZMTP heartbeats.
@@ -484,10 +457,7 @@ pub trait Socket: GetRawSocket {
     /// side shall time out the connection if it does not receive any more
     /// traffic within the TTL period.
     fn heartbeat_ttl(&self) -> Result<Duration, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTtl,
-        )
+        self.raw_socket().heartbeat_ttl()
     }
 
     /// Set timeout on the remote peer for ZMTP heartbeats.
@@ -498,26 +468,12 @@ pub trait Socket: GetRawSocket {
     /// # Default value
     /// `None`
     fn set_heartbeat_ttl(&self, duration: Duration) -> Result<(), Error> {
-        let ms = duration.as_millis();
-        if ms > MAX_HB_TTL as u128 {
-            return Err(Error::new(ErrorKind::InvalidInput {
-                msg: "duration ms cannot exceed 6553599",
-            }));
-        }
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTtl,
-            duration,
-        )
+        self.raw_socket().set_heartbeat_ttl(duration)
     }
 
     /// Returns the linger period for the socket shutdown.
     fn linger(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_option_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::Linger,
-            -1,
-        )
+        self.raw_socket().linger()
     }
 
     /// Sets the linger period for the socket shutdown.
@@ -531,12 +487,7 @@ pub trait Socket: GetRawSocket {
     /// # Default Value
     /// 30 secs
     fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
-        setsockopt_option_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::Linger,
-            maybe,
-            -1,
-        )
+        self.raw_socket().set_linger(maybe)
     }
 
     /// # Example
@@ -556,6 +507,30 @@ pub trait Socket: GetRawSocket {
         self.raw_socket().mechanism().lock().unwrap().to_owned()
     }
 
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Client, auth::{PlainCreds, Mechanism}};
+    ///
+    /// let username = "some name".to_owned();
+    /// let password = "some password".to_owned();
+    ///
+    /// let creds = PlainCreds {
+    ///     username,
+    ///     password,
+    /// };
+    ///
+    /// let client = Client::new()?;
+    /// assert_eq!(client.mechanism(), Mechanism::Null);
+    ///
+    /// client.set_mechanism(&creds)?;
+    /// assert_eq!(client.mechanism(), Mechanism::PlainClient(creds));
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     fn set_mechanism<M>(&self, mechanism: M) -> Result<(), Error>
     where
         M: Into<Mechanism>,
@@ -572,23 +547,11 @@ pub trait Socket: GetRawSocket {
         match &*mutex {
             Mechanism::Null => (),
             Mechanism::PlainClient(_) => {
-                setsockopt_str(
-                    raw_socket.as_mut_ptr(),
-                    SocketOption::PlainUsername,
-                    None,
-                )?;
-                setsockopt_str(
-                    raw_socket.as_mut_ptr(),
-                    SocketOption::PlainPassword,
-                    None,
-                )?;
+                raw_socket.set_username(None)?;
+                raw_socket.set_password(None)?;
             }
             Mechanism::PlainServer => {
-                setsockopt_bool(
-                    raw_socket.as_mut_ptr(),
-                    SocketOption::PlainServer,
-                    false,
-                )?;
+                raw_socket.set_plain_server(false)?;
             }
         }
 
@@ -596,23 +559,11 @@ pub trait Socket: GetRawSocket {
         match &mechanism {
             Mechanism::Null => (),
             Mechanism::PlainClient(creds) => {
-                setsockopt_str(
-                    raw_socket.as_mut_ptr(),
-                    SocketOption::PlainUsername,
-                    Some(&creds.username),
-                )?;
-                setsockopt_str(
-                    raw_socket.as_mut_ptr(),
-                    SocketOption::PlainPassword,
-                    Some(&creds.password),
-                )?;
+                raw_socket.set_username(Some(&creds.username))?;
+                raw_socket.set_password(Some(&creds.password))?;
             }
             Mechanism::PlainServer => {
-                setsockopt_bool(
-                    raw_socket.as_mut_ptr(),
-                    SocketOption::PlainServer,
-                    true,
-                )?;
+                raw_socket.set_plain_server(true)?;
             }
         }
 

@@ -1,3 +1,5 @@
+//! Socket authentication and encryption.
+
 use crate::{addr::Endpoint, old::*, poll::*, prelude::*, socket::*, *};
 
 use failure::Fail;
@@ -26,6 +28,18 @@ lazy_static! {
 pub struct PlainCreds {
     pub username: String,
     pub password: String,
+}
+
+impl Into<Mechanism> for PlainCreds {
+    fn into(self) -> Mechanism {
+        Mechanism::PlainClient(self)
+    }
+}
+
+impl<'a> Into<Mechanism> for &'a PlainCreds {
+    fn into(self) -> Mechanism {
+        self.to_owned().into()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -444,7 +458,7 @@ mod test {
     use std::{convert::TryInto, thread, time::Duration};
 
     fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
-        let event = dbg!(monitor.next_event().unwrap());
+        let event = monitor.recv_event().unwrap();
         assert_eq!(event.event_type(), expected);
     }
 
