@@ -41,6 +41,7 @@ mod private {
 use crate::{
     addr::Endpoint,
     auth::*,
+    auth::curve::CurveKey,
     error::{Error, ErrorKind},
 };
 use std::time::Duration;
@@ -551,6 +552,15 @@ pub trait Socket: GetRawSocket {
             Mechanism::PlainServer => {
                 raw_socket.set_plain_server(false)?;
             }
+            Mechanism::CurveClient(_) => {
+                raw_socket.set_curve_server_key(None)?;
+                raw_socket.set_curve_public_key(None)?;
+                raw_socket.set_curve_secret_key(None)?;
+            }
+            Mechanism::CurveServer(_) => {
+                raw_socket.set_curve_secret_key(None)?;
+                raw_socket.set_curve_server(false)?;
+            }
         }
 
         // Apply new mechanism
@@ -562,6 +572,19 @@ pub trait Socket: GetRawSocket {
             }
             Mechanism::PlainServer => {
                 raw_socket.set_plain_server(true)?;
+            }
+            Mechanism::CurveClient(creds) => {
+                let server_key: CurveKey = (&creds.server).into();
+                raw_socket.set_curve_server_key(Some(&server_key))?;
+                let public_key: CurveKey = creds.client.public().into();
+                raw_socket.set_curve_public_key(Some(&public_key))?;
+                let secret_key: CurveKey = creds.client.secret().into();
+                raw_socket.set_curve_secret_key(Some(&secret_key))?;
+            }
+            Mechanism::CurveServer(creds) => {
+                let secret_key: CurveKey = (&creds.secret).into();
+                raw_socket.set_curve_secret_key(Some(&secret_key))?;
+                raw_socket.set_curve_server(true)?;
             }
         }
 

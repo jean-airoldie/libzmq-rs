@@ -3,6 +3,7 @@
 pub mod curve;
 
 use crate::{old::*, poll::*, prelude::*, socket::*, *};
+use curve::*;
 
 use failure::Fail;
 use hashbrown::{HashMap, HashSet};
@@ -45,6 +46,20 @@ impl<'a> Into<Mechanism> for &'a PlainCreds {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CurveClientCreds {
+    /// The client's z85 key pair.
+    pub client: Z85Cert,
+    /// The server's public key.
+    pub server: Z85Key,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CurveServerCreds {
+    /// The server's secret key.
+    pub secret: Z85Key,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Mechanism {
     /// No encryption or authentication.
     ///
@@ -54,6 +69,8 @@ pub enum Mechanism {
     PlainClient(PlainCreds),
     /// Plain text authentication with no encryption.
     PlainServer,
+    CurveClient(CurveClientCreds),
+    CurveServer(CurveServerCreds),
 }
 
 impl<'a> From<&'a Mechanism> for Mechanism {

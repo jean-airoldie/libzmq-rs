@@ -37,6 +37,10 @@ pub(crate) enum SocketOption {
     ZapDomain = sys::ZMQ_ZAP_DOMAIN as isize,
     Subscribe = sys::ZMQ_SUBSCRIBE as isize,
     Unsubscribe = sys::ZMQ_UNSUBSCRIBE as isize,
+    CurvePublicKey = sys::ZMQ_CURVE_PUBLICKEY as isize,
+    CurveSecretKey = sys::ZMQ_CURVE_SECRETKEY as isize,
+    CurveServer = sys::ZMQ_CURVE_SERVER as isize,
+    CurveServerKey = sys::ZMQ_CURVE_SERVERKEY as isize,
 }
 
 impl From<SocketOption> for c_int {
@@ -74,6 +78,16 @@ impl From<SocketOption> for c_int {
             SocketOption::ZapDomain => SocketOption::ZapDomain as c_int,
             SocketOption::Subscribe => SocketOption::Subscribe as c_int,
             SocketOption::Unsubscribe => SocketOption::Unsubscribe as c_int,
+            SocketOption::CurvePublicKey => {
+                SocketOption::CurvePublicKey as c_int
+            }
+            SocketOption::CurveSecretKey => {
+                SocketOption::CurveSecretKey as c_int
+            }
+            SocketOption::CurveServer => SocketOption::CurveServer as c_int,
+            SocketOption::CurveServerKey => {
+                SocketOption::CurveServerKey as c_int
+            }
         }
     }
 }

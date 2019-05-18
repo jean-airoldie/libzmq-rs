@@ -1,5 +1,5 @@
 use crate::{
-    addr::Endpoint, auth::*, core::sockopt::*, error::*,
+    addr::Endpoint, auth::curve::*, auth::*, core::sockopt::*, error::*,
     monitor::init_socket_monitor, Ctx, InprocAddr,
 };
 use libzmq_sys as sys;
@@ -473,7 +473,7 @@ impl RawSocket {
         setsockopt_bool(self.as_mut_ptr(), SocketOption::NoDrop, enabled)
     }
 
-    pub fn subscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+    pub(crate) fn subscribe(&self, bytes: &[u8]) -> Result<(), Error> {
         setsockopt_bytes(
             self.as_mut_ptr(),
             SocketOption::Subscribe,
@@ -481,11 +481,42 @@ impl RawSocket {
         )
     }
 
-    pub fn unsubscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+    pub(crate) fn unsubscribe(&self, bytes: &[u8]) -> Result<(), Error> {
         setsockopt_bytes(
             self.as_mut_ptr(),
             SocketOption::Unsubscribe,
             Some(bytes),
+        )
+    }
+
+    pub(crate) fn set_curve_public_key(&self, key: Option<&CurveKey>) -> Result<(), Error> {
+        let key = key.map(|k| k.as_bytes());
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::CurvePublicKey,
+            key,
+        )
+    }
+
+    pub(crate) fn set_curve_secret_key(&self, key: Option<&CurveKey>) -> Result<(), Error> {
+        let key = key.map(|k| k.as_bytes());
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::CurveSecretKey,
+            key,
+        )
+    }
+
+    pub(crate) fn set_curve_server(&self, enabled: bool) -> Result<(), Error> {
+        setsockopt_bool(self.as_mut_ptr(), SocketOption::CurveServer, enabled)
+    }
+
+    pub(crate) fn set_curve_server_key(&self, key: Option<&CurveKey>) -> Result<(), Error> {
+        let key = key.map(|k| k.as_bytes());
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::CurveServerKey,
+            key,
         )
     }
 }
