@@ -493,7 +493,7 @@ impl RawSocket {
         &self,
         key: Option<&CurveKey>,
     ) -> Result<(), Error> {
-        let key = key.map(|k| k.as_bytes());
+        let key = key.map(CurveKey::as_bytes);
         setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurvePublicKey, key)
     }
 
@@ -501,7 +501,7 @@ impl RawSocket {
         &self,
         key: Option<&CurveKey>,
     ) -> Result<(), Error> {
-        let key = key.map(|k| k.as_bytes());
+        let key = key.map(CurveKey::as_bytes);
         setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveSecretKey, key)
     }
 
@@ -513,7 +513,7 @@ impl RawSocket {
         &self,
         key: Option<&CurveKey>,
     ) -> Result<(), Error> {
-        let key = key.map(|k| k.as_bytes());
+        let key = key.map(CurveKey::as_bytes);
         setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveServerKey, key)
     }
 }

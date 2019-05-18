@@ -44,7 +44,7 @@ use std::{sync::Arc, time::Duration};
 ///     .build()?;
 ///
 /// // Send a string request.
-/// client.send("do something nerd")?;
+/// client.send("tell me something")?;
 ///
 /// // Receive the client request.
 /// let msg = server.recv_msg()?;
@@ -55,7 +55,7 @@ use std::{sync::Arc, time::Duration};
 /// reply.set_routing_id(id);
 /// server.send(reply)?;
 ///
-/// // Hey, why not reply twice?
+/// // We can reply twice if we want.
 /// let mut reply: Msg = "also don't talk to me".into();
 /// reply.set_routing_id(id);
 /// server.send(reply)?;

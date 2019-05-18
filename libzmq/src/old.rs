@@ -117,14 +117,6 @@ impl OldSocket {
         self.inner.bind(&endpoint)
     }
 
-    pub(crate) fn unbind<E>(&mut self, endpoint: E) -> Result<(), Error>
-    where
-        E: Into<Endpoint>,
-    {
-        let endpoint = endpoint.into();
-        self.inner.unbind(&endpoint)
-    }
-
     pub(crate) fn connect<E>(&mut self, endpoint: E) -> Result<(), Error>
     where
         E: Into<Endpoint>,

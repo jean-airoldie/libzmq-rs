@@ -72,20 +72,19 @@ fn z85_encode(input: &[u8]) -> Result<String, Z85Error> {
 fn z85_decode_chunk(input: &[u8]) -> Result<[u8; 4], usize> {
     let mut num: u32 = 0;
 
-    for i in 0..5 {
+    for (i, &byte) in input.iter().enumerate().take(5) {
         num *= 85;
 
-        let l = input[i];
-        if l < 0x20 || 0x7F < l {
+        if byte < 0x20 || 0x7F < byte {
             return Err(i);
         }
 
-        let b = OCTETS[l as usize - 32];
+        let b = OCTETS[byte as usize - 32];
         if b == 0xFF {
             return Err(i);
         }
 
-        num += b as u32;
+        num += u32::from(b);
     }
 
     let mut out = [0_u8; 4];
@@ -133,13 +132,11 @@ impl Z85Key {
         }
 
         let bytes = text.as_bytes();
-        let mut pos = 0;
 
-        for &byte in bytes {
+        for (pos, &byte) in bytes.iter().enumerate() {
             if !LETTERS.contains(&byte) {
                 return Err(Z85Error::InvalidByte { pos, byte });
             }
-            pos += 1;
         }
 
         Ok(Self { text })
