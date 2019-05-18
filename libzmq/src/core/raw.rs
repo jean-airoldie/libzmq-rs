@@ -489,35 +489,32 @@ impl RawSocket {
         )
     }
 
-    pub(crate) fn set_curve_public_key(&self, key: Option<&CurveKey>) -> Result<(), Error> {
+    pub(crate) fn set_curve_public_key(
+        &self,
+        key: Option<&CurveKey>,
+    ) -> Result<(), Error> {
         let key = key.map(|k| k.as_bytes());
-        setsockopt_bytes(
-            self.as_mut_ptr(),
-            SocketOption::CurvePublicKey,
-            key,
-        )
+        setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurvePublicKey, key)
     }
 
-    pub(crate) fn set_curve_secret_key(&self, key: Option<&CurveKey>) -> Result<(), Error> {
+    pub(crate) fn set_curve_secret_key(
+        &self,
+        key: Option<&CurveKey>,
+    ) -> Result<(), Error> {
         let key = key.map(|k| k.as_bytes());
-        setsockopt_bytes(
-            self.as_mut_ptr(),
-            SocketOption::CurveSecretKey,
-            key,
-        )
+        setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveSecretKey, key)
     }
 
     pub(crate) fn set_curve_server(&self, enabled: bool) -> Result<(), Error> {
         setsockopt_bool(self.as_mut_ptr(), SocketOption::CurveServer, enabled)
     }
 
-    pub(crate) fn set_curve_server_key(&self, key: Option<&CurveKey>) -> Result<(), Error> {
+    pub(crate) fn set_curve_server_key(
+        &self,
+        key: Option<&CurveKey>,
+    ) -> Result<(), Error> {
         let key = key.map(|k| k.as_bytes());
-        setsockopt_bytes(
-            self.as_mut_ptr(),
-            SocketOption::CurveServerKey,
-            key,
-        )
+        setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveServerKey, key)
     }
 }
 

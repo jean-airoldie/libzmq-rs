@@ -40,8 +40,8 @@ mod private {
 
 use crate::{
     addr::Endpoint,
-    auth::*,
     auth::curve::CurveKey,
+    auth::*,
     error::{Error, ErrorKind},
 };
 use std::time::Duration;
