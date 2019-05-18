@@ -11,7 +11,7 @@ use std::{
     fmt,
     os::raw::c_void,
     ptr, slice,
-    str::{self, Utf8Error},
+    str::{self, FromStr, Utf8Error},
 };
 
 /// A generated ID used to route messages to the approriate client.
@@ -24,17 +24,19 @@ use std::{
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, Msg, addr::InprocAddr};
+/// use libzmq::{prelude::*, socket::*, Msg, addr::TcpAddr};
 /// use std::convert::TryInto;
 ///
-/// let addr: InprocAddr = "test".try_into()?;
-///
-/// let client = ClientBuilder::new()
-///     .connect(&addr)
-///     .build()?;
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
 /// let server = ServerBuilder::new()
 ///     .bind(addr)
+///     .build()?;
+///
+/// let bound = server.last_endpoint()?;
+///
+/// let client = ClientBuilder::new()
+///     .connect(bound)
 ///     .build()?;
 ///
 /// // The client initiates the conversation.
@@ -54,6 +56,17 @@ use std::{
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct RoutingId(u32);
+
+impl RoutingId {
+    pub(crate) fn from_str(s: &str) -> Option<Self> {
+        if let Ok(id) = u32::from_str(s) {
+            if id != 0 {
+                return Some(RoutingId(id));
+            }
+        }
+        None
+    }
+}
 
 impl From<RoutingId> for u32 {
     fn from(r: RoutingId) -> u32 {
@@ -295,7 +308,7 @@ impl Msg {
         G: Into<&'a Group>,
     {
         let group: &Group = group.into();
-        let c_string = CString::new(group.as_str().as_bytes()).unwrap();
+        let c_string = CString::new(group.as_str()).unwrap();
         let rc = unsafe {
             sys::zmq_msg_set_group(self.as_mut_ptr(), c_string.as_ptr())
         };
@@ -332,6 +345,11 @@ impl Msg {
 
     pub(crate) fn as_ptr(&self) -> *const sys::zmq_msg_t {
         &self.msg
+    }
+
+    pub(crate) fn has_more(&self) -> bool {
+        let rc = unsafe { sys::zmq_msg_more(self.as_ptr()) };
+        rc != 0
     }
 }
 

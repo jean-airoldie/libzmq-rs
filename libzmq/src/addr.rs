@@ -123,7 +123,6 @@ impl Hostname {
         if !name.is_empty() {
             for c in name.as_str().chars() {
                 if !c.is_ascii_alphanumeric() && c != '-' {
-                    dbg!(c);
                     return Err(AddrParseError::new(
                         "hostname contains illegal char",
                     ));
@@ -1028,8 +1027,9 @@ impl<'a> From<&'a EpgmAddr> for Endpoint {
 /// use std::convert::TryInto;
 ///
 /// // Can be any arbitrary string.
-/// let test: InprocAddr = "test".try_into()?;
-/// let rand: InprocAddr = "LKH*O&_[::O2134KG".try_into()?;
+/// let addr: InprocAddr = "test".try_into()?;
+/// // Any character is allowed.
+/// let addr: InprocAddr = "LKH*O&_[::O2134KG".try_into()?;
 /// #
 /// #     Ok(())
 /// # }
@@ -1333,6 +1333,18 @@ impl<'a> IntoIterator for &'a Endpoint {
     }
 }
 
+impl<'a> From<&'a Endpoint> for Endpoint {
+    fn from(e: &'a Endpoint) -> Self {
+        e.to_owned()
+    }
+}
+
+impl AsRef<Endpoint> for Endpoint {
+    fn as_ref(&self) -> &Endpoint {
+        &self
+    }
+}
+
 #[cfg(test)]
 mod test {
     macro_rules! test_addr_ser_de {
@@ -1347,7 +1359,6 @@ mod test {
                     let endpoint: Endpoint = addr.into();
 
                     let ron = ron::ser::to_string(&endpoint).unwrap();
-                    println!("{}", ron);
                     let de: Endpoint = ron::de::from_str(&ron).unwrap();
                     assert_eq!(endpoint, de);
                 }

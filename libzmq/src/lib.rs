@@ -7,10 +7,13 @@ pub use failure;
 #[macro_use]
 mod core;
 pub mod addr;
+pub mod auth;
 pub mod ctx;
 mod error;
 pub mod group;
+pub mod monitor;
 mod msg;
+mod old;
 pub mod poll;
 pub mod socket;
 mod utils;
@@ -23,7 +26,10 @@ pub use error::{Error, ErrorKind};
 #[doc(inline)]
 pub use group::{Group, GroupOwned};
 pub use msg::*;
-pub use socket::{Client, Dish, Radio, Server};
+pub use socket::{
+    Client, ClientBuilder, Dish, DishBuilder, Radio, RadioBuilder, Server,
+    ServerBuilder,
+};
 pub use utils::*;
 
 /// A "prelude" for users of the `ØMQ` crate.

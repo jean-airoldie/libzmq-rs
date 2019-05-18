@@ -15,7 +15,7 @@ use std::{ffi, os::raw::*, ptr, str};
 /// ```
 /// use libzmq::version;
 ///
-/// assert_eq!(version(), (4, 3, 1));
+/// assert_eq!(version(), (4, 3, 2));
 /// ```
 // This test acts as a canary when upgrading the libzmq
 // version.
@@ -49,7 +49,15 @@ pub fn has(capability: &str) -> bool {
     unsafe { sys::zmq_has(c_str.as_ptr()) == 1 }
 }
 
-/// Start built-in ØMQ proxy between a frontend and a backend socket.
+/// Start a built-in ØMQ proxy between a frontend and a backend socket.
+///
+/// The two sockets must be configured before creating the proxy.
+///
+/// The proxy connects a frontend socket to a backend socket. Conceptually, data
+/// flows from frontend to backend. Depending on the socket types, replies may
+/// flow in the opposite direction. The direction is conceptual only; the proxy
+/// is fully symmetric and there is no technical difference between frontend and
+/// backend.
 ///
 /// # Returned Errors
 /// * [`CtxTerminated`]
@@ -59,19 +67,14 @@ pub fn has(capability: &str) -> bool {
 /// #
 /// # use failure::Error;
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{
-///     prelude::*, Ctx, addr::InprocAddr, socket::*, Group, ErrorKind, Msg, proxy
-/// };
+/// use libzmq::{prelude::*, *};
 /// use std::{thread, convert::TryInto};
 ///
 /// let radio_addr: InprocAddr = "frontend".try_into()?;
 /// let dish_addr: InprocAddr = "backend".try_into()?;
 /// let group: &Group = "some group".try_into()?;
 ///
-/// // Using `no_drop = true` is usually an anti-pattern. In this case it is used
-/// // for demonstration purposes.
 /// let radio = RadioBuilder::new()
-///     .no_drop()
 ///     .bind(&radio_addr)
 ///     .build()?;
 ///
@@ -89,25 +92,21 @@ pub fn has(capability: &str) -> bool {
 ///     .join(group)
 ///     .build()?;
 ///
-/// let proxy_handle = thread::spawn(move || proxy(&frontend, &backend));
+/// let proxy_handle = thread::spawn(move || proxy(frontend, backend));
 ///
 /// let mut msg = Msg::new();
 /// msg.set_group(group);
 /// radio.send(msg)?;
+///
 /// let msg = dish.recv_msg()?;
 /// assert!(msg.is_empty());
-///
-/// // This will cause the proxy terminate with `CtxTerminated`.
-/// let _ = Ctx::global().shutdown();
-/// let err = proxy_handle.join().unwrap().unwrap_err();
-/// assert_eq!(err.kind(), ErrorKind::CtxTerminated);
 /// #
 /// #     Ok(())
 /// # }
 /// ```
 ///
 /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-pub fn proxy<F, B>(frontend: &F, backend: &B) -> Result<(), Error>
+pub fn proxy<F, B>(frontend: F, backend: B) -> Result<(), Error>
 where
     F: GetRawSocket,
     B: GetRawSocket,

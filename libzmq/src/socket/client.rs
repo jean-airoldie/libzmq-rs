@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, core::*, error::*, Ctx};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
@@ -17,9 +17,57 @@ use std::{sync::Arc, time::Duration};
 ///
 /// # Mute State
 /// When `Client` socket enters the mute state due to having reached the high water
-/// mark, or if there are no peers at all, then any send operations
-/// on the socket shall block unitl the mute state ends or at least one peer becomes
+/// mark, or if there are no peers at all, then any send operations on the
+/// socket shall block until the mute state ends or at least one peer becomes
 /// available for sending; messages are not discarded.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::{prelude::*, *};
+/// use std::convert::TryInto;
+///
+/// // Use a system assigned port.
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
+///
+/// let server = ServerBuilder::new()
+///     .bind(addr)
+///     .build()?;
+///
+/// // Retrieve the addr that was assigned.
+/// let bound = server.last_endpoint()?;
+///
+/// let client = ClientBuilder::new()
+///     .connect(bound)
+///     .build()?;
+///
+/// // Send a string request.
+/// client.send("tell me something")?;
+///
+/// // Receive the client request.
+/// let msg = server.recv_msg()?;
+/// let id = msg.routing_id().unwrap();
+///
+/// // Reply to the client.
+/// let mut reply: Msg = "it takes 224 bits to store a i32 in java".into();
+/// reply.set_routing_id(id);
+/// server.send(reply)?;
+///
+/// // We can reply twice if we want.
+/// let mut reply: Msg = "also don't talk to me".into();
+/// reply.set_routing_id(id);
+/// server.send(reply)?;
+///
+/// // Retreive the first reply.
+/// let mut msg = client.recv_msg()?;
+/// // And the second.
+/// client.recv(&mut msg)?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
 ///
 /// # Summary of Characteristics
 /// | Characteristic            | Value                  |
@@ -110,10 +158,10 @@ impl ClientConfig {
     }
 
     pub fn build(&self) -> Result<Client, Error<usize>> {
-        self.build_with_ctx(Ctx::global())
+        self.with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
     where
         C: Into<Ctx>,
     {
@@ -125,9 +173,9 @@ impl ClientConfig {
     }
 
     pub fn apply(&self, client: &Client) -> Result<(), Error<usize>> {
-        self.socket_config.apply(client)?;
         self.send_config.apply(client).map_err(Error::cast)?;
         self.recv_config.apply(client).map_err(Error::cast)?;
+        self.socket_config.apply(client)?;
 
         Ok(())
     }
@@ -138,9 +186,6 @@ struct FlatClientConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    connect_timeout: Option<Duration>,
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_interval: Option<Duration>,
@@ -161,6 +206,7 @@ struct FlatClientConfig {
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     recv_timeout: Option<Duration>,
+    mechanism: Option<Mechanism>,
 }
 
 impl From<ClientConfig> for FlatClientConfig {
@@ -172,11 +218,11 @@ impl From<ClientConfig> for FlatClientConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             backlog: socket_config.backlog,
-            connect_timeout: socket_config.connect_timeout,
             heartbeat_interval: socket_config.heartbeat_interval,
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
             linger: socket_config.linger,
+            mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
             recv_high_water_mark: recv_config.recv_high_water_mark,
@@ -191,11 +237,11 @@ impl From<FlatClientConfig> for ClientConfig {
             connect: flat.connect,
             bind: flat.bind,
             backlog: flat.backlog,
-            connect_timeout: flat.connect_timeout,
             heartbeat_interval: flat.heartbeat_interval,
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
             linger: flat.linger,
+            mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,
@@ -249,6 +295,9 @@ impl GetSendConfig for ClientConfig {
 
 impl ConfigureSend for ClientConfig {}
 
+/// A builder for a `Client`.
+///
+/// Allows for ergonomic one line socket configuration.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ClientBuilder {
     inner: ClientConfig,
@@ -263,11 +312,11 @@ impl ClientBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
     where
         C: Into<Ctx>,
     {
-        self.inner.build_with_ctx(ctx)
+        self.inner.with_ctx(ctx)
     }
 }
 
