@@ -25,7 +25,7 @@ let client = ClientBuilder::new()
     .build()?;
 
 // Send a string request.
-client.send("do something nerd")?;
+client.send("tell me something")?;
 
 // Receive the client request.
 let msg = server.recv_msg()?;
@@ -36,7 +36,7 @@ let mut reply: Msg = "it takes 224 bits to store a i32 in java".into();
 reply.set_routing_id(id);
 server.send(reply)?;
 
-// Hey, why not reply twice?
+// We can reply twice if we want.
 let mut reply: Msg = "also don't talk to me".into();
 reply.set_routing_id(id);
 server.send(reply)?;
@@ -49,7 +49,7 @@ client.recv(&mut msg)?;
 
 # Installation
 This crate builds and generates bindings from source. This means that you
-do not need to install `libzmq`. However building from source requires:
+do not need to install [`libzmq`]. However building from source requires:
 * [CMake 2.8.12+ (or 3.0.2+ on Darwin)](https://github.com/zeromq/libzmq/blob/de4d69f59788fed86bcb0f610723c5acd486a7da/CMakeLists.txt#L7)
 * [Clang 6.0+](https://github.com/rust-lang/rust-bindgen/blob/master/Cargo.toml#L51)
 
@@ -60,12 +60,12 @@ By default `libzmq` is built and linked dynamically. To change this behavior
 # General Goals
 * Conform to these [`API guidelines`].
 * Provide an ergonomic API
-* Prevent footguns (which are plentifull in `libzmq`)
+* Prevent footguns (which are plentifull in [`libzmq`])
 * Minimize the learning curve
 * Don't sacrifice any performance
 * Extensively document
 
-To do so we will only use a subset of `libzmq`. If you'd rather have a complete
+To do so we will only use a subset of [`libzmq`]. If you'd rather have a complete
 port, check out [`rust-zmq`].
 
 # Stability Guarantees
@@ -78,7 +78,7 @@ version is released.
 See the [`FAQ`](./FAQ.md).
 
 # Aknowledgements
-* Based on [`rust-zmq`] and [`cmzq`]
+* Based on [`rust-zmq`] and [`czmq`].
 
 # License
 This project is licensed under either of
