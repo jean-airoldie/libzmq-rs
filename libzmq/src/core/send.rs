@@ -133,16 +133,7 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     fn send_high_water_mark(&self) -> Result<Option<i32>, Error> {
-        let limit = getsockopt_scalar(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::SendHighWaterMark,
-        )?;
-
-        if limit == 0 {
-            Ok(None)
-        } else {
-            Ok(Some(limit))
-        }
+        self.raw_socket().send_high_water_mark()
     }
 
     /// Set the high water mark for outbound messages on the specified socket.
@@ -158,24 +149,9 @@ pub trait SendMsg: GetRawSocket {
     /// 1000
     fn set_send_high_water_mark(
         &self,
-        high_water_mark: Option<i32>,
+        maybe: Option<i32>,
     ) -> Result<(), Error> {
-        let socket_ptr = self.raw_socket().as_mut_ptr();
-        match high_water_mark {
-            Some(limit) => {
-                assert!(limit != 0, "high water mark cannot be zero");
-                setsockopt_scalar(
-                    socket_ptr,
-                    SocketOption::SendHighWaterMark,
-                    limit,
-                )
-            }
-            None => setsockopt_scalar(
-                socket_ptr,
-                SocketOption::SendHighWaterMark,
-                0,
-            ),
-        }
+        self.raw_socket().set_send_high_water_mark(maybe)
     }
 
     /// Sets the timeout for [`send`] on the socket.
@@ -184,11 +160,7 @@ pub trait SendMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise,
     /// it will block until the message is sent.
     fn send_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::SendTimeout,
-            -1,
-        )
+        self.raw_socket().send_timeout()
     }
 
     /// Sets the timeout for [`send`] on the socket.
@@ -219,13 +191,8 @@ pub trait SendMsg: GetRawSocket {
     /// #     Ok(())
     /// # }
     /// ```
-    fn set_send_timeout(&self, timeout: Option<Duration>) -> Result<(), Error> {
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::SendTimeout,
-            timeout,
-            -1,
-        )
+    fn set_send_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
+        self.raw_socket().set_send_timeout(maybe)
     }
 }
 

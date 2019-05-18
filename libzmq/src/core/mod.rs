@@ -5,7 +5,7 @@ mod recv;
 mod send;
 pub(crate) mod sockopt;
 
-pub(crate) use raw::{GetRawSocket, RawSocket, RawSocketType};
+pub(crate) use raw::*;
 
 pub use recv::*;
 pub use send::*;
@@ -32,130 +32,19 @@ mod private {
     impl Sealed for DishConfig {}
     impl Sealed for DishBuilder {}
     impl Sealed for SocketType {}
+
+    // Pub crate
+    use crate::old::OldSocket;
+    impl Sealed for OldSocket {}
 }
 
 use crate::{
     addr::Endpoint,
-    error::{msg_from_errno, Error, ErrorKind},
+    auth::curve::CurveKey,
+    auth::*,
+    error::{Error, ErrorKind},
 };
-use libzmq_sys as sys;
-use sockopt::*;
-use sys::errno;
-
-use std::{ffi::CString, os::raw::c_void, time::Duration};
-
-const MAX_HB_TTL: i64 = 6_553_599;
-
-fn connect(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_connect(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol not supported",
-                }),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol incompatible",
-                }),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
-
-fn bind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_bind(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol not supported",
-                }),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
-                    msg: "endpoint protocol incompatible",
-                }),
-                errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
-                errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
-                errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
-
-fn disconnect(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_disconnect(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => Error::new(ErrorKind::NotFound {
-                    msg: "endpoint was not connected to",
-                }),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
-
-fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_unbind(socket_ptr, c_str.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid endpoint",
-                }),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => Error::new(ErrorKind::NotFound {
-                    msg: "endpoint was not bound to",
-                }),
-                _ => panic!(msg_from_errno(errno)),
-            }
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
+use std::time::Duration;
 
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
@@ -173,12 +62,13 @@ pub trait Socket: GetRawSocket {
     /// See [`zmq_connect`].
     ///
     /// # Usage Contract
-    /// * The endpoint must be valid (Endpoint does not do any validation atm).
-    /// * The endpoint's protocol must be supported by the socket..
+    /// * The endpoint(s) must be valid (Endpoint does not do any validation atm).
+    /// * The endpoint's protocol must be supported by the socket.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if endpoint is invalid)
-    /// * [`IncompatTransport`]
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`IncompatTransport`] (transport not supported)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
@@ -197,14 +87,22 @@ pub trait Socket: GetRawSocket {
 
         for endpoint in endpoints.into_iter() {
             let endpoint: Endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            connect(raw_socket.as_mut_ptr(), c_str)
+            raw_socket
+                .connect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             guard.push(endpoint);
             count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
 
     /// Returns a snapshot of the list of connected `Endpoint`.
@@ -217,16 +115,16 @@ pub trait Socket: GetRawSocket {
     /// use libzmq::{prelude::*, Client, addr::{InprocAddr, Endpoint}};
     /// use std::convert::TryInto;
     ///
-    /// let inproc: InprocAddr = "test".try_into()?;
+    /// let addr: InprocAddr = "test".try_into()?;
     ///
     /// let client = Client::new()?;
     /// assert!(client.connected().is_empty());
     ///
-    /// client.connect(&inproc)?;
-    /// let endpoint = Endpoint::from(&inproc);
+    /// client.connect(&addr)?;
+    /// let endpoint = Endpoint::from(&addr);
     /// assert!(client.connected().contains((&endpoint).into()));
     ///
-    /// client.disconnect(inproc)?;
+    /// client.disconnect(addr)?;
     /// assert!(client.connected().is_empty());
     /// #
     /// #     Ok(())
@@ -251,10 +149,11 @@ pub trait Socket: GetRawSocket {
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
     /// * The endpoint must be already connected to.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if endpoint is invalid)
-    /// * [`NotFound`] (if endpoint not connected to)
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`NotFound`] (endpoint not connected to)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
@@ -274,15 +173,23 @@ pub trait Socket: GetRawSocket {
 
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            disconnect(raw_socket.as_mut_ptr(), c_str)
+            raw_socket
+                .disconnect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             let position = guard.iter().position(|e| e == &endpoint).unwrap();
             guard.remove(position);
             count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
 
     /// Schedules a bind to one or more [`Endpoints`] and then accepts
@@ -303,12 +210,13 @@ pub trait Socket: GetRawSocket {
     /// * The transport must be supported by socket type.
     /// * The endpoint must not be in use.
     /// * The endpoint must be local.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if endpoint is invalid)
-    /// * [`IncompatTransport`] (if transport is not supported)
-    /// * [`AddrInUse`] (if addr already in use)
-    /// * [`AddrNotAvailable`] (if not local)
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`IncompatTransport`] (transport is not supported)
+    /// * [`AddrInUse`] (addr already in use)
+    /// * [`AddrNotAvailable`] (not local)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
@@ -324,17 +232,29 @@ pub trait Socket: GetRawSocket {
         E: Into<Endpoint>,
     {
         let mut count = 0;
+        let raw_socket = self.raw_socket();
+        let mut guard = raw_socket.bound().lock().unwrap();
+
         for endpoint in endpoints.into_iter() {
-            let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            let raw_socket = self.raw_socket();
-            bind(self.raw_socket().as_mut_ptr(), c_str)
+            let endpoint: Endpoint = endpoint.into();
+            raw_socket
+                .bind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            raw_socket.bound().lock().unwrap().push(endpoint);
+            // In case the endpoint had a system assigned port.
+            let endpoint = self.last_endpoint().unwrap().unwrap();
+            guard.push(endpoint);
             count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
     /// Returns a snapshot of the list of bound `Endpoint`.
     ///
@@ -388,14 +308,18 @@ pub trait Socket: GetRawSocket {
     /// of the iterator before the failure. This represents the number of
     /// unbinds that succeeded before the failure.
     ///
+    /// When a socket is dropped, it is unbound from all its associated endpoints
+    /// so that they become available for binding immediately.
+    ///
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
     /// * The endpoint must be currently bound.
+    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (if usage contract not followed)
+    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
     /// * [`CtxTerminated`]
-    /// * [`NotFound`] (if endpoint was not bound to)
+    /// * [`NotFound`] (endpoint was not bound to)
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
@@ -403,22 +327,34 @@ pub trait Socket: GetRawSocket {
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
-    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error>
+    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
+        let mut count = 0;
+        let raw_socket = self.raw_socket();
+        let mut guard = raw_socket.bound().lock().unwrap();
+
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
-            let c_str = CString::new(endpoint.to_zmq()).unwrap();
-            let raw_socket = self.raw_socket();
-            unbind(self.raw_socket().as_mut_ptr(), c_str)?;
+            raw_socket
+                .unbind(&endpoint)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            let mut bound = raw_socket.bound().lock().unwrap();
-            let position = bound.iter().position(|e| e == &endpoint).unwrap();
-            bound.remove(position);
+            let position = guard.iter().position(|e| e == &endpoint).unwrap();
+            guard.remove(position);
+            count += 1;
         }
-        Ok(())
+
+        // Empty iterator case.
+        if count == 0 {
+            Err(Error::new(ErrorKind::InvalidInput {
+                msg: "empty iterator",
+            }))
+        } else {
+            Ok(())
+        }
     }
 
     /// Retrieve the last endpoint connected or bound to.
@@ -454,12 +390,7 @@ pub trait Socket: GetRawSocket {
     /// # }
     /// ```
     fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
-        let maybe = getsockopt_string(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::LastEndpoint,
-        )?;
-
-        Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
+        self.raw_socket().last_endpoint()
     }
 
     /// Retrieve the maximum length of the queue of outstanding peer connections.
@@ -468,7 +399,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
     fn backlog(&self) -> Result<i32, Error> {
-        getsockopt_scalar(self.raw_socket().as_mut_ptr(), SocketOption::Backlog)
+        self.raw_socket().backlog()
     }
 
     /// Set the maximum length of the queue of outstanding peer connections
@@ -485,63 +416,12 @@ pub trait Socket: GetRawSocket {
     ///
     /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
     fn set_backlog(&self, value: i32) -> Result<(), Error> {
-        setsockopt_scalar(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::Backlog,
-            value,
-        )
-    }
-
-    /// Retrieves how many milliseconds to wait before timing-out a [`connect`]
-    /// call.
-    ///
-    /// See `ZMQ_CONNECT_TIMEOUT` in [`zmq_getsockopt`].
-    ///
-    /// [`connect`]: #method.connect
-    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-    fn connect_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::ConnectTimeout,
-            -1,
-        )
-    }
-
-    /// Sets how much time to wait before timing-out a [`connect`] call.
-    ///
-    /// The `connect` call normally takes a long time before it returns
-    /// a time out error.
-    ///
-    /// # Default Value
-    /// `None`
-    ///
-    /// # Applicable Socket Type
-    /// All (TCP transport)
-    fn set_connect_timeout(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        if let Some(ref duration) = maybe_duration {
-            assert!(
-                duration.as_millis() > 0,
-                "number of ms in duration cannot be zero"
-            );
-        }
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::ConnectTimeout,
-            maybe_duration,
-            0,
-        )
+        self.raw_socket().set_backlog(value)
     }
 
     /// The interval between sending ZMTP heartbeats.
-    fn heartbeat_interval(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatInterval,
-            0,
-        )
+    fn heartbeat_interval(&self) -> Result<Duration, Error> {
+        self.raw_socket().heartbeat_interval()
     }
 
     /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
@@ -551,56 +431,32 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Applicable Socket Type
     /// All (connection oriented transports)
-    fn set_heartbeat_interval(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatInterval,
-            maybe_duration,
-            0,
-        )
+    fn set_heartbeat_interval(&self, duration: Duration) -> Result<(), Error> {
+        self.raw_socket().set_heartbeat_interval(duration)
     }
 
     /// How long to wait before timing-out a connection after sending a
     /// PING ZMTP command and not receiving any traffic.
-    fn heartbeat_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTimeout,
-            0,
-        )
+    fn heartbeat_timeout(&self) -> Result<Duration, Error> {
+        self.raw_socket().heartbeat_timeout()
     }
 
     /// How long to wait before timing-out a connection after sending a
     /// PING ZMTP command and not receiving any traffic.
     ///
     /// # Default Value
-    /// `None`. If `heartbeat_interval` is set, then it uses the same value
+    /// `0`. If `heartbeat_interval` is set, then it uses the same value
     /// by default.
-    fn set_heartbeat_timeout(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTimeout,
-            maybe_duration,
-            0,
-        )
+    fn set_heartbeat_timeout(&self, duration: Duration) -> Result<(), Error> {
+        self.raw_socket().set_heartbeat_timeout(duration)
     }
 
     /// The timeout on the remote peer for ZMTP heartbeats.
     /// If this option and `heartbeat_interval` is not `None` the remote
     /// side shall time out the connection if it does not receive any more
     /// traffic within the TTL period.
-    fn heartbeat_ttl(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTtl,
-            0,
-        )
+    fn heartbeat_ttl(&self) -> Result<Duration, Error> {
+        self.raw_socket().heartbeat_ttl()
     }
 
     /// Set timeout on the remote peer for ZMTP heartbeats.
@@ -610,33 +466,13 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default value
     /// `None`
-    fn set_heartbeat_ttl(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        if let Some(ref duration) = maybe_duration {
-            let ms = duration.as_millis();
-            if ms > MAX_HB_TTL as u128 {
-                return Err(Error::new(ErrorKind::InvalidInput {
-                    msg: "duration ms cannot exceed 6553599",
-                }));
-            }
-        }
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::HeartbeatTtl,
-            maybe_duration,
-            0,
-        )
+    fn set_heartbeat_ttl(&self, duration: Duration) -> Result<(), Error> {
+        self.raw_socket().set_heartbeat_ttl(duration)
     }
 
     /// Returns the linger period for the socket shutdown.
     fn linger(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::Linger,
-            -1,
-        )
+        self.raw_socket().linger()
     }
 
     /// Sets the linger period for the socket shutdown.
@@ -649,16 +485,112 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::Linger,
-            maybe_duration,
-            -1,
-        )
+    fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
+        self.raw_socket().set_linger(maybe)
+    }
+
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Server, auth::Mechanism};
+    ///
+    /// let server = Server::new()?;
+    /// assert_eq!(server.mechanism(), Mechanism::Null);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    fn mechanism(&self) -> Mechanism {
+        self.raw_socket().mechanism().lock().unwrap().to_owned()
+    }
+
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Client, auth::{PlainCreds, Mechanism}};
+    ///
+    /// let username = "some name".to_owned();
+    /// let password = "some password".to_owned();
+    ///
+    /// let creds = PlainCreds {
+    ///     username,
+    ///     password,
+    /// };
+    ///
+    /// let client = Client::new()?;
+    /// assert_eq!(client.mechanism(), Mechanism::Null);
+    ///
+    /// client.set_mechanism(&creds)?;
+    /// assert_eq!(client.mechanism(), Mechanism::PlainClient(creds));
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    fn set_mechanism<M>(&self, mechanism: M) -> Result<(), Error>
+    where
+        M: Into<Mechanism>,
+    {
+        let mechanism = mechanism.into();
+        let raw_socket = self.raw_socket();
+        let mut mutex = raw_socket.mechanism().lock().unwrap();
+
+        if *mutex == mechanism {
+            return Ok(());
+        }
+
+        // Undo previous mechanism
+        match &*mutex {
+            Mechanism::Null => (),
+            Mechanism::PlainClient(_) => {
+                raw_socket.set_username(None)?;
+                raw_socket.set_password(None)?;
+            }
+            Mechanism::PlainServer => {
+                raw_socket.set_plain_server(false)?;
+            }
+            Mechanism::CurveClient(_) => {
+                raw_socket.set_curve_server_key(None)?;
+                raw_socket.set_curve_public_key(None)?;
+                raw_socket.set_curve_secret_key(None)?;
+            }
+            Mechanism::CurveServer(_) => {
+                raw_socket.set_curve_secret_key(None)?;
+                raw_socket.set_curve_server(false)?;
+            }
+        }
+
+        // Apply new mechanism
+        match &mechanism {
+            Mechanism::Null => (),
+            Mechanism::PlainClient(creds) => {
+                raw_socket.set_username(Some(&creds.username))?;
+                raw_socket.set_password(Some(&creds.password))?;
+            }
+            Mechanism::PlainServer => {
+                raw_socket.set_plain_server(true)?;
+            }
+            Mechanism::CurveClient(creds) => {
+                let server_key: CurveKey = (&creds.server).into();
+                raw_socket.set_curve_server_key(Some(&server_key))?;
+                let public_key: CurveKey = creds.client.public().into();
+                raw_socket.set_curve_public_key(Some(&public_key))?;
+                let secret_key: CurveKey = creds.client.secret().into();
+                raw_socket.set_curve_secret_key(Some(&secret_key))?;
+            }
+            Mechanism::CurveServer(creds) => {
+                let secret_key: CurveKey = (&creds.secret).into();
+                raw_socket.set_curve_secret_key(Some(&secret_key))?;
+                raw_socket.set_curve_server(true)?;
+            }
+        }
+
+        // Update mechanism
+        *mutex = mechanism;
+        Ok(())
     }
 }
 
@@ -668,11 +600,11 @@ pub struct SocketConfig {
     pub(crate) connect: Option<Vec<Endpoint>>,
     pub(crate) bind: Option<Vec<Endpoint>>,
     pub(crate) backlog: Option<i32>,
-    pub(crate) connect_timeout: Option<Duration>,
     pub(crate) heartbeat_interval: Option<Duration>,
     pub(crate) heartbeat_timeout: Option<Duration>,
     pub(crate) heartbeat_ttl: Option<Duration>,
     pub(crate) linger: Option<Duration>,
+    pub(crate) mechanism: Option<Mechanism>,
 }
 
 impl SocketConfig {
@@ -683,12 +615,19 @@ impl SocketConfig {
         if let Some(value) = self.backlog {
             socket.set_backlog(value).map_err(Error::cast)?;
         }
-        socket.set_connect_timeout(self.connect_timeout).map_err(Error::cast)?;
-        socket.set_heartbeat_interval(self.heartbeat_interval).map_err(Error::cast)?;
-        socket.set_heartbeat_timeout(self.heartbeat_timeout).map_err(Error::cast)?;
-        socket.set_heartbeat_ttl(self.heartbeat_ttl).map_err(Error::cast)?;
+        if let Some(value) = self.heartbeat_interval {
+            socket.set_heartbeat_interval(value).map_err(Error::cast)?;
+        }
+        if let Some(value) = self.heartbeat_timeout {
+            socket.set_heartbeat_timeout(value).map_err(Error::cast)?;
+        }
+        if let Some(value) = self.heartbeat_ttl {
+            socket.set_heartbeat_ttl(value).map_err(Error::cast)?;
+        }
         socket.set_linger(self.linger).map_err(Error::cast)?;
-
+        if let Some(ref mechanism) = self.mechanism {
+            socket.set_mechanism(mechanism).map_err(Error::cast)?;
+        }
         // We connect as the last step because some socket options
         // only affect subsequent connections.
         if let Some(ref endpoints) = self.connect {
@@ -728,76 +667,76 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config().connect.as_ref().map(Vec::as_slice)
     }
 
-    fn set_connect<I, E>(&mut self, maybe_endpoints: Option<I>)
+    fn set_connect<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().map(Into::into).collect());
-        self.socket_config_mut().connect = maybe_vec;
+        let maybe: Option<Vec<Endpoint>> =
+            maybe.map(|e| e.into_iter().map(Into::into).collect());
+        self.socket_config_mut().connect = maybe;
     }
 
     fn bind(&self) -> Option<&[Endpoint]> {
         self.socket_config().bind.as_ref().map(Vec::as_slice)
     }
 
-    fn set_bind<I, E>(&mut self, maybe_endpoints: Option<I>)
+    fn set_bind<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let maybe_vec: Option<Vec<Endpoint>> =
-            maybe_endpoints.map(|e| e.into_iter().map(Into::into).collect());
-        self.socket_config_mut().bind = maybe_vec;
+        let maybe: Option<Vec<Endpoint>> =
+            maybe.map(|e| e.into_iter().map(Into::into).collect());
+        self.socket_config_mut().bind = maybe;
     }
 
     fn backlog(&self) -> Option<i32> {
         self.socket_config().backlog
     }
 
-    fn set_backlog(&mut self, maybe_backlog: Option<i32>) {
-        self.socket_config_mut().backlog = maybe_backlog;
-    }
-
-    fn connect_timeout(&self) -> Option<Duration> {
-        self.socket_config().connect_timeout
-    }
-
-    fn set_connect_timeout(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().connect_timeout = maybe_duration;
+    fn set_backlog(&mut self, maybe: Option<i32>) {
+        self.socket_config_mut().backlog = maybe;
     }
 
     fn heartbeat_interval(&self) -> Option<Duration> {
         self.socket_config().heartbeat_interval
     }
 
-    fn set_heartbeat_interval(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().heartbeat_interval = maybe_duration;
+    fn set_heartbeat_interval(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().heartbeat_interval = maybe;
     }
 
     fn heartbeat_timeout(&self) -> Option<Duration> {
         self.socket_config().heartbeat_timeout
     }
 
-    fn set_heartbeat_timeout(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().heartbeat_timeout = maybe_duration;
+    fn set_heartbeat_timeout(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().heartbeat_timeout = maybe;
     }
 
     fn heartbeat_ttl(&self) -> Option<Duration> {
         self.socket_config().heartbeat_ttl
     }
 
-    fn set_heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().heartbeat_ttl = maybe_duration;
+    fn set_heartbeat_ttl(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().heartbeat_ttl = maybe;
     }
 
     fn linger(&self) -> Option<Duration> {
         self.socket_config().linger
     }
 
-    fn set_linger(&mut self, maybe_duration: Option<Duration>) {
-        self.socket_config_mut().linger = maybe_duration;
+    fn set_linger(&mut self, maybe: Option<Duration>) {
+        self.socket_config_mut().linger = maybe;
+    }
+
+    fn mechanism(&self) -> Option<&Mechanism> {
+        self.socket_config().mechanism.as_ref()
+    }
+
+    fn set_mechanism(&mut self, maybe: Option<Mechanism>) {
+        self.socket_config_mut().mechanism = maybe;
     }
 }
 
@@ -828,39 +767,30 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn connect_timeout(
-        &mut self,
-        maybe_duration: Option<Duration>,
-    ) -> &mut Self {
-        self.socket_config_mut().set_connect_timeout(maybe_duration);
-        self
-    }
-
-    fn heartbeat_interval(
-        &mut self,
-        maybe_duration: Option<Duration>,
-    ) -> &mut Self {
+    fn heartbeat_interval(&mut self, duration: Duration) -> &mut Self {
         self.socket_config_mut()
-            .set_heartbeat_interval(maybe_duration);
+            .set_heartbeat_interval(Some(duration));
         self
     }
 
-    fn heartbeat_timeout(
-        &mut self,
-        maybe_duration: Option<Duration>,
-    ) -> &mut Self {
+    fn heartbeat_timeout(&mut self, duration: Duration) -> &mut Self {
         self.socket_config_mut()
-            .set_heartbeat_timeout(maybe_duration);
+            .set_heartbeat_timeout(Some(duration));
         self
     }
 
-    fn heartbeat_ttl(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        self.socket_config_mut().set_heartbeat_ttl(maybe_duration);
+    fn heartbeat_ttl(&mut self, duration: Duration) -> &mut Self {
+        self.socket_config_mut().set_heartbeat_ttl(Some(duration));
         self
     }
 
-    fn linger(&mut self, maybe_duration: Option<Duration>) -> &mut Self {
-        self.socket_config_mut().set_linger(maybe_duration);
+    fn linger(&mut self, maybe: Option<Duration>) -> &mut Self {
+        self.socket_config_mut().set_linger(maybe);
+        self
+    }
+
+    fn mechanism(&mut self, mechanism: Mechanism) -> &mut Self {
+        self.socket_config_mut().set_mechanism(Some(mechanism));
         self
     }
 }

@@ -1,6 +1,6 @@
 //! The ØMQ context type.
 
-use crate::error::msg_from_errno;
+use crate::{auth::AuthHandler, error::msg_from_errno};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -12,6 +12,7 @@ use std::{
     os::raw::{c_int, c_void},
     ptr, str,
     sync::Arc,
+    thread,
 };
 
 lazy_static! {
@@ -289,6 +290,9 @@ impl CtxBuilder {
 /// Keeps the list of sockets and manages the async I/O thread and
 /// internal queries.
 ///
+/// Each context also has an associated `AuthHandler` which handles socket
+/// authentification.
+///
 /// # Drop
 /// The context will call `terminate` when dropped which will terminate all
 /// blocking calls, which will return `CtxTerminated`, then block until
@@ -333,7 +337,20 @@ impl Ctx {
     ///
     /// [`global`]: #method.global
     pub fn new() -> Self {
-        Self::default()
+        let raw = Arc::new(RawCtx::default());
+        // Enable ipv6 by default.
+        raw.set(RawCtxOption::IPV6, true as i32);
+
+        let ctx = Self { raw };
+
+        // Start a `ZAP` handler for the context.
+        let mut handler = AuthHandler::with_ctx(&ctx).unwrap();
+        // This handler is guaranteed to terminate before the ctx
+        // since it holds a clone to it. No need to store the
+        // thread handle.
+        thread::spawn(move || handler.run());
+
+        ctx
     }
 
     /// Returns a reference to the global context.
@@ -527,11 +544,7 @@ impl Ctx {
 
 impl Default for Ctx {
     fn default() -> Self {
-        let raw = Arc::new(RawCtx::default());
-        // Enable ipv6 by default.
-        raw.set(RawCtxOption::IPV6, true as i32);
-
-        Self { raw }
+        Self::new()
     }
 }
 

@@ -1,3 +1,5 @@
+//! Asynchronous polling mechanims.
+
 use crate::{
     core::GetRawSocket,
     error::{msg_from_errno, Error, ErrorKind},
@@ -209,17 +211,19 @@ impl IntoIterator for Events {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Client, Server, addr::InprocAddr, poll::*};
+/// use libzmq::{prelude::*, Client, Server, TcpAddr, poll::*};
 /// use std::convert::TryInto;
 ///
 /// // We initialize our sockets and connect them to each other.
-/// let inproc: InprocAddr = "test".try_into()?;
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
 /// let server = Server::new()?;
-/// server.bind(&inproc)?;
+/// server.bind(addr)?;
+///
+/// let bound = server.last_endpoint()?;
 ///
 /// let client = Client::new()?;
-/// client.connect(&inproc)?;
+/// client.connect(&bound)?;
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
@@ -499,73 +503,5 @@ mod test {
     fn test_flags() {
         assert_eq!(READABLE.bits(), sys::ZMQ_POLLIN as c_short);
         assert_eq!(WRITABLE.bits(), sys::ZMQ_POLLOUT as c_short);
-    }
-
-    #[test]
-    fn test_remove_absent_socket() {
-        use crate::Server;
-
-        let server = Server::new().unwrap();
-
-        let mut poller = Poller::new();
-        let err = poller.remove(&server).unwrap_err();
-
-        match err.kind() {
-            ErrorKind::InvalidInput { .. } => (),
-            _ => panic!("unexpected error"),
-        }
-    }
-
-    #[test]
-    fn test_poller() {
-        use crate::{addr::*, prelude::*, Client, Server};
-        use std::convert::TryInto;
-
-        // We initialize our sockets and connect them to each other.
-        let endpoint: InprocAddr = "test".try_into().unwrap();
-
-        let server = Server::new().unwrap();
-        server.bind(endpoint.clone()).unwrap();
-
-        let client = Client::new().unwrap();
-        client.connect(endpoint).unwrap();
-
-        // We create our poller instance.
-        let mut poller = Poller::new();
-        poller.add(&server, PollId(0), READABLE).unwrap();
-        poller.add(&client, PollId(1), READABLE).unwrap();
-
-        // Inti the client.
-        client.send("ping").unwrap();
-
-        let mut events = Events::new();
-
-        // Now the client and each server will send messages back and forth.
-        for _ in 0..100 {
-            // This waits indefinitely until at least one event is detected.
-            poller.block(&mut events, None).unwrap();
-
-            // Iterate over the detected events.
-            for event in &events {
-                assert_eq!(READABLE, event.flags());
-                // Note that `user_data` is the `Which` that we
-                // passed in the `Poller::add` method.
-                match event.id() {
-                    // The server is ready to receive an incoming message.
-                    PollId(0) => {
-                        let msg = server.recv_msg().unwrap();
-                        assert_eq!("ping", msg.to_str().unwrap());
-                        server.send(msg).unwrap();
-                    }
-                    // One of the clients is ready to receive an incoming message.
-                    PollId(1) => {
-                        let msg = client.recv_msg().unwrap();
-                        assert_eq!("ping", msg.to_str().unwrap());
-                        client.send(msg).unwrap();
-                    }
-                    _ => unimplemented!(),
-                }
-            }
-        }
     }
 }

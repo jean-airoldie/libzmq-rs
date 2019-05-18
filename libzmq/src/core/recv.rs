@@ -1,5 +1,5 @@
 use crate::{
-    core::{private, raw::GetRawSocket, sockopt::*},
+    core::{private, raw::GetRawSocket},
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
 };
@@ -116,16 +116,7 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
-        let limit = getsockopt_scalar(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::RecvHighWaterMark,
-        )?;
-
-        if limit == 0 {
-            Ok(None)
-        } else {
-            Ok(Some(limit))
-        }
+        self.raw_socket().recv_high_water_mark()
     }
 
     /// Set the high water mark for inbound messages on the specified socket.
@@ -141,24 +132,9 @@ pub trait RecvMsg: GetRawSocket {
     /// 1000
     fn set_recv_high_water_mark(
         &self,
-        maybe_limit: Option<i32>,
+        maybe: Option<i32>,
     ) -> Result<(), Error> {
-        let socket_ptr = self.raw_socket().as_mut_ptr();
-        match maybe_limit {
-            Some(limit) => {
-                assert!(limit != 0, "high water mark cannot be zero");
-                setsockopt_scalar(
-                    socket_ptr,
-                    SocketOption::RecvHighWaterMark,
-                    limit,
-                )
-            }
-            None => setsockopt_scalar(
-                socket_ptr,
-                SocketOption::RecvHighWaterMark,
-                0,
-            ),
-        }
+        self.raw_socket().set_recv_high_water_mark(maybe)
     }
 
     /// The timeout for [`recv`] on the socket.
@@ -167,11 +143,7 @@ pub trait RecvMsg: GetRawSocket {
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
     fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
-        getsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::RecvTimeout,
-            -1,
-        )
+        self.raw_socket().recv_timeout()
     }
 
     /// Sets the timeout for [`recv`] on the socket.
@@ -179,16 +151,8 @@ pub trait RecvMsg: GetRawSocket {
     /// If some timeout is specified, [`recv`] will return
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
-    fn set_recv_timeout(
-        &self,
-        maybe_duration: Option<Duration>,
-    ) -> Result<(), Error> {
-        setsockopt_duration(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::RecvTimeout,
-            maybe_duration,
-            -1,
-        )
+    fn set_recv_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
+        self.raw_socket().set_recv_timeout(maybe)
     }
 }
 

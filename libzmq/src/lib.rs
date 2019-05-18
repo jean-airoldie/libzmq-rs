@@ -7,10 +7,13 @@ pub use failure;
 #[macro_use]
 mod core;
 pub mod addr;
+pub mod auth;
 pub mod ctx;
 mod error;
 pub mod group;
+pub mod monitor;
 mod msg;
+mod old;
 pub mod poll;
 pub mod socket;
 mod utils;

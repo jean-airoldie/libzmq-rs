@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, core::*, error::*, Ctx};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
@@ -36,17 +36,19 @@ use std::{sync::Arc, time::Duration};
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, Msg, InprocAddr};
+/// use libzmq::{prelude::*, socket::*, Msg, TcpAddr};
 /// use std::convert::TryInto;
 ///
-/// let addr: InprocAddr = "test".try_into()?;
-///
-/// let client = ClientBuilder::new()
-///     .connect(&addr)
-///     .build()?;
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
 /// let server = ServerBuilder::new()
 ///     .bind(addr)
+///     .build()?;
+///
+/// let bound = server.last_endpoint()?;
+///
+/// let client = ClientBuilder::new()
+///     .connect(bound)
 ///     .build()?;
 ///
 /// // The client initiates the conversation so it is assigned a `routing_id`.
@@ -157,10 +159,10 @@ impl ServerConfig {
     }
 
     pub fn build(&self) -> Result<Server, Error<usize>> {
-        self.build_with_ctx(Ctx::global())
+        self.with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
     where
         C: Into<Ctx>,
     {
@@ -172,9 +174,9 @@ impl ServerConfig {
     }
 
     pub fn apply(&self, server: &Server) -> Result<(), Error<usize>> {
-        self.socket_config.apply(server)?;
         self.send_config.apply(server).map_err(Error::cast)?;
         self.recv_config.apply(server).map_err(Error::cast)?;
+        self.socket_config.apply(server)?;
 
         Ok(())
     }
@@ -188,9 +190,6 @@ struct FlatServerConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    connect_timeout: Option<Duration>,
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_interval: Option<Duration>,
@@ -211,6 +210,7 @@ struct FlatServerConfig {
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     recv_timeout: Option<Duration>,
+    mechanism: Option<Mechanism>,
 }
 
 impl From<ServerConfig> for FlatServerConfig {
@@ -222,11 +222,11 @@ impl From<ServerConfig> for FlatServerConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             backlog: socket_config.backlog,
-            connect_timeout: socket_config.connect_timeout,
             heartbeat_interval: socket_config.heartbeat_interval,
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
             linger: socket_config.linger,
+            mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
             recv_high_water_mark: recv_config.recv_high_water_mark,
@@ -241,11 +241,11 @@ impl From<FlatServerConfig> for ServerConfig {
             connect: flat.connect,
             bind: flat.bind,
             backlog: flat.backlog,
-            connect_timeout: flat.connect_timeout,
             heartbeat_interval: flat.heartbeat_interval,
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
             linger: flat.linger,
+            mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,
@@ -313,11 +313,11 @@ impl ServerBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
     where
         C: Into<Ctx>,
     {
-        self.inner.build_with_ctx(ctx)
+        self.inner.with_ctx(ctx)
     }
 }
 

@@ -1,15 +1,10 @@
-use crate::{
-    addr::Endpoint,
-    core::{sockopt::*, *},
-    error::*,
-    Ctx,
-};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
 use std::{sync::Arc, time::Duration};
 
-/// A `Radio` socket is used by a publisher to distribute data to [`Radio`]
+/// A `Radio` socket is used by a publisher to distribute data to [`Dish`]
 /// sockets.
 ///
 /// Each message belong to a group specified with [`set_group`].
@@ -20,76 +15,80 @@ use std::{sync::Arc, time::Duration};
 /// high water mark for a subscriber, then any messages that would be sent to
 /// the subscriber in question shall instead be dropped until the mute state ends.
 ///
+/// # Example
 /// ```
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, InprocAddr, Msg, Group, ErrorKind};
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::*, TcpAddr, socket::*, Msg, Group};
+/// use std::{convert::TryInto, thread, time::Duration};
 ///
-/// let addr: InprocAddr = "test".try_into()?;
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
+/// let radio = RadioBuilder::new()
+///     .bind(addr)
+///     .build()?;
+///
+/// let bound = radio.last_endpoint().unwrap();
 /// let a: &Group = "A".try_into()?;
 /// let b: &Group = "B".try_into()?;
 ///
-/// // We configure the radio so that it doesnt drop in mute state.
-/// // However this means that a slow `Dish` would slow down
-/// // the `Radio`. We use this is this example because `connect`
-/// // takes a few milliseconds, enough for the `Radio` to drop a few messages.
-/// let radio = RadioBuilder::new()
-///     .bind(&addr)
-///     .no_drop()
-///     .build()?;
-///
 /// let dish_a = DishBuilder::new()
-///     .connect(&addr)
+///     .connect(&bound)
 ///     .join(a)
 ///     .build()?;
 ///
 /// let dish_b = DishBuilder::new()
-///     .connect(&addr)
+///     .connect(bound)
 ///     .join(b)
 ///     .build()?;
 ///
-/// // Lets publish some messages to subscribers.
-/// let mut msg: Msg = "first msg".into();
-/// msg.set_group(a);
-/// radio.send(msg)?;
-/// let mut msg: Msg = "second msg".into();
-/// msg.set_group(b);
-/// radio.send(msg)?;
+/// // Start the feed. It has no conceptual start nor end, thus we
+/// // don't synchronize with the subscribers.
+/// thread::spawn(move || {
+///     let a: &Group = "A".try_into().unwrap();
+///     let b: &Group = "B".try_into().unwrap();
+///     let mut count = 0;
+///     loop {
+///         let mut msg = Msg::new();
+///         // Alternate between the two groups.
+///         let group = {
+///             if count % 2 == 0 {
+///                 a
+///             } else {
+///                 b
+///             }
+///         };
 ///
-/// // Lets receive the publisher's messages.
-/// let mut msg = dish_a.recv_msg()?;
+///         msg.set_group(group);
+///         radio.send(msg).unwrap();
+///
+///         thread::sleep(Duration::from_millis(1));
+///         count += 1;
+///     }
+/// });
+///
+/// // Each dish will only receive the messages from their respective groups.
+/// let msg = dish_a.recv_msg()?;
 /// assert_eq!(msg.group().unwrap(), a);
-/// assert_eq!(msg.to_str().unwrap(), "first msg");
-/// let err = dish_a.try_recv(&mut msg).unwrap_err();
 ///
-/// // Only the message from the first group was received.
-/// assert_eq!(ErrorKind::WouldBlock, err.kind());
-///
-/// dish_b.recv(&mut msg)?;
+/// let msg = dish_b.recv_msg()?;
 /// assert_eq!(msg.group().unwrap(), b);
-/// assert_eq!(msg.to_str().unwrap(), "second msg");
-/// let err = dish_b.try_recv(&mut msg).unwrap_err();
-/// // Only the message from the second group was received.
-/// assert_eq!(ErrorKind::WouldBlock, err.kind());
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-///
 /// # Summary of Characteristics
 /// | Characteristic            | Value          |
 /// |:-------------------------:|:--------------:|
-/// | Compatible peer sockets   | [`Radio`]       |
+/// | Compatible peer sockets   | [`Dish`]       |
 /// | Direction                 | Unidirectional |
 /// | Send/receive pattern      | Send only      |
 /// | Incoming routing strategy | N/A            |
 /// | Outgoing routing strategy | Fan out        |
 /// | Action in mute state      | Drop           |
 ///
-/// [`Radio`]: struct.Radio.html
+/// [`Dish`]: struct.Dish.html
 /// [`set_group`]: ../struct.Msg.html#method.set_group
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Radio {
@@ -137,7 +136,7 @@ impl Radio {
 
     /// Returns `true` if the `no_drop` option is set.
     pub fn no_drop(&self) -> Result<bool, Error> {
-        getsockopt_bool(self.raw_socket().as_mut_ptr(), SocketOption::NoDrop)
+        self.inner.no_drop()
     }
 
     /// Sets the socket's behaviour to block instead of drop messages when
@@ -149,11 +148,7 @@ impl Radio {
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`send_high_water_mark`]: #method.send_high_water_mark
     pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
-        setsockopt_bool(
-            self.raw_socket().as_mut_ptr(),
-            SocketOption::NoDrop,
-            enabled,
-        )
+        self.inner.set_no_drop(enabled)
     }
 }
 
@@ -187,10 +182,10 @@ impl RadioConfig {
     }
 
     pub fn build(&self) -> Result<Radio, Error<usize>> {
-        self.build_with_ctx(Ctx::global())
+        self.with_ctx(Ctx::global())
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
     where
         C: Into<Ctx>,
     {
@@ -212,12 +207,11 @@ impl RadioConfig {
     }
 
     pub fn apply(&self, radio: &Radio) -> Result<(), Error<usize>> {
-        self.socket_config.apply(radio)?;
-        self.send_config.apply(radio).map_err(Error::cast)?;
-
         if let Some(enabled) = self.no_drop {
             radio.set_no_drop(enabled).map_err(Error::cast)?;
         }
+        self.send_config.apply(radio).map_err(Error::cast)?;
+        self.socket_config.apply(radio)?;
 
         Ok(())
     }
@@ -231,9 +225,6 @@ struct FlatRadioConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "serde_humantime")]
-    connect_timeout: Option<Duration>,
     #[serde(default)]
     #[serde(with = "serde_humantime")]
     heartbeat_interval: Option<Duration>,
@@ -251,6 +242,7 @@ struct FlatRadioConfig {
     #[serde(with = "serde_humantime")]
     send_timeout: Option<Duration>,
     no_drop: Option<bool>,
+    mechanism: Option<Mechanism>,
 }
 
 impl From<RadioConfig> for FlatRadioConfig {
@@ -261,7 +253,6 @@ impl From<RadioConfig> for FlatRadioConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             backlog: socket_config.backlog,
-            connect_timeout: socket_config.connect_timeout,
             heartbeat_interval: socket_config.heartbeat_interval,
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
@@ -269,6 +260,7 @@ impl From<RadioConfig> for FlatRadioConfig {
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
             no_drop: config.no_drop,
+            mechanism: socket_config.mechanism,
         }
     }
 }
@@ -279,11 +271,11 @@ impl From<FlatRadioConfig> for RadioConfig {
             connect: flat.connect,
             bind: flat.bind,
             backlog: flat.backlog,
-            connect_timeout: flat.connect_timeout,
             heartbeat_interval: flat.heartbeat_interval,
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,
             linger: flat.linger,
+            mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,
@@ -340,11 +332,11 @@ impl RadioBuilder {
         self.inner.build()
     }
 
-    pub fn build_with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
     where
         C: Into<Ctx>,
     {
-        self.inner.build_with_ctx(ctx)
+        self.inner.with_ctx(ctx)
     }
 }
 

@@ -1,13 +1,20 @@
-use crate::{addr::Endpoint, error::*, Ctx};
+use crate::{
+    addr::Endpoint, auth::curve::*, auth::*, core::sockopt::*, error::*,
+    monitor::init_socket_monitor, Ctx, InprocAddr,
+};
 use libzmq_sys as sys;
 use sys::errno;
 
 use log::error;
 
 use std::{
+    ffi::CString,
     os::raw::{c_int, c_void},
     sync::Mutex,
+    time::Duration,
 };
+
+const MAX_HB_TTL: i64 = 6_553_599;
 
 #[doc(hidden)]
 pub trait GetRawSocket: super::private::Sealed {
@@ -15,23 +22,144 @@ pub trait GetRawSocket: super::private::Sealed {
 }
 
 pub(crate) enum RawSocketType {
-    Client,
-    Server,
-    Radio,
-    Dish,
+    Client = sys::ZMQ_CLIENT as isize,
+    Server = sys::ZMQ_SERVER as isize,
+    Radio = sys::ZMQ_RADIO as isize,
+    Dish = sys::ZMQ_DISH as isize,
+    Dealer = sys::ZMQ_DEALER as isize,
+    Router = sys::ZMQ_ROUTER as isize,
+    Pair = sys::ZMQ_PAIR as isize,
+    Sub = sys::ZMQ_SUB as isize,
 }
 
 impl From<RawSocketType> for c_int {
     fn from(r: RawSocketType) -> c_int {
         match r {
-            RawSocketType::Client => sys::ZMQ_CLIENT as c_int,
-            RawSocketType::Server => sys::ZMQ_SERVER as c_int,
-            RawSocketType::Radio => sys::ZMQ_RADIO as c_int,
-            RawSocketType::Dish => sys::ZMQ_DISH as c_int,
+            RawSocketType::Client => RawSocketType::Client as c_int,
+            RawSocketType::Server => RawSocketType::Server as c_int,
+            RawSocketType::Radio => RawSocketType::Radio as c_int,
+            RawSocketType::Dish => RawSocketType::Dish as c_int,
+            RawSocketType::Dealer => RawSocketType::Dealer as c_int,
+            RawSocketType::Router => RawSocketType::Router as c_int,
+            RawSocketType::Pair => RawSocketType::Pair as c_int,
+            RawSocketType::Sub => RawSocketType::Sub as c_int,
         }
     }
 }
 
+fn connect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_connect(socket_ptr, c_string.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol not supported",
+                }),
+                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol incompatible",
+                }),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::EMTHREAD => panic!("no i/o thread available"),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+fn bind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_bind(socket_ptr, c_string.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol not supported",
+                }),
+                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
+                    msg: "endpoint protocol incompatible",
+                }),
+                errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
+                errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
+                errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::EMTHREAD => panic!("no i/o thread available"),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+fn disconnect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_disconnect(socket_ptr, c_string.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::ENOENT => Error::new(ErrorKind::NotFound {
+                    msg: "endpoint was not connected to",
+                }),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
+    let rc = unsafe { sys::zmq_unbind(socket_ptr, c_str.as_ptr()) };
+
+    if rc == -1 {
+        let errno = unsafe { sys::zmq_errno() };
+        let err = {
+            match errno {
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid endpoint",
+                }),
+                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::ENOENT => Error::new(ErrorKind::NotFound {
+                    msg: "endpoint was not bound to",
+                }),
+                _ => panic!(msg_from_errno(errno)),
+            }
+        };
+
+        Err(err)
+    } else {
+        Ok(())
+    }
+}
+
+/// This socket may or may not be thread safe depending on the `RawSocketType`.
+/// We prevent that it is always thread-safe and let the wrapping types decide.
 #[derive(Debug)]
 #[doc(hidden)]
 pub struct RawSocket {
@@ -39,12 +167,13 @@ pub struct RawSocket {
     ctx: Ctx,
     connected: Mutex<Vec<Endpoint>>,
     bound: Mutex<Vec<Endpoint>>,
+    mechanism: Mutex<Mechanism>,
+    monitor_addr: InprocAddr,
 }
 
 impl RawSocket {
     pub(crate) fn new(sock_type: RawSocketType) -> Result<Self, Error> {
         let ctx = Ctx::global().clone();
-
         Self::with_ctx(sock_type, ctx)
     }
 
@@ -67,13 +196,50 @@ impl RawSocket {
 
             Err(err)
         } else {
+            // Set ZAP domain handling to strictly adhere the RFC.
+            // This will eventually be enabled by default by ØMQ.
+            setsockopt_bool(socket_mut_ptr, SocketOption::EnforceDomain, true)?;
+            // We hardset the same domain name for each sockets because I don't
+            // see any use cases for them.
+            setsockopt_str(
+                socket_mut_ptr,
+                SocketOption::ZapDomain,
+                Some("global"),
+            )?;
+
+            let monitor_addr = InprocAddr::new_unique();
+
+            init_socket_monitor(socket_mut_ptr, &monitor_addr);
+
             Ok(Self {
                 ctx,
                 socket_mut_ptr,
                 connected: Mutex::default(),
                 bound: Mutex::default(),
+                mechanism: Mutex::default(),
+                monitor_addr,
             })
         }
+    }
+
+    pub(crate) fn connect(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        connect(self.as_mut_ptr(), c_string)
+    }
+
+    pub(crate) fn disconnect(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        disconnect(self.as_mut_ptr(), c_string)
+    }
+
+    pub(crate) fn bind(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        bind(self.as_mut_ptr(), c_string)
+    }
+
+    pub(crate) fn unbind(&self, endpoint: &Endpoint) -> Result<(), Error> {
+        let c_string = CString::new(endpoint.to_zmq()).unwrap();
+        unbind(self.as_mut_ptr(), c_string)
     }
 
     pub(crate) fn ctx(&self) -> &Ctx {
@@ -91,6 +257,264 @@ impl RawSocket {
 
     pub(crate) fn bound(&self) -> &Mutex<Vec<Endpoint>> {
         &self.bound
+    }
+
+    pub(crate) fn mechanism(&self) -> &Mutex<Mechanism> {
+        &self.mechanism
+    }
+
+    pub(crate) fn monitor_addr(&self) -> &InprocAddr {
+        &self.monitor_addr
+    }
+
+    pub(crate) fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
+        let maybe =
+            getsockopt_string(self.as_mut_ptr(), SocketOption::LastEndpoint)?;
+
+        Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
+    }
+
+    pub(crate) fn backlog(&self) -> Result<i32, Error> {
+        getsockopt_scalar(self.as_mut_ptr(), SocketOption::Backlog)
+    }
+
+    pub(crate) fn set_backlog(&self, value: i32) -> Result<(), Error> {
+        setsockopt_scalar(self.as_mut_ptr(), SocketOption::Backlog, value)
+    }
+
+    pub(crate) fn heartbeat_interval(&self) -> Result<Duration, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatInterval,
+            -1,
+        )
+        .map(Option::unwrap)
+    }
+
+    pub(crate) fn set_heartbeat_interval(
+        &self,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        setsockopt_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatInterval,
+            duration,
+        )
+    }
+
+    pub(crate) fn heartbeat_timeout(&self) -> Result<Duration, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatTimeout,
+            -1,
+        )
+        .map(Option::unwrap)
+    }
+
+    pub(crate) fn set_heartbeat_timeout(
+        &self,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        setsockopt_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatTimeout,
+            duration,
+        )
+    }
+
+    pub(crate) fn heartbeat_ttl(&self) -> Result<Duration, Error> {
+        getsockopt_duration(self.as_mut_ptr(), SocketOption::HeartbeatTtl)
+    }
+
+    pub(crate) fn set_heartbeat_ttl(
+        &self,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        let ms = duration.as_millis();
+        if ms > MAX_HB_TTL as u128 {
+            return Err(Error::new(ErrorKind::InvalidInput {
+                msg: "duration ms cannot exceed 6553599",
+            }));
+        }
+        setsockopt_duration(
+            self.as_mut_ptr(),
+            SocketOption::HeartbeatTtl,
+            duration,
+        )
+    }
+
+    pub(crate) fn linger(&self) -> Result<Option<Duration>, Error> {
+        getsockopt_option_duration(self.as_mut_ptr(), SocketOption::Linger, -1)
+    }
+
+    pub(crate) fn set_linger(
+        &self,
+        maybe: Option<Duration>,
+    ) -> Result<(), Error> {
+        setsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::Linger,
+            maybe,
+            -1,
+        )
+    }
+
+    pub(crate) fn set_username(
+        &self,
+        maybe: Option<&str>,
+    ) -> Result<(), Error> {
+        setsockopt_str(self.as_mut_ptr(), SocketOption::PlainUsername, maybe)
+    }
+
+    pub(crate) fn set_password(
+        &self,
+        maybe: Option<&str>,
+    ) -> Result<(), Error> {
+        setsockopt_str(self.as_mut_ptr(), SocketOption::PlainUsername, maybe)
+    }
+
+    pub(crate) fn set_plain_server(&self, cond: bool) -> Result<(), Error> {
+        setsockopt_bool(self.as_mut_ptr(), SocketOption::PlainServer, cond)
+    }
+
+    pub(crate) fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
+        getsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::RecvHighWaterMark,
+            0,
+        )
+    }
+
+    pub(crate) fn set_recv_high_water_mark(
+        &self,
+        maybe: Option<i32>,
+    ) -> Result<(), Error> {
+        if let Some(hwm) = maybe {
+            assert!(hwm != 0, "high water mark cannot be zero");
+        }
+
+        setsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::RecvHighWaterMark,
+            maybe,
+            0,
+        )
+    }
+
+    pub(crate) fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::RecvTimeout,
+            -1,
+        )
+    }
+
+    pub(crate) fn set_recv_timeout(
+        &self,
+        maybe: Option<Duration>,
+    ) -> Result<(), Error> {
+        setsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::RecvTimeout,
+            maybe,
+            -1,
+        )
+    }
+
+    pub(crate) fn send_high_water_mark(&self) -> Result<Option<i32>, Error> {
+        getsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::SendHighWaterMark,
+            0,
+        )
+    }
+
+    pub(crate) fn set_send_high_water_mark(
+        &self,
+        maybe: Option<i32>,
+    ) -> Result<(), Error> {
+        if let Some(hwm) = maybe {
+            assert!(hwm != 0, "high water mark cannot be zero");
+        }
+
+        setsockopt_option_scalar(
+            self.as_mut_ptr(),
+            SocketOption::SendHighWaterMark,
+            maybe,
+            0,
+        )
+    }
+
+    pub(crate) fn send_timeout(&self) -> Result<Option<Duration>, Error> {
+        getsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::SendTimeout,
+            -1,
+        )
+    }
+
+    pub(crate) fn set_send_timeout(
+        &self,
+        maybe: Option<Duration>,
+    ) -> Result<(), Error> {
+        setsockopt_option_duration(
+            self.as_mut_ptr(),
+            SocketOption::SendTimeout,
+            maybe,
+            -1,
+        )
+    }
+
+    pub(crate) fn no_drop(&self) -> Result<bool, Error> {
+        getsockopt_bool(self.as_mut_ptr(), SocketOption::NoDrop)
+    }
+
+    pub(crate) fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
+        setsockopt_bool(self.as_mut_ptr(), SocketOption::NoDrop, enabled)
+    }
+
+    pub(crate) fn subscribe(&self, bytes: &[u8]) -> Result<(), Error> {
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::Subscribe,
+            Some(bytes),
+        )
+    }
+
+    pub(crate) fn unsubscribe(&self, bytes: &[u8]) -> Result<(), Error> {
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::Unsubscribe,
+            Some(bytes),
+        )
+    }
+
+    pub(crate) fn set_curve_public_key(
+        &self,
+        key: Option<&CurveKey>,
+    ) -> Result<(), Error> {
+        let key = key.map(|k| k.as_bytes());
+        setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurvePublicKey, key)
+    }
+
+    pub(crate) fn set_curve_secret_key(
+        &self,
+        key: Option<&CurveKey>,
+    ) -> Result<(), Error> {
+        let key = key.map(|k| k.as_bytes());
+        setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveSecretKey, key)
+    }
+
+    pub(crate) fn set_curve_server(&self, enabled: bool) -> Result<(), Error> {
+        setsockopt_bool(self.as_mut_ptr(), SocketOption::CurveServer, enabled)
+    }
+
+    pub(crate) fn set_curve_server_key(
+        &self,
+        key: Option<&CurveKey>,
+    ) -> Result<(), Error> {
+        let key = key.map(|k| k.as_bytes());
+        setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveServerKey, key)
     }
 }
 
