@@ -326,7 +326,12 @@ pub(crate) fn setsockopt_option_duration(
         check_duration(duration)?;
     }
 
-    setsockopt_option_scalar(mut_sock_ptr, option, maybe.map(|d| d.as_millis() as i32), none_value)
+    setsockopt_option_scalar(
+        mut_sock_ptr,
+        option,
+        maybe.map(|d| d.as_millis() as i32),
+        none_value,
+    )
 }
 
 pub(crate) fn setsockopt_duration(

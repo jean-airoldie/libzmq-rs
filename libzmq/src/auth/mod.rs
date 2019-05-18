@@ -1,5 +1,7 @@
 //! Socket authentication and encryption.
 
+pub mod curve;
+
 use crate::{old::*, poll::*, prelude::*, socket::*, *};
 
 use failure::Fail;
@@ -451,7 +453,7 @@ impl AuthHandler {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{auth::*, monitor::*, Client, prelude::*, socket::*};
+    use crate::{auth::*, monitor::*, prelude::*, socket::*, Client};
 
     use std::convert::TryInto;
 

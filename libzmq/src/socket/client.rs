@@ -17,9 +17,57 @@ use std::{sync::Arc, time::Duration};
 ///
 /// # Mute State
 /// When `Client` socket enters the mute state due to having reached the high water
-/// mark, or if there are no peers at all, then any send operations
-/// on the socket shall block unitl the mute state ends or at least one peer becomes
+/// mark, or if there are no peers at all, then any send operations on the
+/// socket shall block unitl the mute state ends or at least one peer becomes
 /// available for sending; messages are not discarded.
+///
+/// # Example
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::{prelude::*, Msg, TcpAddr, socket::*};
+/// use std::convert::TryInto;
+///
+/// // Use a system assigned port.
+/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
+///
+/// let server = ServerBuilder::new()
+///     .bind(addr)
+///     .build()?;
+///
+/// // Retrieve the addr that was assigned.
+/// let bound = server.last_endpoint()?;
+///
+/// let client = ClientBuilder::new()
+///     .connect(bound)
+///     .build()?;
+///
+/// // Send a string request.
+/// client.send("do something nerd")?;
+///
+/// // Receive the client request.
+/// let msg = server.recv_msg()?;
+/// let id = msg.routing_id().unwrap();
+///
+/// // Reply to the client.
+/// let mut reply: Msg = "it takes 224 bits to store a i32 in java".into();
+/// reply.set_routing_id(id);
+/// server.send(reply)?;
+///
+/// // Hey, why not reply twice?
+/// let mut reply: Msg = "also don't talk to me".into();
+/// reply.set_routing_id(id);
+/// server.send(reply)?;
+///
+/// // Retreive the first reply.
+/// let mut msg = client.recv_msg()?;
+/// // And the second.
+/// client.recv(&mut msg)?;
+/// #
+/// #     Ok(())
+/// # }
+/// ```
 ///
 /// # Summary of Characteristics
 /// | Characteristic            | Value                  |

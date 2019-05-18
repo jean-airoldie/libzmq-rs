@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 
+#[doc(hidden)]
 #[derive(Debug, Fail)]
 #[fail(display = "unable to parse event")]
 pub struct EventCodeParseError(());
@@ -36,6 +37,7 @@ pub enum EventCode {
     HandshakeFailedAuth = sys::ZMQ_EVENT_HANDSHAKE_FAILED_AUTH as isize,
 }
 
+#[doc(hidden)]
 impl<'a> TryFrom<u64> for EventCode {
     type Error = EventCodeParseError;
     fn try_from(x: u64) -> Result<Self, EventCodeParseError> {
@@ -80,6 +82,7 @@ impl<'a> TryFrom<u64> for EventCode {
     }
 }
 
+#[doc(hidden)]
 impl<'a> TryFrom<&'a [u8]> for EventCode {
     type Error = EventCodeParseError;
     fn try_from(a: &'a [u8]) -> Result<Self, Self::Error> {
@@ -144,16 +147,6 @@ impl SocketMonitor {
         Ok(Self { sub })
     }
 
-    pub fn monitor<F>(&mut self, mut f: F) -> Result<(), failure::Error>
-    where
-        F: FnMut(MonitorEvent) -> Result<(), failure::Error>,
-    {
-        loop {
-            let event = self.recv_event()?;
-            f(event)?;
-        }
-    }
-
     pub fn register<S>(&mut self, socket: &S) -> Result<(), Error>
     where
         S: GetRawSocket,
@@ -182,6 +175,17 @@ impl SocketMonitor {
     pub fn unsubscribe(&mut self, topic: EventCode) -> Result<(), Error> {
         let topic = (topic as u64).to_ne_bytes();
         self.sub.unsubscribe(&topic)
+    }
+
+    pub fn set_recv_timeout(
+        &mut self,
+        maybe: Option<Duration>,
+    ) -> Result<(), Error> {
+        self.sub.set_recv_timeout(maybe)
+    }
+
+    pub fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
+        self.sub.recv_timeout()
     }
 
     pub fn recv_event(&mut self) -> Result<MonitorEvent, Error> {
@@ -264,11 +268,13 @@ impl SocketLogger {
     }
 
     pub(crate) fn run(&mut self) -> Result<(), failure::Error> {
-        let log = |event| Self::log(event);
-        self.inner.monitor(log)
+        loop {
+            let event = self.inner.recv_event()?;
+            Self::log(event);
+        }
     }
 
-    fn log(event: MonitorEvent) -> Result<(), failure::Error> {
+    fn log(event: MonitorEvent) {
         use EventType::*;
         match event.event_type() {
             Connected | ConnectDelayed | Bound | Accepted | Closed
@@ -285,8 +291,6 @@ impl SocketLogger {
                 error!("{:?}", event);
             }
         }
-
-        Ok(())
     }
 }
 
@@ -321,12 +325,6 @@ mod test {
     fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
         let event = dbg!(monitor.recv_event().unwrap());
         assert_eq!(event.event_type(), expected);
-    }
-
-    fn expect_any_events(monitor: &mut SocketMonitor, events: &[EventType]) {
-        let event = dbg!(monitor.recv_event().unwrap());
-        let event_type = event.event_type();
-        assert!(events.iter().position(|x| x == &event_type).is_some());
     }
 
     #[test]

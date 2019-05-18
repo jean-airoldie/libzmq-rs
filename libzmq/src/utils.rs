@@ -68,10 +68,7 @@ pub fn has(capability: &str) -> bool {
 /// let dish_addr: InprocAddr = "backend".try_into()?;
 /// let group: &Group = "some group".try_into()?;
 ///
-/// // Using `no_drop = true` is usually an anti-pattern. In this case it is used
-/// // for demonstration purposes.
 /// let radio = RadioBuilder::new()
-///     .no_drop()
 ///     .bind(&radio_addr)
 ///     .build()?;
 ///
@@ -94,13 +91,9 @@ pub fn has(capability: &str) -> bool {
 /// let mut msg = Msg::new();
 /// msg.set_group(group);
 /// radio.send(msg)?;
+///
 /// let msg = dish.recv_msg()?;
 /// assert!(msg.is_empty());
-///
-/// // This will cause the proxy terminate with `CtxTerminated`.
-/// let _ = Ctx::global().shutdown();
-/// let err = proxy_handle.join().unwrap().unwrap_err();
-/// assert_eq!(err.kind(), ErrorKind::CtxTerminated);
 /// #
 /// #     Ok(())
 /// # }

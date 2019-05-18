@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use std::{sync::Arc, time::Duration};
 
-/// A `Radio` socket is used by a publisher to distribute data to [`Radio`]
+/// A `Radio` socket is used by a publisher to distribute data to [`Dish`]
 /// sockets.
 ///
 /// Each message belong to a group specified with [`set_group`].
@@ -81,14 +81,14 @@ use std::{sync::Arc, time::Duration};
 /// # Summary of Characteristics
 /// | Characteristic            | Value          |
 /// |:-------------------------:|:--------------:|
-/// | Compatible peer sockets   | [`Radio`]       |
+/// | Compatible peer sockets   | [`Dish`]       |
 /// | Direction                 | Unidirectional |
 /// | Send/receive pattern      | Send only      |
 /// | Incoming routing strategy | N/A            |
 /// | Outgoing routing strategy | Fan out        |
 /// | Action in mute state      | Drop           |
 ///
-/// [`Radio`]: struct.Radio.html
+/// [`Dish`]: struct.Dish.html
 /// [`set_group`]: ../struct.Msg.html#method.set_group
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Radio {
