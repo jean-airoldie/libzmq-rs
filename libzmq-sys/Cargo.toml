@@ -37,3 +37,4 @@ version-sync = "0.8"
 [build-dependencies]
 cmake = "0.1"
 bindgen = "0.49.0"
+zeromq-src = { git = "https://github.com/jean-airoldie/zeromq-src-rs" }

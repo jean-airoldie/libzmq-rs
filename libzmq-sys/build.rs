@@ -13,68 +13,10 @@ fn main() {
 
     let wants_draft = cfg!(feature = "draft");
 
-    let dest = {
-        let mut config = cmake::Config::new("vendor");
-
-        if wants_draft {
-            config.define("ENABLE_DRAFTS", "ON");
-        } else {
-            config.define("ENABLE_DRAFTS", "OFF");
-        }
-
-        if wants_debug {
-            config.define("CMAKE_BUILD_TYPE", "Debug");
-        } else {
-            config.define("CMAKE_BUILD_TYPE", "Release");
-        }
-
-        if wants_static {
-            let dest = config
-                .define("BUILD_SHARED", "OFF")
-                .define("BUILD_STATIC", "ON")
-                .build();
-
-            // The exact location seem to vary by system.
-            println!(
-                "cargo:rustc-link-search=native={}",
-                dest.join("lib64").to_string_lossy()
-            );
-            println!(
-                "cargo:rustc-link-search=native={}",
-                dest.join("lib").to_string_lossy()
-            );
-            println!("cargo:rustc-link-lib=static=zmq");
-
-            dest
-        } else {
-            let dest = config
-                .define("BUILD_SHARED", "ON")
-                .define("BUILD_STATIC", "OFF")
-                .build();
-
-            // The exact location seem to vary by system.
-            println!(
-                "cargo:rustc-link-search=native={}",
-                dest.join("lib64").to_string_lossy()
-            );
-            println!(
-                "cargo:rustc-link-search=native={}",
-                dest.join("lib").to_string_lossy()
-            );
-            println!("cargo:rustc-link-lib=dylib=zmq");
-
-            dest
-        }
-    };
-    println!("cargo:rustc-link-lib=stdc++");
-
-    println!("cargo:include={}", dest.join("include").to_string_lossy());
-    println!("cargo:root={}", dest.to_string_lossy());
-    println!(
-        "cargo:pkg-config-path={}",
-        dest.join("lib64").join("pkgconfig").to_string_lossy()
-    );
-
+    let artifacts = zeromq_src::Build::new()
+        .link_static(wants_static)
+        .build_debug(wants_debug)
+        .build();
     let mut args = vec![];
 
     if wants_draft {
@@ -82,7 +24,7 @@ fn main() {
     }
 
     let bindings = bindgen::Builder::default()
-        .header(dest.join("include").join("zmq.h").to_string_lossy())
+        .header(artifacts.include_dir().join("zmq.h").to_string_lossy())
         .derive_default(true)
         .derive_eq(true)
         .derive_partialeq(true)
@@ -96,4 +38,5 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
+    artifacts.print_cargo_metadata();
 }

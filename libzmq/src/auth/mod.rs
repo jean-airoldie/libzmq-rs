@@ -87,8 +87,9 @@ impl Default for Mechanism {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum MechanismName {
-    Null = 0,
+    Null,
     Plain,
+    Curve,
 }
 
 #[derive(Debug, Fail)]
@@ -227,11 +228,11 @@ impl IntoIterator for ZapReply {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum Command {}
 
-pub struct Blacklist<'a> {
+pub struct IpBlacklist<'a> {
     inner: &'a Client,
 }
 
-impl<'a> Blacklist<'a> {
+impl<'a> IpBlacklist<'a> {
     pub fn insert(_ip: IpAddr) -> Result<(), Error> {
         unimplemented!()
     }
@@ -241,11 +242,11 @@ impl<'a> Blacklist<'a> {
     }
 }
 
-pub struct Whitelist<'a> {
+pub struct IpWhitelist<'a> {
     inner: &'a Client,
 }
 
-impl<'a> Whitelist<'a> {
+impl<'a> IpWhitelist<'a> {
     pub fn insert(_ip: IpAddr) -> Result<(), Error> {
         unimplemented!()
     }
@@ -278,14 +279,14 @@ pub struct AuthChannel {
 }
 
 impl AuthChannel {
-    pub fn blacklist(&self) -> Blacklist {
-        Blacklist {
+    pub fn ip_blacklist(&self) -> IpBlacklist {
+        IpBlacklist {
             inner: &self.client,
         }
     }
 
-    pub fn whitelist(&self) -> Whitelist {
-        Whitelist {
+    pub fn ip_whitelist(&self) -> IpWhitelist {
+        IpWhitelist {
             inner: &self.client,
         }
     }
@@ -420,6 +421,18 @@ impl AuthHandler {
                             let creds = PlainCreds { username, password };
                             self.auth_plain(creds)
                         }
+                        MechanismName::Curve => {
+                            let curve_public_key = CurveKey::new_unchecked(
+                                request
+                                    .credentials
+                                    .remove(0)
+                                    .as_bytes()
+                                    .to_owned(),
+                            );
+
+                            let z85_public_key: Z85Key = curve_public_key.into();
+                            self.auth_curve(z85_public_key)
+                        }
                     }
                 };
             }
@@ -463,6 +476,14 @@ impl AuthHandler {
                 }
                 None => None,
             }
+        }
+    }
+
+    fn auth_curve(&mut self, public_key: Z85Key) -> Option<AuthResult> {
+        if self.curve_no_auth {
+            unimplemented!()
+        } else {
+            unimplemented!()
         }
     }
 }
@@ -522,6 +543,46 @@ mod test {
         monitor.register(&client).unwrap();
 
         client.set_mechanism(Mechanism::PlainClient(creds)).unwrap();
+        client.connect(bound).unwrap();
+
+        expect_event(
+            &mut monitor,
+            EventType::HandshakeFailedAuth(StatusCode::Denied),
+        );
+    }
+
+    #[test]
+    fn test_curve_mechanism_invalid_creds() {
+        let mut monitor = SocketMonitor::new().unwrap();
+        monitor.subscribe(EventCode::HandshakeFailedAuth).unwrap();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+
+        let server_cert = Z85Cert::new_unique();
+        let client_cert = Z85Cert::new_unique();
+
+        let server_creds = CurveServerCreds {
+            secret: server_cert.secret,
+        };
+
+        let client_creds = CurveClientCreds {
+            client: client_cert,
+            server: server_cert.public,
+        };
+
+        let server = ServerBuilder::new()
+            .bind(&addr)
+            .mechanism(server_creds)
+            .build()
+            .unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+
+        let client = Client::new().unwrap();
+
+        monitor.register(&client).unwrap();
+
+        client.set_mechanism(client_creds).unwrap();
         client.connect(bound).unwrap();
 
         expect_event(

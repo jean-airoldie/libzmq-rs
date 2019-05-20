@@ -11,7 +11,6 @@ connect = ["tcp://localhost:3000"]
 # A list of endpoints to bind to.
 bind = ["tcp://*:3001"]
 backlog = 100
-connect_timeout = "30s"
 heartbeat_interval = "3s"
 heartbeat_timeout = "6s"
 heartbeat_ttl = "6s"

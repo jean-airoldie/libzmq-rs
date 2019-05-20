@@ -1,3 +1,5 @@
+//! Allows authentication and encryption via the CURVE protocol.
+
 // Largely based on https://github.com/decafbad/z85
 use libzmq_sys as sys;
 
@@ -243,8 +245,8 @@ impl<'de> Deserialize<'de> for Z85Key {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Z85Cert {
-    public: Z85Key,
-    secret: Z85Key,
+    pub public: Z85Key,
+    pub secret: Z85Key,
 }
 
 impl Z85Cert {
@@ -272,14 +274,6 @@ impl Z85Cert {
 
         Self { public, secret }
     }
-
-    pub fn public(&self) -> &Z85Key {
-        &self.public
-    }
-
-    pub fn secret(&self) -> &Z85Key {
-        &self.secret
-    }
 }
 
 impl From<CurveCert> for Z85Cert {
@@ -306,6 +300,10 @@ pub(crate) struct CurveKey {
 }
 
 impl CurveKey {
+    pub(crate) fn new_unchecked(bytes: Vec<u8>) -> Self {
+        Self { bytes }
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         self.bytes.as_slice()
     }

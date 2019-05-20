@@ -305,7 +305,7 @@ where
     let c_string = CString::new(endpoint.to_zmq()).unwrap();
 
     let rc = unsafe {
-        sys::zmq_socket_monitor_versioned_typed(
+        sys::zmq_socket_monitor_versioned(
             socket_mut_ptr,
             c_string.as_ptr(),
             u64::from(sys::ZMQ_EVENT_ALL_V2),
