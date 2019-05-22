@@ -88,7 +88,7 @@ impl<'a> TryFrom<&'a [u8]> for EventCode {
     fn try_from(a: &'a [u8]) -> Result<Self, Self::Error> {
         let mut bytes: [u8; 8] = Default::default();
         bytes.copy_from_slice(a);
-        let code = dbg!(u64::from_ne_bytes(bytes));
+        let code = u64::from_ne_bytes(bytes);
         Self::try_from(code)
     }
 }
@@ -143,6 +143,15 @@ pub struct SocketMonitor {
 impl SocketMonitor {
     pub fn new() -> Result<Self, Error> {
         let sub = OldSocket::new(OldSocketType::Sub)?;
+
+        Ok(Self { sub })
+    }
+
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let sub = OldSocket::with_ctx(OldSocketType::Sub, ctx)?;
 
         Ok(Self { sub })
     }
@@ -222,8 +231,12 @@ impl SocketMonitor {
                 EventCode::MonitorStopped => EventType::MonitorStopped,
                 EventCode::HandshakeSucceeded => EventType::HandshakeSucceeded,
                 EventCode::ConnectRetried => {
-                    let ms: u64 =
-                        parts.remove(0).to_str().unwrap().parse().unwrap();
+                    let part = parts.remove(0);
+
+                    let mut bytes: [u8; 8] = Default::default();
+                    bytes.copy_from_slice(part.as_bytes());
+
+                    let ms = u64::from_ne_bytes(bytes);
                     let duration = Duration::from_millis(ms);
                     EventType::ConnectRetried(duration)
                 }
@@ -323,7 +336,7 @@ mod test {
     use crate::{prelude::*, socket::*};
 
     fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
-        let event = dbg!(monitor.recv_event().unwrap());
+        let event = monitor.recv_event().unwrap();
         assert_eq!(event.event_type(), expected);
     }
 

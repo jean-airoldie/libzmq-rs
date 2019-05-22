@@ -16,7 +16,8 @@ use libc::c_long;
 use std::{
     convert::{TryFrom, TryInto},
     fmt,
-    net::IpAddr,
+    net::{IpAddr, Ipv6Addr},
+    time::Duration,
     vec,
 };
 
@@ -53,10 +54,34 @@ pub struct CurveClientCreds {
     pub server: Z85Key,
 }
 
+impl<'a> From<&'a CurveClientCreds> for Mechanism {
+    fn from(creds: &'a CurveClientCreds) -> Self {
+        Mechanism::CurveClient(creds.to_owned())
+    }
+}
+
+impl From<CurveClientCreds> for Mechanism {
+    fn from(creds: CurveClientCreds) -> Self {
+        Mechanism::CurveClient(creds)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveServerCreds {
     /// The server's secret key.
     pub secret: Z85Key,
+}
+
+impl<'a> From<&'a CurveServerCreds> for Mechanism {
+    fn from(creds: &'a CurveServerCreds) -> Self {
+        Mechanism::CurveServer(creds.to_owned())
+    }
+}
+
+impl From<CurveServerCreds> for Mechanism {
+    fn from(creds: CurveServerCreds) -> Self {
+        Mechanism::CurveServer(creds)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -157,7 +182,7 @@ impl<'a> TryFrom<&'a [u8]> for StatusCode {
     fn try_from(a: &'a [u8]) -> Result<Self, Self::Error> {
         let mut bytes: [u8; 8] = Default::default();
         bytes.copy_from_slice(a);
-        let code = dbg!(c_long::from_ne_bytes(bytes));
+        let code = c_long::from_ne_bytes(bytes);
         Self::try_from(code)
     }
 }
@@ -167,7 +192,7 @@ struct ZapRequest {
     version: String,
     request_id: Msg,
     domain: String,
-    addr: IpAddr,
+    addr: Ipv6Addr,
     identity: Msg,
     mechanism: String,
     credentials: Vec<Msg>,
@@ -180,7 +205,7 @@ impl ZapRequest {
 
         let request_id = parts.remove(0);
         let domain = parts.remove(0).to_str().unwrap().to_owned();
-        let addr: IpAddr = parts.remove(0).to_str().unwrap().parse().unwrap();
+        let addr: Ipv6Addr = parts.remove(0).to_str().unwrap().parse().unwrap();
 
         let identity = parts.remove(0);
 
@@ -226,47 +251,19 @@ impl IntoIterator for ZapReply {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum Command {}
-
-pub struct IpBlacklist<'a> {
-    inner: &'a Client,
+enum Command {
+    AddBlacklist(Ipv6Addr),
+    RemoveBlacklist(Ipv6Addr),
+    AddWhitelist(Ipv6Addr),
+    RemoveWhitelist(Ipv6Addr),
+    AddCurveCert(Z85Key),
+    RemoveCurveCert(Z85Key),
 }
 
-impl<'a> IpBlacklist<'a> {
-    pub fn insert(_ip: IpAddr) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    pub fn remove(_ip: IpAddr) -> Result<(), Error> {
-        unimplemented!()
-    }
-}
-
-pub struct IpWhitelist<'a> {
-    inner: &'a Client,
-}
-
-impl<'a> IpWhitelist<'a> {
-    pub fn insert(_ip: IpAddr) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    pub fn remove(_ip: IpAddr) -> Result<(), Error> {
-        unimplemented!()
-    }
-}
-
-pub struct PlainRegistry<'a> {
-    inner: &'a Client,
-}
-
-impl<'a> PlainRegistry<'a> {
-    pub fn insert(_creds: PlainCreds) -> Result<(), Error> {
-        unimplemented!()
-    }
-
-    pub fn remove(_username: String) -> Result<(), Error> {
-        unimplemented!()
+fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
+    match ip {
+        IpAddr::V4(ipv4) => ipv4.to_ipv6_mapped(),
+        IpAddr::V6(ipv6) => ipv6,
     }
 }
 
@@ -279,22 +276,57 @@ pub struct AuthChannel {
 }
 
 impl AuthChannel {
-    pub fn ip_blacklist(&self) -> IpBlacklist {
-        IpBlacklist {
-            inner: &self.client,
-        }
+    pub fn new() -> Result<Self, Error> {
+        Self::with_ctx(Ctx::global())
     }
 
-    pub fn ip_whitelist(&self) -> IpWhitelist {
-        IpWhitelist {
-            inner: &self.client,
-        }
+    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let client = ClientBuilder::new()
+            .connect(&*COMMAND_ENDPOINT)
+            .with_ctx(ctx)
+            .map_err(Error::cast)?;
+
+        Ok(Self { client })
     }
 
-    pub fn plain(&self) -> PlainRegistry {
-        PlainRegistry {
-            inner: &self.client,
-        }
+    fn command(&self, command: &Command) -> Result<(), Error> {
+        let ser = bincode::serialize(command).unwrap();
+
+        self.client.send(ser).map_err(Error::cast)?;
+        let msg = self.client.recv_msg()?;
+        assert!(msg.is_empty());
+        Ok(())
+    }
+
+    pub fn add_blacklist(&self, ip: IpAddr) -> Result<(), Error> {
+        let ipv6 = into_ipv6(ip);
+        self.command(&Command::AddBlacklist(ipv6))
+    }
+
+    pub fn remove_blacklist(&self, ip: IpAddr) -> Result<(), Error> {
+        let ipv6 = into_ipv6(ip);
+        self.command(&Command::RemoveBlacklist(ipv6))
+    }
+
+    pub fn add_whitelist(&self, ip: IpAddr) -> Result<(), Error> {
+        let ipv6 = into_ipv6(ip);
+        self.command(&Command::AddWhitelist(ipv6))
+    }
+
+    pub fn remove_whitelist(&self, ip: IpAddr) -> Result<(), Error> {
+        let ipv6 = into_ipv6(ip);
+        self.command(&Command::RemoveWhitelist(ipv6))
+    }
+
+    pub fn add_curve_cert(&self, key: Z85Key) -> Result<(), Error> {
+        self.command(&Command::AddCurveCert(key))
+    }
+
+    pub fn remove_curve_cert(&self, key: Z85Key) -> Result<(), Error> {
+        self.command(&Command::RemoveCurveCert(key))
     }
 }
 
@@ -307,10 +339,10 @@ pub(crate) struct AuthHandler {
     //  ZAP handler socket
     handler: OldSocket,
     command: Server,
-    whitelist: HashSet<IpAddr>,
-    blacklist: HashSet<IpAddr>,
+    whitelist: HashSet<Ipv6Addr>,
+    blacklist: HashSet<Ipv6Addr>,
     passwords: HashMap<String, String>,
-    proxy: bool,
+    curve_no_auth: bool,
 }
 
 impl AuthHandler {
@@ -331,7 +363,7 @@ impl AuthHandler {
             whitelist: HashSet::default(),
             blacklist: HashSet::default(),
             passwords: HashMap::default(),
-            proxy: false,
+            curve_no_auth: false,
         })
     }
 
@@ -362,13 +394,43 @@ impl AuthHandler {
                             self.handler.send_multipart(reply)?;
                         }
                         PollId(1) => {
-                            let _msg = self.command.recv_msg()?;
-                            unimplemented!();
+                            let msg = self.command.recv_msg()?;
+                            let id = msg.routing_id().unwrap();
+                            let command: Command =
+                                bincode::deserialize(msg.as_bytes()).unwrap();
+
+                            self.on_command(command);
+                            let mut msg = Msg::new();
+                            msg.set_routing_id(id);
+                            self.command.send(msg).map_err(Error::cast)?;
                         }
                         _ => unreachable!(),
                     }
                 }
             }
+        }
+    }
+
+    fn on_command(&mut self, command: Command) {
+        match command {
+            Command::AddWhitelist(ip) => {
+                info!("added IP : {} to whitelist", &ip);
+                self.whitelist.insert(ip);
+            }
+            Command::RemoveWhitelist(ip) => {
+                info!("remove IP : {} to whitelist", &ip);
+                self.whitelist.remove(&ip);
+            }
+            Command::AddBlacklist(ip) => {
+                info!("added IP : {} to blacklist", &ip);
+                self.blacklist.insert(ip);
+            }
+            Command::RemoveBlacklist(ip) => {
+                info!("removed IP : {} from blacklist", &ip);
+                self.blacklist.remove(&ip);
+            }
+            Command::AddCurveCert(key) => unimplemented!(),
+            Command::RemoveCurveCert(key) => unimplemented!(),
         }
     }
 
@@ -379,7 +441,7 @@ impl AuthHandler {
             {
                 info!("denied addr {}, not whitelisted", &request.addr);
                 true
-            } else if !self.blacklist.is_empty()
+            } else if self.whitelist.is_empty() && !self.blacklist.is_empty()
                 && self.blacklist.contains(&request.addr)
             {
                 info!("denied addr {}, blacklisted", &request.addr);
@@ -392,9 +454,7 @@ impl AuthHandler {
         let mut result = None;
 
         if !denied {
-            if self.proxy {
-                unimplemented!()
-            } else if let Ok(mechanism) =
+            if let Ok(mechanism) =
                 MechanismName::try_from(request.mechanism.as_str())
             {
                 result = {
@@ -430,7 +490,8 @@ impl AuthHandler {
                                     .to_owned(),
                             );
 
-                            let z85_public_key: Z85Key = curve_public_key.into();
+                            let z85_public_key: Z85Key =
+                                curve_public_key.into();
                             self.auth_curve(z85_public_key)
                         }
                     }
@@ -481,7 +542,10 @@ impl AuthHandler {
 
     fn auth_curve(&mut self, public_key: Z85Key) -> Option<AuthResult> {
         if self.curve_no_auth {
-            unimplemented!()
+            Some(AuthResult {
+                user_id: String::new(),
+                metadata: vec![],
+            })
         } else {
             unimplemented!()
         }
@@ -498,6 +562,63 @@ mod test {
     fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
         let event = monitor.recv_event().unwrap();
         assert_eq!(event.event_type(), expected);
+    }
+
+    // This test might fail see:
+    // https://github.com/zeromq/libzmq/issues/3519
+    // https://github.com/jean-airoldie/libzmq-rs/issues/30
+    #[test]
+    fn test_blacklist() {
+        // Create a new context use a disctinct auth handler.
+        let ctx = Ctx::new();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+        let server = ServerBuilder::new()
+            .bind(&addr)
+            .recv_timeout(Duration::from_millis(300))
+            .with_ctx(&ctx)
+            .unwrap();
+
+        // Blacklist the loopback addr.
+        let channel = AuthChannel::with_ctx(&ctx).unwrap();
+        let ip: IpAddr = "127.0.0.1".parse().unwrap();
+        channel.add_blacklist(ip).unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+        let client = ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
+
+        client.send("").unwrap();
+        assert!(server.recv_msg().is_err());
+
+        channel.remove_blacklist(ip).unwrap();
+        server.recv_msg().unwrap();
+    }
+
+    // This test might fail see:
+    // https://github.com/zeromq/libzmq/issues/3519
+    // https://github.com/jean-airoldie/libzmq-rs/issues/30
+    #[test]
+    fn test_whitelist() {
+        // Create a new context use a disctinct auth handler.
+        let ctx = Ctx::new();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+        let server = ServerBuilder::new()
+            .bind(&addr)
+            .recv_timeout(Duration::from_millis(300))
+            .with_ctx(&ctx)
+            .unwrap();
+
+        // Blacklist the loopback addr.
+        let channel = AuthChannel::with_ctx(&ctx).unwrap();
+        let ip: IpAddr = "127.0.0.1".parse().unwrap();
+        channel.add_whitelist(ip).unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+        let client = ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
+
+        client.send("").unwrap();
+        server.recv_msg().unwrap();
     }
 
     #[test]
@@ -562,12 +683,12 @@ mod test {
         let client_cert = Z85Cert::new_unique();
 
         let server_creds = CurveServerCreds {
-            secret: server_cert.secret,
+            secret: server_cert.secret().clone(),
         };
 
         let client_creds = CurveClientCreds {
             client: client_cert,
-            server: server_cert.public,
+            server: server_cert.public().clone(),
         };
 
         let server = ServerBuilder::new()

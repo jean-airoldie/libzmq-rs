@@ -789,7 +789,11 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn mechanism(&mut self, mechanism: Mechanism) -> &mut Self {
+    fn mechanism<M>(&mut self, mechanism: M) -> &mut Self
+    where
+        M: Into<Mechanism>,
+    {
+        let mechanism = mechanism.into();
         self.socket_config_mut().set_mechanism(Some(mechanism));
         self
     }

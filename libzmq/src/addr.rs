@@ -123,7 +123,6 @@ impl Hostname {
         if !name.is_empty() {
             for c in name.as_str().chars() {
                 if !c.is_ascii_alphanumeric() && c != '-' {
-                    dbg!(c);
                     return Err(AddrParseError::new(
                         "hostname contains illegal char",
                     ));
@@ -1360,7 +1359,6 @@ mod test {
                     let endpoint: Endpoint = addr.into();
 
                     let ron = ron::ser::to_string(&endpoint).unwrap();
-                    println!("{}", ron);
                     let de: Endpoint = ron::de::from_str(&ron).unwrap();
                     assert_eq!(endpoint, de);
                 }

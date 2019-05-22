@@ -151,6 +151,9 @@ pub trait RecvMsg: GetRawSocket {
     /// If some timeout is specified, [`recv`] will return
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
+    ///
+    /// # Default
+    /// `None`
     fn set_recv_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
         self.raw_socket().set_recv_timeout(maybe)
     }
@@ -185,22 +188,28 @@ pub trait ConfigureRecv: GetRecvConfig {
         self.recv_config().recv_high_water_mark
     }
 
+    fn set_recv_high_water_mark(&mut self, maybe: Option<i32>) {
+        self.recv_config_mut().recv_high_water_mark = maybe;
+    }
+
     fn recv_timeout(&self) -> Option<Duration> {
         self.recv_config().recv_timeout
+    }
+
+    fn set_recv_timeout(&mut self, maybe: Option<Duration>) {
+        self.recv_config_mut().recv_timeout = maybe;
     }
 }
 
 /// A set of provided methods for the builder of a socket that implements `RecvMsg`.
 pub trait BuildRecv: GetRecvConfig {
     fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        let mut config = self.recv_config_mut();
-        config.recv_high_water_mark = Some(hwm);
+        self.recv_config_mut().recv_high_water_mark = Some(hwm);
         self
     }
 
-    fn recv_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
-        let mut config = self.recv_config_mut();
-        config.recv_timeout = timeout;
+    fn recv_timeout(&mut self, timeout: Duration) -> &mut Self {
+        self.recv_config_mut().recv_timeout = Some(timeout);
         self
     }
 }

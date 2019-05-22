@@ -33,6 +33,7 @@ fn send(
             match errno {
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
+                errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
                 _ => panic!(msg_from_errno(errno)),
             }
         };
@@ -52,6 +53,7 @@ fn recv(mut_sock_ptr: *mut c_void, msg: &mut Msg) -> Result<(), Error> {
             match errno {
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
+                errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
                 _ => panic!(msg_from_errno(errno)),
             }
         };

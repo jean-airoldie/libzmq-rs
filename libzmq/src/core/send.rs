@@ -225,22 +225,28 @@ pub trait ConfigureSend: GetSendConfig {
         self.send_config().send_high_water_mark
     }
 
+    fn set_send_high_water_mark(&mut self, maybe: Option<i32>) {
+        self.send_config_mut().send_high_water_mark = maybe;
+    }
+
     fn send_timeout(&self) -> Option<Duration> {
         self.send_config().send_timeout
+    }
+
+    fn set_send_timeout(&mut self, maybe: Option<Duration>) {
+        self.send_config_mut().send_timeout = maybe;
     }
 }
 
 /// A set of provided methods for the builder of a socket that implements `SendMsg`.
-pub trait BuildSend: GetSendConfig + Sized {
+pub trait BuildSend: GetSendConfig {
     fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        let mut config = self.send_config_mut();
-        config.send_high_water_mark = Some(hwm);
+        self.send_config_mut().send_high_water_mark = Some(hwm);
         self
     }
 
-    fn send_timeout(&mut self, timeout: Option<Duration>) -> &mut Self {
-        let mut config = self.send_config_mut();
-        config.send_timeout = timeout;
+    fn send_timeout(&mut self, timeout: Duration) -> &mut Self {
+        self.send_config_mut().send_timeout = Some(timeout);
         self
     }
 }

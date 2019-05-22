@@ -245,8 +245,8 @@ impl<'de> Deserialize<'de> for Z85Key {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Z85Cert {
-    pub public: Z85Key,
-    pub secret: Z85Key,
+    public: Z85Key,
+    secret: Z85Key,
 }
 
 impl Z85Cert {
@@ -273,6 +273,14 @@ impl Z85Cert {
         };
 
         Self { public, secret }
+    }
+
+    pub fn public(&self) -> &Z85Key {
+        &self.public
+    }
+
+    pub fn secret(&self) -> &Z85Key {
+        &self.secret
     }
 }
 
