@@ -64,7 +64,6 @@ pub(crate) fn bench(c: &mut Criterion) {
             let producer = Radio::new().unwrap();
             producer.bind(&*ADDR).unwrap();
 
-
             let bound = producer.last_endpoint().unwrap().unwrap();
             let consumer = Dish::new().unwrap();
             consumer.connect(bound).unwrap();

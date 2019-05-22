@@ -370,7 +370,7 @@ impl RawSocket {
         &self,
         maybe: Option<&str>,
     ) -> Result<(), Error> {
-        setsockopt_str(self.as_mut_ptr(), SocketOption::PlainUsername, maybe)
+        setsockopt_str(self.as_mut_ptr(), SocketOption::PlainPassword, maybe)
     }
 
     pub(crate) fn set_plain_server(&self, cond: bool) -> Result<(), Error> {

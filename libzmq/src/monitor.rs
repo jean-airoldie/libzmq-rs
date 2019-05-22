@@ -273,8 +273,14 @@ pub(crate) struct SocketLogger {
 
 impl SocketLogger {
     pub(crate) fn new() -> Result<Self, Error> {
-        let mut inner = SocketMonitor::new()?;
+        Self::with_ctx(Ctx::global())
+    }
 
+    pub(crate) fn with_ctx<C>(ctx: C) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let mut inner = SocketMonitor::with_ctx(ctx)?;
         inner.subscribe_all()?;
 
         Ok(Self { inner })
@@ -305,9 +311,21 @@ impl SocketLogger {
             }
         }
     }
-}
 
-impl SocketLogger {}
+    pub(crate) fn register<S>(&mut self, socket: &S) -> Result<(), Error>
+    where
+        S: GetRawSocket,
+    {
+        self.inner.register(socket)
+    }
+
+    pub(crate) fn deregister<S>(&mut self, socket: &S) -> Result<(), Error>
+    where
+        S: GetRawSocket,
+    {
+        self.inner.deregister(socket)
+    }
+}
 
 // Create a PUB socket that monitors all socket events.
 pub(crate) fn init_socket_monitor<E>(socket_mut_ptr: *mut c_void, endpoint: E)

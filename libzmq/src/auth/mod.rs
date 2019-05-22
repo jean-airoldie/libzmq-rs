@@ -17,7 +17,6 @@ use std::{
     convert::{TryFrom, TryInto},
     fmt,
     net::{IpAddr, Ipv6Addr},
-    time::Duration,
     vec,
 };
 
@@ -34,15 +33,21 @@ pub struct PlainCreds {
     pub password: String,
 }
 
-impl Into<Mechanism> for PlainCreds {
-    fn into(self) -> Mechanism {
-        Mechanism::PlainClient(self)
+impl<'a> From<&'a PlainCreds> for PlainCreds {
+    fn from(creds: &'a PlainCreds) -> Self {
+        creds.to_owned()
     }
 }
 
-impl<'a> Into<Mechanism> for &'a PlainCreds {
-    fn into(self) -> Mechanism {
-        self.to_owned().into()
+impl<'a> From<&'a PlainCreds> for Mechanism {
+    fn from(creds: &'a PlainCreds) -> Self {
+        Self::from(creds.to_owned())
+    }
+}
+
+impl From<PlainCreds> for Mechanism {
+    fn from(creds: PlainCreds) -> Self {
+        Mechanism::PlainClient(creds)
     }
 }
 
@@ -52,6 +57,12 @@ pub struct CurveClientCreds {
     pub client: Z85Cert,
     /// The server's public key.
     pub server: Z85Key,
+}
+
+impl<'a> From<&'a CurveClientCreds> for CurveClientCreds {
+    fn from(creds: &'a CurveClientCreds) -> Self {
+        creds.to_owned()
+    }
 }
 
 impl<'a> From<&'a CurveClientCreds> for Mechanism {
@@ -70,6 +81,12 @@ impl From<CurveClientCreds> for Mechanism {
 pub struct CurveServerCreds {
     /// The server's secret key.
     pub secret: Z85Key,
+}
+
+impl<'a> From<&'a CurveServerCreds> for CurveServerCreds {
+    fn from(creds: &'a CurveServerCreds) -> Self {
+        creds.to_owned()
+    }
 }
 
 impl<'a> From<&'a CurveServerCreds> for Mechanism {
@@ -128,6 +145,7 @@ impl<'a> TryFrom<&'a str> for MechanismName {
         match s {
             "NULL" => Ok(MechanismName::Null),
             "PLAIN" => Ok(MechanismName::Plain),
+            "CURVE" => Ok(MechanismName::Curve),
             _ => Err(InvalidMechanismName),
         }
     }
@@ -256,8 +274,11 @@ enum Command {
     RemoveBlacklist(Ipv6Addr),
     AddWhitelist(Ipv6Addr),
     RemoveWhitelist(Ipv6Addr),
+    AddPlainCreds(PlainCreds),
+    RemovePlainCreds(String),
     AddCurveCert(Z85Key),
     RemoveCurveCert(Z85Key),
+    SetCurveAuth(bool),
 }
 
 fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
@@ -301,32 +322,76 @@ impl AuthChannel {
         Ok(())
     }
 
-    pub fn add_blacklist(&self, ip: IpAddr) -> Result<(), Error> {
+    pub fn add_blacklist<I>(&self, ip: I) -> Result<(), Error>
+    where
+        I: Into<IpAddr>,
+    {
+        let ip = ip.into();
         let ipv6 = into_ipv6(ip);
         self.command(&Command::AddBlacklist(ipv6))
     }
 
-    pub fn remove_blacklist(&self, ip: IpAddr) -> Result<(), Error> {
+    pub fn remove_blacklist<I>(&self, ip: I) -> Result<(), Error>
+    where
+        I: Into<IpAddr>,
+    {
+        let ip = ip.into();
         let ipv6 = into_ipv6(ip);
         self.command(&Command::RemoveBlacklist(ipv6))
     }
 
-    pub fn add_whitelist(&self, ip: IpAddr) -> Result<(), Error> {
+    pub fn add_whitelist<I>(&self, ip: I) -> Result<(), Error>
+    where
+        I: Into<IpAddr>,
+    {
+        let ip = ip.into();
         let ipv6 = into_ipv6(ip);
         self.command(&Command::AddWhitelist(ipv6))
     }
 
-    pub fn remove_whitelist(&self, ip: IpAddr) -> Result<(), Error> {
+    pub fn remove_whitelist<I>(&self, ip: I) -> Result<(), Error>
+    where
+        I: Into<IpAddr>,
+    {
+        let ip = ip.into();
         let ipv6 = into_ipv6(ip);
         self.command(&Command::RemoveWhitelist(ipv6))
     }
 
-    pub fn add_curve_cert(&self, key: Z85Key) -> Result<(), Error> {
+    pub fn add_plain_creds<C>(&self, creds: C) -> Result<(), Error>
+    where
+        C: Into<PlainCreds>,
+    {
+        let creds = creds.into();
+        self.command(&Command::AddPlainCreds(creds))
+    }
+
+    pub fn remove_plain_creds<S>(&self, username: S) -> Result<(), Error>
+    where
+        S: Into<String>,
+    {
+        let username = username.into();
+        self.command(&Command::RemovePlainCreds(username))
+    }
+
+    pub fn add_curve_cert<K>(&self, key: K) -> Result<(), Error>
+    where
+        K: Into<Z85Key>,
+    {
+        let key = key.into();
         self.command(&Command::AddCurveCert(key))
     }
 
-    pub fn remove_curve_cert(&self, key: Z85Key) -> Result<(), Error> {
+    pub fn remove_curve_cert<K>(&self, key: K) -> Result<(), Error>
+    where
+        K: Into<Z85Key>,
+    {
+        let key = key.into();
         self.command(&Command::RemoveCurveCert(key))
+    }
+
+    pub fn set_curve_auth(&self, enabled: bool) -> Result<(), Error> {
+        self.command(&Command::SetCurveAuth(enabled))
     }
 }
 
@@ -342,7 +407,8 @@ pub(crate) struct AuthHandler {
     whitelist: HashSet<Ipv6Addr>,
     blacklist: HashSet<Ipv6Addr>,
     passwords: HashMap<String, String>,
-    curve_no_auth: bool,
+    curve_certs: HashSet<Z85Key>,
+    curve_auth: bool,
 }
 
 impl AuthHandler {
@@ -363,7 +429,8 @@ impl AuthHandler {
             whitelist: HashSet::default(),
             blacklist: HashSet::default(),
             passwords: HashMap::default(),
-            curve_no_auth: false,
+            curve_certs: HashSet::default(),
+            curve_auth: true,
         })
     }
 
@@ -429,8 +496,30 @@ impl AuthHandler {
                 info!("removed IP : {} from blacklist", &ip);
                 self.blacklist.remove(&ip);
             }
-            Command::AddCurveCert(key) => unimplemented!(),
-            Command::RemoveCurveCert(key) => unimplemented!(),
+            Command::AddPlainCreds(creds) => {
+                info!("added user : {}", &creds.username);
+                self.passwords.insert(creds.username, creds.password);
+            }
+            Command::RemovePlainCreds(username) => {
+                info!("removed user: {}", &username);
+                self.passwords.remove(&username);
+            }
+            Command::AddCurveCert(key) => {
+                info!("added z85 key: {}", key.as_str());
+                self.curve_certs.insert(key);
+            }
+            Command::RemoveCurveCert(key) => {
+                info!("removed z85 key: {}", key.as_str());
+                self.curve_certs.remove(&key);
+            }
+            Command::SetCurveAuth(enabled) => {
+                if enabled {
+                    info!("enabled curve auth");
+                } else {
+                    info!("disabled curve auth");
+                }
+                self.curve_auth = enabled;
+            }
         }
     }
 
@@ -490,9 +579,9 @@ impl AuthHandler {
                                     .as_bytes()
                                     .to_owned(),
                             );
-
                             let z85_public_key: Z85Key =
                                 curve_public_key.into();
+
                             self.auth_curve(z85_public_key)
                         }
                     }
@@ -522,33 +611,40 @@ impl AuthHandler {
     }
 
     fn auth_plain(&mut self, creds: PlainCreds) -> Option<AuthResult> {
-        if self.passwords.is_empty() {
-            None
-        } else {
-            match self.passwords.get(&creds.username) {
-                Some(password) => {
-                    if password == &creds.password {
-                        Some(AuthResult {
-                            user_id: creds.username,
-                            metadata: vec![],
-                        })
-                    } else {
-                        None
-                    }
+        match self.passwords.get(&creds.username) {
+            Some(password) => {
+                info!("allowed user: {}", &creds.username);
+                if password == &creds.password {
+                    Some(AuthResult {
+                        user_id: creds.username,
+                        metadata: vec![],
+                    })
+                } else {
+                    None
                 }
-                None => None,
+            }
+            None => {
+                info!("denied user: {}", &creds.username);
+                None
             }
         }
     }
 
     fn auth_curve(&mut self, public_key: Z85Key) -> Option<AuthResult> {
-        if self.curve_no_auth {
+        if !self.curve_auth {
             Some(AuthResult {
                 user_id: String::new(),
                 metadata: vec![],
             })
+        } else if self.curve_certs.contains(&public_key) {
+            info!("allowed z85 public key {}", public_key);
+            Some(AuthResult {
+                user_id: public_key.as_str().to_owned(),
+                metadata: vec![],
+            })
         } else {
-            unimplemented!()
+            info!("denied z85 public key {}", public_key);
+            None
         }
     }
 }
@@ -556,18 +652,10 @@ impl AuthHandler {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{auth::*, monitor::*, prelude::*, socket::*, Client};
+    use crate::{auth::*, prelude::*, socket::*, Client};
 
     use std::convert::TryInto;
 
-    fn expect_event(monitor: &mut SocketMonitor, expected: EventType) {
-        let event = monitor.recv_event().unwrap();
-        assert_eq!(event.event_type(), expected);
-    }
-
-    // This test might fail see:
-    // https://github.com/zeromq/libzmq/issues/3519
-    // https://github.com/jean-airoldie/libzmq-rs/issues/30
     #[test]
     fn test_blacklist() {
         // Create a new context use a disctinct auth handler.
@@ -576,7 +664,7 @@ mod test {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
         let server = ServerBuilder::new()
             .bind(&addr)
-            .recv_timeout(Duration::from_millis(300))
+            .recv_timeout(Duration::from_millis(100))
             .with_ctx(&ctx)
             .unwrap();
 
@@ -591,14 +679,8 @@ mod test {
 
         client.send("").unwrap();
         assert!(server.recv_msg().is_err());
-
-        channel.remove_blacklist(ip).unwrap();
-        server.recv_msg().unwrap();
     }
 
-    // This test might fail see:
-    // https://github.com/zeromq/libzmq/issues/3519
-    // https://github.com/jean-airoldie/libzmq-rs/issues/30
     #[test]
     fn test_whitelist() {
         // Create a new context use a disctinct auth handler.
@@ -607,7 +689,7 @@ mod test {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
         let server = ServerBuilder::new()
             .bind(&addr)
-            .recv_timeout(Duration::from_millis(300))
+            .recv_timeout(Duration::from_millis(100))
             .with_ctx(&ctx)
             .unwrap();
 
@@ -625,33 +707,30 @@ mod test {
     }
 
     #[test]
-    fn test_null_mechanism() {
-        let mut monitor = SocketMonitor::new().unwrap();
-        monitor.subscribe(EventCode::HandshakeSucceeded).unwrap();
-
+    fn test_null() {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
-        let server = ServerBuilder::new().bind(&addr).build().unwrap();
+        let server = ServerBuilder::new()
+            .bind(&addr)
+            .recv_timeout(Duration::from_millis(100))
+            .build()
+            .unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
         let client = Client::new().unwrap();
 
-        monitor.register(&client).unwrap();
-
         client.connect(bound).unwrap();
-
-        expect_event(&mut monitor, EventType::HandshakeSucceeded);
+        client.send("").unwrap();
+        server.recv_msg().unwrap();
     }
 
     #[test]
-    fn test_plain_mechanism_invalid_creds() {
-        let mut monitor = SocketMonitor::new().unwrap();
-        monitor.subscribe(EventCode::HandshakeFailedAuth).unwrap();
-
+    fn test_plain_denied() {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(Mechanism::PlainServer)
+            .recv_timeout(Duration::from_millis(100))
             .build()
             .unwrap();
 
@@ -664,22 +743,88 @@ mod test {
 
         let client = Client::new().unwrap();
 
-        monitor.register(&client).unwrap();
-
         client.set_mechanism(Mechanism::PlainClient(creds)).unwrap();
         client.connect(bound).unwrap();
 
-        expect_event(
-            &mut monitor,
-            EventType::HandshakeFailedAuth(StatusCode::Denied),
-        );
+        client.send("").unwrap();
+        assert!(server.recv_msg().is_err());
     }
 
     #[test]
-    fn test_curve_mechanism_invalid_creds() {
-        let mut monitor = SocketMonitor::new().unwrap();
-        monitor.subscribe(EventCode::HandshakeFailedAuth).unwrap();
+    fn test_plain() {
+        let ctx = Ctx::new();
 
+        let username = "ok".to_owned();
+        let password = "lo".to_owned();
+
+        let creds = PlainCreds { username, password };
+
+        let channel = AuthChannel::with_ctx(&ctx).unwrap();
+        channel.add_plain_creds(&creds).unwrap();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+
+        let server = ServerBuilder::new()
+            .bind(&addr)
+            .mechanism(Mechanism::PlainServer)
+            .recv_timeout(Duration::from_millis(100))
+            .with_ctx(&ctx)
+            .unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+
+        let client = ClientBuilder::new()
+            .connect(bound)
+            .mechanism(creds)
+            .with_ctx(&ctx)
+            .unwrap();
+
+        client.send("").unwrap();
+        server.recv_msg().unwrap();
+    }
+
+    #[test]
+    fn test_curve() {
+        let ctx = Ctx::new();
+
+        let server_cert = Z85Cert::new_unique();
+        let client_cert = Z85Cert::new_unique();
+
+        let channel = AuthChannel::with_ctx(&ctx).unwrap();
+        channel.add_curve_cert(client_cert.public()).unwrap();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+
+        let server_creds = CurveServerCreds {
+            secret: server_cert.secret().to_owned(),
+        };
+
+        let client_creds = CurveClientCreds {
+            client: client_cert,
+            server: server_cert.public().to_owned(),
+        };
+
+        let server = ServerBuilder::new()
+            .bind(&addr)
+            .mechanism(server_creds)
+            .recv_timeout(Duration::from_millis(100))
+            .with_ctx(&ctx)
+            .unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+
+        let client = ClientBuilder::new()
+            .mechanism(client_creds)
+            .connect(bound)
+            .with_ctx(&ctx)
+            .unwrap();
+
+        client.send("").unwrap();
+        server.recv_msg().unwrap();
+    }
+
+    #[test]
+    fn test_curve_denied() {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server_cert = Z85Cert::new_unique();
@@ -697,21 +842,58 @@ mod test {
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(server_creds)
+            .recv_timeout(Duration::from_millis(100))
             .build()
             .unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
 
-        let client = Client::new().unwrap();
+        let client = ClientBuilder::new()
+            .mechanism(client_creds)
+            .connect(bound)
+            .build()
+            .unwrap();
 
-        monitor.register(&client).unwrap();
+        client.send("").unwrap();
+        assert!(server.recv_msg().is_err());
+    }
+
+    #[test]
+    fn test_curve_no_auth() {
+        let ctx = Ctx::new();
+
+        let server_cert = Z85Cert::new_unique();
+        let client_cert = Z85Cert::new_unique();
+
+        let channel = AuthChannel::with_ctx(&ctx).unwrap();
+        channel.set_curve_auth(false).unwrap();
+
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+
+        let server_creds = CurveServerCreds {
+            secret: server_cert.secret().to_owned(),
+        };
+
+        let client_creds = CurveClientCreds {
+            client: client_cert,
+            server: server_cert.public().to_owned(),
+        };
+
+        let server = ServerBuilder::new()
+            .bind(&addr)
+            .mechanism(server_creds)
+            .recv_timeout(Duration::from_millis(100))
+            .with_ctx(&ctx)
+            .unwrap();
+
+        let bound = server.last_endpoint().unwrap().unwrap();
+
+        let client = Client::with_ctx(&ctx).unwrap();
 
         client.set_mechanism(client_creds).unwrap();
         client.connect(bound).unwrap();
 
-        expect_event(
-            &mut monitor,
-            EventType::HandshakeFailedAuth(StatusCode::Denied),
-        );
+        client.send("").unwrap();
+        server.recv_msg().unwrap();
     }
 }
