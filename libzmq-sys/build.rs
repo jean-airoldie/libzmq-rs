@@ -16,6 +16,7 @@ fn main() {
     let artifacts = zeromq_src::Build::new()
         .link_static(wants_static)
         .build_debug(wants_debug)
+        .enable_draft(wants_draft)
         .build();
     let mut args = vec![];
 
