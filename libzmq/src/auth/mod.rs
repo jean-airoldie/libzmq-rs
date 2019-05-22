@@ -441,7 +441,8 @@ impl AuthHandler {
             {
                 info!("denied addr {}, not whitelisted", &request.addr);
                 true
-            } else if self.whitelist.is_empty() && !self.blacklist.is_empty()
+            } else if self.whitelist.is_empty()
+                && !self.blacklist.is_empty()
                 && self.blacklist.contains(&request.addr)
             {
                 info!("denied addr {}, blacklisted", &request.addr);
@@ -585,7 +586,8 @@ mod test {
         channel.add_blacklist(ip).unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
-        let client = ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
+        let client =
+            ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
 
         client.send("").unwrap();
         assert!(server.recv_msg().is_err());
@@ -615,7 +617,8 @@ mod test {
         channel.add_whitelist(ip).unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
-        let client = ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
+        let client =
+            ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
 
         client.send("").unwrap();
         server.recv_msg().unwrap();
