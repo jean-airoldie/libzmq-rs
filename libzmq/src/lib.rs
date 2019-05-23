@@ -11,7 +11,6 @@ pub mod auth;
 pub mod ctx;
 mod error;
 pub mod group;
-pub mod monitor;
 mod msg;
 mod old;
 pub mod poll;
@@ -45,4 +44,17 @@ pub use utils::*;
 /// The prelude may grow over time as additional items see ubiquitous use.
 pub mod prelude {
     pub use crate::core::*;
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_readme_deps() {
+        version_sync::assert_markdown_deps_updated!("../README.md");
+    }
+
+    #[test]
+    fn test_html_root_url() {
+        version_sync::assert_html_root_url_updated!("src/lib.rs");
+    }
 }

@@ -1,3 +1,5 @@
+// Ignore generated code
+#![allow(clippy::all)]
 #![doc(html_root_url = "https://docs.rs/libzmq-sys/0.1")]
 
 //! libzmq-sys - Raw cFFI bindings to [libzmq](https://github.com/zeromq/libzmq).

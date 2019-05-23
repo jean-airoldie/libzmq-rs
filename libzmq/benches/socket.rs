@@ -1,6 +1,6 @@
 use criterion::{black_box, Benchmark, Criterion, Throughput};
 
-use libzmq::{addr::Endpoint, prelude::*, *};
+use libzmq::{prelude::*, *};
 
 use lazy_static::lazy_static;
 use rand::{distributions::Standard, Rng};

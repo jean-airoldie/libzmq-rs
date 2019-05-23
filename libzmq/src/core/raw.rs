@@ -1,7 +1,4 @@
-use crate::{
-    addr::Endpoint, auth::*, core::sockopt::*, error::*,
-    monitor::init_socket_monitor, Ctx, InprocAddr,
-};
+use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -168,7 +165,6 @@ pub struct RawSocket {
     connected: Mutex<Vec<Endpoint>>,
     bound: Mutex<Vec<Endpoint>>,
     mechanism: Mutex<Mechanism>,
-    monitor_addr: InprocAddr,
 }
 
 impl RawSocket {
@@ -207,17 +203,12 @@ impl RawSocket {
                 Some("global"),
             )?;
 
-            let monitor_addr = InprocAddr::new_unique();
-
-            init_socket_monitor(socket_mut_ptr, &monitor_addr);
-
             Ok(Self {
                 ctx,
                 socket_mut_ptr,
                 connected: Mutex::default(),
                 bound: Mutex::default(),
                 mechanism: Mutex::default(),
-                monitor_addr,
             })
         }
     }
@@ -261,10 +252,6 @@ impl RawSocket {
 
     pub(crate) fn mechanism(&self) -> &Mutex<Mechanism> {
         &self.mechanism
-    }
-
-    pub(crate) fn monitor_addr(&self) -> &InprocAddr {
-        &self.monitor_addr
     }
 
     pub(crate) fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
@@ -471,22 +458,6 @@ impl RawSocket {
 
     pub(crate) fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
         setsockopt_bool(self.as_mut_ptr(), SocketOption::NoDrop, enabled)
-    }
-
-    pub(crate) fn subscribe(&self, bytes: &[u8]) -> Result<(), Error> {
-        setsockopt_bytes(
-            self.as_mut_ptr(),
-            SocketOption::Subscribe,
-            Some(bytes),
-        )
-    }
-
-    pub(crate) fn unsubscribe(&self, bytes: &[u8]) -> Result<(), Error> {
-        setsockopt_bytes(
-            self.as_mut_ptr(),
-            SocketOption::Unsubscribe,
-            Some(bytes),
-        )
     }
 
     pub(crate) fn set_curve_public_key(

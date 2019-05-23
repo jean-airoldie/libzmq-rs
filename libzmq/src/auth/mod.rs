@@ -18,7 +18,6 @@ use std::{
     convert::{TryFrom, TryInto},
     fmt,
     net::{IpAddr, Ipv6Addr},
-    time::Duration,
     vec,
 };
 

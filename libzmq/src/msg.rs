@@ -11,7 +11,7 @@ use std::{
     fmt,
     os::raw::c_void,
     ptr, slice,
-    str::{self, FromStr, Utf8Error},
+    str::{self, Utf8Error},
 };
 
 /// A generated ID used to route messages to the approriate client.
@@ -56,17 +56,6 @@ use std::{
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct RoutingId(u32);
-
-impl RoutingId {
-    pub(crate) fn from_str(s: &str) -> Option<Self> {
-        if let Ok(id) = u32::from_str(s) {
-            if id != 0 {
-                return Some(RoutingId(id));
-            }
-        }
-        None
-    }
-}
 
 impl From<RoutingId> for u32 {
     fn from(r: RoutingId) -> u32 {

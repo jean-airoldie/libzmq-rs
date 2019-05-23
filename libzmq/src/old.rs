@@ -9,7 +9,7 @@ use sys::errno;
 
 use libc::c_int;
 
-use std::{os::raw::c_void, time::Duration};
+use std::os::raw::c_void;
 
 fn send(
     mut_sock_ptr: *mut c_void,
@@ -88,12 +88,6 @@ pub(crate) struct OldSocket {
 }
 
 impl OldSocket {
-    pub(crate) fn new(socket: OldSocketType) -> Result<Self, Error> {
-        let inner = RawSocket::new(socket.into())?;
-
-        Ok(Self { inner })
-    }
-
     pub(crate) fn with_ctx<C>(
         socket: OldSocketType,
         ctx: C,
@@ -107,32 +101,12 @@ impl OldSocket {
         Ok(Self { inner })
     }
 
-    pub(crate) fn ctx(&self) -> &crate::Ctx {
-        self.inner.ctx()
-    }
-
     pub(crate) fn bind<E>(&mut self, endpoint: E) -> Result<(), Error>
     where
         E: Into<Endpoint>,
     {
         let endpoint = endpoint.into();
         self.inner.bind(&endpoint)
-    }
-
-    pub(crate) fn connect<E>(&mut self, endpoint: E) -> Result<(), Error>
-    where
-        E: Into<Endpoint>,
-    {
-        let endpoint = endpoint.into();
-        self.inner.connect(&endpoint)
-    }
-
-    pub(crate) fn disconnect<E>(&mut self, endpoint: E) -> Result<(), Error>
-    where
-        E: Into<Endpoint>,
-    {
-        let endpoint = endpoint.into();
-        self.inner.disconnect(&endpoint)
     }
 
     pub(crate) fn send<M>(&mut self, msg: M, more: bool) -> Result<(), Error>
@@ -165,10 +139,6 @@ impl OldSocket {
         Ok(())
     }
 
-    pub(crate) fn recv(&mut self, msg: &mut Msg) -> Result<(), Error> {
-        recv(self.inner.as_mut_ptr(), msg)
-    }
-
     pub(crate) fn recv_msg_multipart(&mut self) -> Result<Vec<Msg>, Error> {
         let mut vec = Vec::new();
         loop {
@@ -181,25 +151,6 @@ impl OldSocket {
             }
         }
         Ok(vec)
-    }
-
-    pub fn subscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
-        self.inner.subscribe(bytes)
-    }
-
-    pub fn unsubscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
-        self.inner.unsubscribe(bytes)
-    }
-
-    pub fn set_recv_timeout(
-        &mut self,
-        maybe: Option<Duration>,
-    ) -> Result<(), Error> {
-        self.inner.set_recv_timeout(maybe)
-    }
-
-    pub fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
-        self.inner.recv_timeout()
     }
 }
 
