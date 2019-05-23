@@ -20,14 +20,6 @@ maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
 is-it-maintained-open-issues = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
 
-[features]
-# Used to link statically to libzmq.
-static = []
-# Used to build in debug mode.
-debug = []
-# Used to enable the libzmq DRAFT API.
-draft = []
-
 [dependencies]
 libc = "0.2"
 

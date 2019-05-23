@@ -784,7 +784,7 @@ mod test {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
         let server = ServerBuilder::new()
             .bind(&addr)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .with_ctx(&ctx)
             .unwrap();
 
@@ -809,7 +809,7 @@ mod test {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
         let server = ServerBuilder::new()
             .bind(&addr)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .with_ctx(&ctx)
             .unwrap();
 
@@ -831,7 +831,7 @@ mod test {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
         let server = ServerBuilder::new()
             .bind(&addr)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .build()
             .unwrap();
 
@@ -850,7 +850,7 @@ mod test {
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(Mechanism::PlainServer)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .build()
             .unwrap();
 
@@ -887,7 +887,7 @@ mod test {
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(Mechanism::PlainServer)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .with_ctx(&ctx)
             .unwrap();
 
@@ -927,7 +927,7 @@ mod test {
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(server_creds)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .with_ctx(&ctx)
             .unwrap();
 
@@ -962,7 +962,7 @@ mod test {
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(server_creds)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .build()
             .unwrap();
 
@@ -1002,7 +1002,7 @@ mod test {
         let server = ServerBuilder::new()
             .bind(&addr)
             .mechanism(server_creds)
-            .recv_timeout(Duration::from_millis(100))
+            .recv_timeout(Duration::from_millis(200))
             .with_ctx(&ctx)
             .unwrap();
 

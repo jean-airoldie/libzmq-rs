@@ -26,7 +26,7 @@ serde-humantime = { git = "https://github.com/tailhook/serde-humantime", branch 
 serde_with = "1.3.1"
 lazy_static = "1.3.0"
 failure = "0.1"
-libzmq-sys = { path = "../libzmq-sys", version = "0.1", features = ["draft"] }
+libzmq-sys = { path = "../libzmq-sys", version = "0.1" }
 bitflags = "1.0"
 hashbrown = "0.2"
 log = "0.4"

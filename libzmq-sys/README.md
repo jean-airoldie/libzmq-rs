@@ -10,16 +10,10 @@ Based on this [`guide`](https://kornel.ski/rust-sys-crate) as well as [`zmq-sys`
 * [Clang 6.0+](https://github.com/rust-lang/rust-bindgen/blob/master/Cargo.toml#L51)
 
 # Build and Linking.
-By default `libzmq` will be build and linked dynamically.
-If you would rather build and link statically, you can either:
-* Set `LIBZMQ_SYS_STATIC=1` in the ENV.
-* Enable the `static` cargo feature.
+The lib is built and linked statically.
 
 # Build Type
-By default `libzmq` will be build in release mode. If you would rather
-build in debug mode, you can either:
-* Set `LIBZMQ_SYS_DEBUG=1` in the ENV.
-* Enable the `debug` cargo feature.
+The lib is built depending on the profile (either release or debug).
 
 # OUTPUT ENV Variables
 These are the output ENV variables of the cargo build script:
