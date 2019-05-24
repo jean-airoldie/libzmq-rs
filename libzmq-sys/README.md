@@ -1,9 +1,16 @@
+[![](https://img.shields.io/crates/v/libzmq-sys.svg)][crates-io]
+[![](https://docs.rs/libzmq-sys/badge.svg)][api-docs]
 [![Apache 2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](./LICENSE-APACHE)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE-MIT)
 
 > libzmq-sys - Rust raw cffi bindings to libzmq
 
 Based on this [`guide`](https://kornel.ski/rust-sys-crate) as well as [`zmq-sys`].
+
+```toml
+[dependencies]
+libzmq-sys = "0.1.0"
+```
 
 # Dependencies
 * [CMake 2.8.12+ (or 3.0.2+ on Darwin)](https://github.com/zeromq/libzmq/blob/de4d69f59788fed86bcb0f610723c5acd486a7da/CMakeLists.txt#L7)
