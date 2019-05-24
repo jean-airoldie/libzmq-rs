@@ -1,0 +1,5 @@
+[book]
+authors = ["jean-airoldie"]
+multilingual = false
+src = "src"
+title = "libzmq rust guide"
