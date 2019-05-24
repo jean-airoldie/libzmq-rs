@@ -410,20 +410,20 @@ struct FlatDishConfig {
     bind: Option<Vec<Endpoint>>,
     backlog: Option<i32>,
     #[serde(default)]
-    #[serde(with = "serde_humantime")]
+    #[serde(with = "humantime_serde")]
     heartbeat_interval: Option<Duration>,
     #[serde(default)]
-    #[serde(with = "serde_humantime")]
+    #[serde(with = "humantime_serde")]
     heartbeat_timeout: Option<Duration>,
     #[serde(default)]
-    #[serde(with = "serde_humantime")]
+    #[serde(with = "humantime_serde")]
     heartbeat_ttl: Option<Duration>,
     #[serde(default)]
-    #[serde(with = "serde_humantime")]
+    #[serde(with = "humantime_serde")]
     linger: Option<Duration>,
     recv_high_water_mark: Option<i32>,
     #[serde(default)]
-    #[serde(with = "serde_humantime")]
+    #[serde(with = "humantime_serde")]
     recv_timeout: Option<Duration>,
     groups: Option<Vec<GroupOwned>>,
     mechanism: Option<Mechanism>,
