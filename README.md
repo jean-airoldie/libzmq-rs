@@ -14,7 +14,7 @@ libzmq = "0.1.1"
 
 # Dead Simple Sample
 ```rust
-use libzmq::{prelude::*, Msg, TcpAddr, socket::*};
+use libzmq::{prelude::*, *};
 use std::convert::TryInto;
 
 // Use a system assigned port.
