@@ -55,10 +55,6 @@ do not need to install [`libzmq`]. However building from source requires:
 * [CMake 2.8.12+ (or 3.0.2+ on Darwin)](https://github.com/zeromq/libzmq/blob/de4d69f59788fed86bcb0f610723c5acd486a7da/CMakeLists.txt#L7)
 * [Clang 6.0+](https://github.com/rust-lang/rust-bindgen/blob/master/Cargo.toml#L51)
 
-# Linking
-By default `libzmq` is built and linked dynamically. To change this behavior
-[read this](./libzmq-sys/README.md).
-
 # General Goals
 * Conform to these [`API guidelines`].
 * Provide an ergonomic API
