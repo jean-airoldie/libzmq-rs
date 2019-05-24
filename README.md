@@ -1,3 +1,5 @@
+[![](https://img.shields.io/crates/v/libzmq.svg)][crates-io]
+[![](https://docs.rs/libzmq/badge.svg)][api-docs]
 [![Apache 2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](./LICENSE-APACHE)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE-MIT)
 
@@ -99,3 +101,5 @@ dual licensed as above, without any additional terms or conditions.
 [`czmq`]: https://github.com/zeromq/czmq
 [`API guidelines`]: https://rust-lang-nursery.github.io/api-guidelines/checklist.html
 [`libzmq`]: https://github.com/zeromq/libzmq
+[crates-io]: https://crates.io/crates/libzmq
+[api-docs]: https://docs.rs/libzmq
