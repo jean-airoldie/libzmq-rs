@@ -7,6 +7,11 @@
 
 A strict subset of ØMQ with an ergonomic API.
 
+```toml
+[dependencies]
+libzmq = "0.1.1"
+```
+
 # Dead Simple Sample
 ```rust
 use libzmq::{prelude::*, Msg, TcpAddr, socket::*};
