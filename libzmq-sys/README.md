@@ -9,7 +9,7 @@ Based on this [`guide`](https://kornel.ski/rust-sys-crate) as well as [`zmq-sys`
 
 ```toml
 [dependencies]
-libzmq-sys = "0.1.0"
+libzmq-sys = "0.1.1"
 ```
 
 # Dependencies
