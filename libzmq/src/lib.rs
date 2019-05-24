@@ -1,37 +1,50 @@
-#![doc(html_root_url = "https://docs.rs/libzmq/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/libzmq/0.1")]
 
-//! libzmq - A strict subset of ØMQ with a high level API.
+//! *libzmq* - A strict subset of ØMQ with a high level API.
 
 pub use failure;
 
 #[macro_use]
 mod core;
-pub mod addr;
 pub mod auth;
-pub mod ctx;
+mod ctx;
+mod endpoint;
 mod error;
-pub mod group;
+mod group;
 mod msg;
 mod old;
 pub mod poll;
-pub mod socket;
+mod socket;
 mod utils;
 
-#[doc(inline)]
-pub use addr::{EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr};
-#[doc(inline)]
-pub use ctx::Ctx;
+pub use ctx::{Ctx, CtxBuilder};
+pub use endpoint::{EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr, INPROC_MAX_SIZE};
 pub use error::{Error, ErrorKind};
-#[doc(inline)]
-pub use group::{Group, GroupOwned};
+pub use group::*;
 pub use msg::*;
 pub use socket::{
     Client, ClientBuilder, Dish, DishBuilder, Radio, RadioBuilder, Server,
-    ServerBuilder,
+    ServerBuilder, SocketType,
 };
 pub use utils::*;
 
-/// A "prelude" for users of the `ØMQ` crate.
+/// Configurations for *libzmq* types.
+pub mod config {
+    pub use crate::ctx::CtxConfig;
+    pub use crate::socket::{
+        ClientConfig, ConfigType, DishConfig, RadioConfig, ServerConfig,
+    };
+}
+
+/// Address related types.
+pub mod addr {
+    pub use crate::endpoint::{
+        AddrParseError, Endpoint, Hostname, Interface, Port, SocketAddr,
+        SrcAddr,
+    };
+}
+
+/// A "prelude" for users of the *libzmq* crate.
 ///
 /// This prelude is similar to the standard library's prelude in that you'll
 /// almost always want to import its entire contents, but unlike the standard

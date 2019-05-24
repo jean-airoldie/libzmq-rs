@@ -111,7 +111,7 @@ pub trait Socket: GetRawSocket {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Client, addr::{InprocAddr, Endpoint}};
+    /// use libzmq::{prelude::*, Client, InprocAddr, addr::Endpoint};
     /// use std::convert::TryInto;
     ///
     /// let addr: InprocAddr = "test".try_into()?;
@@ -261,7 +261,7 @@ pub trait Socket: GetRawSocket {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Radio, addr::{InprocAddr, Endpoint}};
+    /// use libzmq::{prelude::*, Radio, InprocAddr, addr::Endpoint};
     /// use std::convert::TryInto;
     ///
     /// let first: InprocAddr = "test1".try_into()?;
@@ -365,7 +365,7 @@ pub trait Socket: GetRawSocket {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Server, addr::*};
+    /// use libzmq::{prelude::*, Server, TcpAddr, addr::Endpoint};
     /// use std::convert::TryInto;
     ///
     /// // We create a tcp addr with an unspecified port.

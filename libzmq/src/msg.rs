@@ -24,7 +24,7 @@ use std::{
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, socket::*, Msg, addr::TcpAddr};
+/// use libzmq::{prelude::*, *};
 /// use std::convert::TryInto;
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;

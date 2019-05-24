@@ -17,7 +17,7 @@ use std::{ffi, os::raw::*, ptr, str};
 ///
 /// assert_eq!(version(), (4, 3, 2));
 /// ```
-// This test acts as a canary when upgrading the libzmq
+// This test acts as a canary when upgrading the *libzmq*
 // version.
 pub fn version() -> (i32, i32, i32) {
     let mut major = 0;

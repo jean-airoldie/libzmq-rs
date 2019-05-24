@@ -1,6 +1,6 @@
 //! Socket authentication and encryption.
 //!
-//! In `libzmq` each `Ctx` as a dedicated background
+//! In *libzmq* each `Ctx` as a dedicated background
 //! `AuthHandler` thread which will handle authentication and encryption
 //! for all sockets within the same context.
 //!
@@ -13,7 +13,6 @@
 mod curve;
 
 use crate::{old::*, poll::*, prelude::*, socket::*, *};
-#[doc(inline)]
 pub use curve::*;
 
 use failure::Fail;
@@ -341,7 +340,7 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, TcpAddr, auth::*, socket::*};
+/// use libzmq::{prelude::*, auth::*, *};
 /// use std::{time::Duration, convert::TryInto};
 ///
 /// let server_cert = CurveCert::new_unique();

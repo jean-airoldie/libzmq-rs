@@ -1,5 +1,3 @@
-//! The different transport types supported by ØMQ.
-
 use failure::Fail;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
@@ -626,7 +624,7 @@ impl UdpAddr {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::addr::{UdpAddr, SocketAddr};
+    /// use libzmq::{UdpAddr, addr::SocketAddr};
     /// use std::convert::TryInto;
     ///
     /// let host: SocketAddr = "localhost:5555".try_into()?;
@@ -651,7 +649,7 @@ impl UdpAddr {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::addr::{UdpAddr, SocketAddr, SrcAddr};
+    /// use libzmq::{UdpAddr, addr::{SrcAddr, SocketAddr}};
     /// use std::convert::TryInto;
     ///
     /// let host: SocketAddr = "localhost:5555".try_into()?;
@@ -1068,7 +1066,7 @@ impl InprocAddr {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, InprocAddr, socket::ServerBuilder};
+    /// use libzmq::{prelude::*, InprocAddr, ServerBuilder};
     ///
     /// let addr = InprocAddr::new_unique();
     ///
@@ -1184,7 +1182,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::{TcpAddr, Endpoint};
+/// use libzmq::{TcpAddr, addr::Endpoint};
 /// use std::convert::TryInto;
 ///
 /// // IPv4 addr with TCP transport.
@@ -1350,7 +1348,7 @@ mod test {
     macro_rules! test_addr_ser_de {
         ($mod: ident, $name: ty, $string: expr) => {
             mod $mod {
-                use crate::addr::*;
+                use crate::{addr::*, *};
                 use std::convert::TryInto;
 
                 #[test]

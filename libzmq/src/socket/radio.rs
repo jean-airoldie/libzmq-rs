@@ -90,7 +90,7 @@ use std::{sync::Arc, time::Duration};
 /// ```
 ///
 /// [`Dish`]: struct.Dish.html
-/// [`set_group`]: ../struct.Msg.html#method.set_group
+/// [`set_group`]: struct.Msg.html#method.set_group
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Radio {
     inner: Arc<RawSocket>,
@@ -103,9 +103,9 @@ impl Radio {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
         let inner = Arc::new(RawSocket::new(RawSocketType::Radio)?);
 
@@ -118,8 +118,8 @@ impl Radio {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
     where
         C: Into<Ctx>,
@@ -146,7 +146,7 @@ impl Radio {
     /// # Default value
     /// `false`
     ///
-    /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
+    /// [`WouldBlock`]: enum.ErrorKind.html#variant.WouldBlock
     /// [`send_high_water_mark`]: #method.send_high_water_mark
     pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
         self.inner.set_no_drop(enabled)

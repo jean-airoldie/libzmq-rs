@@ -80,9 +80,9 @@ use std::{sync::Arc, time::Duration};
 ///
 /// [`MORE`]: constant.MORE.html
 /// [`Client`]: struct.Client.html
-/// [`routing_id`]: ../msg/struct.Msg.html#method.routing_id
-/// [`set_routing_id`]: ../msg/struct.Msg.html#method.set_routing_id
-/// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.host-unreachable
+/// [`routing_id`]: struct.Msg.html#method.routing_id
+/// [`set_routing_id`]: struct.Msg.html#method.set_routing_id
+/// [`HostUnreachable`]: enum.ErrorKind.html#variant.host-unreachable
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Server {
     inner: Arc<RawSocket>,
@@ -95,9 +95,9 @@ impl Server {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: ctx/struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
         let inner = Arc::new(RawSocket::new(RawSocketType::Server)?);
 
@@ -110,8 +110,8 @@ impl Server {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     pub fn with_ctx<C>(ctx: C) -> Result<Server, Error>
     where
         C: Into<Ctx>,

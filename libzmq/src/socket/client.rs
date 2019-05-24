@@ -92,9 +92,9 @@ impl Client {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
         let inner = Arc::new(RawSocket::new(RawSocketType::Client)?);
 
@@ -107,8 +107,8 @@ impl Client {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
     where
         C: Into<Ctx>,

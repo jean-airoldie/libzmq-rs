@@ -81,7 +81,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, TcpAddr, socket::*, Msg, Group};
+/// use libzmq::{prelude::*, *};
 /// use std::{convert::TryInto, thread, time::Duration};
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
@@ -149,9 +149,9 @@ impl Dish {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
-    /// [`global context`]: ../ctx/struct.Ctx.html#method.global
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
+    /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
         let inner = Arc::new(RawSocket::new(RawSocketType::Dish)?);
 
@@ -167,8 +167,8 @@ impl Dish {
     /// * [`CtxTerminated`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`SocketLimit`]: ../enum.ErrorKind.html#variant.SocketLimit
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
     where
         C: Into<Ctx>,
@@ -217,9 +217,9 @@ impl Dish {
     /// # }
     /// ```
     ///
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`Interrupted`]: enum.ErrorKind.html#variant.Interrupted
+    /// [`InvalidInput`]: enum.ErrorKind.html#variant.InvalidInput
     pub fn join<I, G>(&self, groups: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = G>,
@@ -303,9 +303,9 @@ impl Dish {
     /// #     Ok(())
     /// # }
     /// ```
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
+    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`Interrupted`]: enum.ErrorKind.html#variant.Interrupted
+    /// [`InvalidInput`]: enum.ErrorKind.html#variant.InvalidInput
     pub fn leave<I, G>(&self, groups: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = G>,
@@ -570,7 +570,7 @@ mod test {
 
     #[test]
     fn test_dish() {
-        use crate::{prelude::*, *};
+        use crate::{prelude::*, TcpAddr, *};
         use std::{convert::TryInto, thread};
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();

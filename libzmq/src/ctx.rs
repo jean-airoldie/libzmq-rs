@@ -213,7 +213,7 @@ impl CtxBuilder {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::ctx::*;
+    /// use libzmq::*;
     ///
     /// let ctx = CtxBuilder::new()
     ///   .io_threads(2)
@@ -234,7 +234,7 @@ impl CtxBuilder {
     ///
     /// # Usage Example
     /// ```
-    /// use libzmq::ctx::*;
+    /// use libzmq::*;
     ///
     /// let global = Ctx::global();
     ///

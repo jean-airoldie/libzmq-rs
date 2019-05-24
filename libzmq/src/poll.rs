@@ -1,4 +1,4 @@
-//! Asynchronous polling mechanims.
+//! Asynchronous polling mechanim.
 
 use crate::{
     core::GetRawSocket,
