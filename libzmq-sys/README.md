@@ -31,3 +31,5 @@ These are the output ENV variables of the cargo build script:
 
 [`guide`]: https://kornel.ski/rust-sys-crate
 [`zmq-sys`]: https://github.com/erickt/rust-zmq/tree/master/zmq-sys
+[crates-io]: https://crates.io/crates/libzmq-sys
+[api-docs]: https://docs.rs/libzmq-sys

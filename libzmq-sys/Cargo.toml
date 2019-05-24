@@ -1,6 +1,6 @@
 [package]
 name = "libzmq-sys"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["jean-airoldie <maxence.caron@protonmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -15,10 +15,7 @@ keywords = ["libzmq", "zmq", "zeromq", "bindings", "cffi"]
 categories = ["external-ffi-bindings"]
 
 [badges]
-travis-ci = { repository = "jean-airoldie/libzmq-rs", branch = "master" }
 maintenance = { status = "actively-developed" } 
-is-it-maintained-issue-resolution = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
-is-it-maintained-open-issues = { repository = "https://github.com/jean-airoldie/libzmq-rs" }
 
 [dependencies]
 libc = "0.2"
@@ -29,5 +26,5 @@ version-sync = "0.8"
 [build-dependencies]
 cmake = "0.1"
 bindgen = "0.49.0"
-# Use version 4.3.2 which is still a preview.
+# Use `libzmq` version 4.3.2 which is still a dev preview.
 zeromq-src = "=0.1.4-preview"
