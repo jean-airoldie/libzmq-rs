@@ -7,7 +7,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 
 use std::{
-    ffi::{self, CStr, CString},
+    ffi::{CStr, CString},
     fmt,
     os::raw::c_void,
     ptr, slice,
@@ -174,37 +174,6 @@ impl Msg {
         unsafe {
             let data = sys::zmq_msg_data(self.as_mut_ptr());
             slice::from_raw_parts_mut(data as *mut u8, self.len())
-        }
-    }
-
-    /// Indicate if there are more message parts to receive.
-    ///
-    /// See [`zmq_msg_more`].
-    ///
-    /// [`zmq_msg_more`]: http://api.zeromq.org/master:zmq-msg-more
-    pub fn more(&self) -> bool {
-        let rc = unsafe { sys::zmq_msg_more(&self.msg as *const _ as *mut _) };
-        rc != 0
-    }
-
-    /// Query a message metadata property. Returns `None` if the property
-    /// is unknown
-    ///
-    /// See [`zmq_msg_gets`].
-    ///
-    /// [`zmq_msg_gets`]: http://api.zeromq.org/master:zmq-msg-gets
-    // TODO Write some decent tests.
-    pub fn gets<'a>(&self, property: &str) -> Option<&'a str> {
-        let c_str = ffi::CString::new(property.as_bytes()).unwrap();
-
-        let value = unsafe { sys::zmq_msg_gets(self.as_ptr(), c_str.as_ptr()) };
-
-        if value.is_null() {
-            None
-        } else {
-            Some(unsafe {
-                str::from_utf8(ffi::CStr::from_ptr(value).to_bytes()).unwrap()
-            })
         }
     }
 

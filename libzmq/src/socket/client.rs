@@ -21,6 +21,16 @@ use std::{sync::Arc, time::Duration};
 /// socket shall block until the mute state ends or at least one peer becomes
 /// available for sending; messages are not discarded.
 ///
+/// # Summary of Characteristics
+/// | Characteristic            | Value                  |
+/// |:-------------------------:|:----------------------:|
+/// | Compatible peer sockets   | [`Server`]             |
+/// | Direction                 | Bidirectional          |
+/// | Send/receive pattern      | Unrestricted           |
+/// | Outgoing routing strategy | Round-robin            |
+/// | Incoming routing strategy | Fair-queued            |
+/// | Action in mute state      | Block                  |
+///
 /// # Example
 /// ```
 /// # use failure::Error;
@@ -68,16 +78,6 @@ use std::{sync::Arc, time::Duration};
 /// #     Ok(())
 /// # }
 /// ```
-///
-/// # Summary of Characteristics
-/// | Characteristic            | Value                  |
-/// |:-------------------------:|:----------------------:|
-/// | Compatible peer sockets   | [`Server`]             |
-/// | Direction                 | Bidirectional          |
-/// | Send/receive pattern      | Unrestricted           |
-/// | Outgoing routing strategy | Round-robin            |
-/// | Incoming routing strategy | Fair-queued            |
-/// | Action in mute state      | Block                  |
 ///
 /// [`Server`]: struct.Server.html
 #[derive(Debug, Clone, PartialEq, Eq)]

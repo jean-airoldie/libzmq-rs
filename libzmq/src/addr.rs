@@ -406,10 +406,10 @@ impl<'a> From<&'a SocketAddr> for SocketAddr {
 /// use libzmq::addr::SrcAddr;
 /// use std::convert::TryInto;
 ///
-/// /// Specify an IPv4 addr with a unspecified port.
+/// // Specify an IPv4 addr with a unspecified port.
 /// let src: SrcAddr = "192.168.1.17:*".try_into()?;
 ///
-/// /// Specify a network interface.
+/// // Specify a network interface.
 /// let src: SrcAddr = "eth0".try_into()?;
 /// #
 /// #     Ok(())
@@ -482,7 +482,7 @@ impl<'a> From<&'a SrcAddr> for SrcAddr {
 /// // Connecting using a IPv4 address and bind to `eth0` interface.
 /// let ipv4: TcpAddr = "eth0;192.168.1.1:5555".try_into()?;
 ///
-/// // Connecting using a IPv4 address.
+/// // Connecting using a IPv6 address.
 /// let ipv6: TcpAddr = "[2001:db8::1]:8080".try_into()?;
 /// #
 /// #     Ok(())

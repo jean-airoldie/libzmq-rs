@@ -15,6 +15,16 @@ use std::{sync::Arc, time::Duration};
 /// high water mark for a subscriber, then any messages that would be sent to
 /// the subscriber in question shall instead be dropped until the mute state ends.
 ///
+/// # Summary of Characteristics
+/// | Characteristic            | Value          |
+/// |:-------------------------:|:--------------:|
+/// | Compatible peer sockets   | [`Dish`]       |
+/// | Direction                 | Unidirectional |
+/// | Send/receive pattern      | Send only      |
+/// | Incoming routing strategy | N/A            |
+/// | Outgoing routing strategy | Fan out        |
+/// | Action in mute state      | Drop           |
+///
 /// # Example
 /// ```
 /// # use failure::Error;
@@ -78,15 +88,6 @@ use std::{sync::Arc, time::Duration};
 /// #     Ok(())
 /// # }
 /// ```
-/// # Summary of Characteristics
-/// | Characteristic            | Value          |
-/// |:-------------------------:|:--------------:|
-/// | Compatible peer sockets   | [`Dish`]       |
-/// | Direction                 | Unidirectional |
-/// | Send/receive pattern      | Send only      |
-/// | Incoming routing strategy | N/A            |
-/// | Outgoing routing strategy | Fan out        |
-/// | Action in mute state      | Drop           |
 ///
 /// [`Dish`]: struct.Dish.html
 /// [`set_group`]: ../struct.Msg.html#method.set_group

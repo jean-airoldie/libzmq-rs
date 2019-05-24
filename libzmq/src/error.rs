@@ -14,8 +14,9 @@ use std::{
 /// An error with a kind and a msg.
 ///
 /// An `Error` contains a [`ErrorKind`] which gives context on the error cause,
-/// as well as an `Option<Msg> which may be used to prevent the loss of data
-/// in case of a failed `send` function call.
+/// as well as an `Option<T>` which may be used to prevent the loss of data
+/// in case of a failed `send` function call. When no `T` is specified, it
+/// defaults to `()`.
 ///
 /// # Usage example
 /// ```
@@ -83,7 +84,7 @@ impl<T> Error<T> {
         self.content.as_ref()
     }
 
-    /// Takes the content held by the error, if any.
+    /// Takes the content held by the error, if any, replacing with `None`.
     pub fn take_content(&mut self) -> Option<T> {
         self.content.take()
     }

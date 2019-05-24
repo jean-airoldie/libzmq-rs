@@ -305,10 +305,7 @@ impl CtxBuilder {
 /// A ØMQ context is internally thread safe.
 ///
 /// # Multiple Contexts
-/// Multiple contexts are allowed but for most cases one will suffice.
-///
-/// # Differences with `ØMQ` context.
-/// * IPV6 option is always enabled.
+/// Multiple contexts are allowed but are considered exotic.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Ctx {
     raw: Arc<RawCtx>,
