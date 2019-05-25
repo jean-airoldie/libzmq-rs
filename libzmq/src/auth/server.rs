@@ -127,6 +127,7 @@ impl From<CurveServerCreds> for Mechanism {
 /// By default the `Null`
 /// mechanism is used, meaning there is no attempt authentication nor encryption.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Mechanism {
     /// No encryption or authentication.
     ///

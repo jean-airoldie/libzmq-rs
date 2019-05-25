@@ -1,0 +1,7 @@
+auth:
+  # The public keys allowed to authenticate
+  curve_keys:
+    - N5c4JD%4xtBM}]Nvt>p7S1&9Iq(H)bi5xa1GM>]R"
+
+server:
+mechanism = 

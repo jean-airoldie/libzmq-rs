@@ -46,3 +46,9 @@ flatc-rust = "0.1"
 [[bench]]
 name = "bench_main"
 harness = false
+
+[[example]]
+name = "curve_server"
+
+[[example]]
+name = "gen_curve_cert"
