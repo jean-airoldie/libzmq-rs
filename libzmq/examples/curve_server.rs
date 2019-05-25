@@ -1,10 +1,10 @@
-use libzmq::{prelude::*, config::*};
+use libzmq::{config::*, prelude::*};
 
 use serde::{Deserialize, Serialize};
 
 use std::{fs::File, io::Read};
 
-// See the content of the config file.
+// Take a look at the config file.
 const CONFIG_PATH: &str = "examples/curve_server.yml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,10 +32,9 @@ fn main() -> Result<(), failure::Error> {
     let client = config.client.build()?;
     let server = config.server.build()?;
 
-    // In this example the server binds to a system defined port as
-    // to not conflict with the host machine. But in a real application
-    // the port would be known so connection could be added in the config
-    // file.
+    // In this example the server binds to a system defined port so as
+    // prevent potential conflicts with the host machine. But in a real
+    // application the port would be known (and added to the config file).
     let bound = server.last_endpoint()?;
     client.connect(bound)?;
 
