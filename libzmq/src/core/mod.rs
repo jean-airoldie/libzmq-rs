@@ -556,14 +556,10 @@ impl SocketConfig {
         // We connect as the last step because some socket options
         // only affect subsequent connections.
         if let Some(ref endpoints) = self.connect {
-            for endpoint in endpoints {
-                socket.connect(endpoint.to_owned())?;
-            }
+            socket.connect(endpoints)?;
         }
         if let Some(ref endpoints) = self.bind {
-            for endpoint in endpoints {
-                socket.bind(endpoint.to_owned())?;
-            }
+            socket.bind(endpoints)?;
         }
         Ok(())
     }

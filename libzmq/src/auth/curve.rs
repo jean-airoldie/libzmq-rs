@@ -6,7 +6,7 @@ use byteorder::{BigEndian, ByteOrder};
 use failure::Fail;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{convert::TryFrom, ffi::CString, fmt, os::raw::c_char};
+use std::{convert::TryFrom, ffi::CString, fmt, option, os::raw::c_char};
 
 static LETTERS: [u8; 85] = [
     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62,
@@ -246,6 +246,24 @@ impl<'de> Deserialize<'de> for CurveKey {
     {
         let s = String::deserialize(deserializer)?;
         TryFrom::try_from(s).map_err(de::Error::custom)
+    }
+}
+
+impl IntoIterator for CurveKey {
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a CurveKey {
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
     }
 }
 

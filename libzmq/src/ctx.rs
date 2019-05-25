@@ -1,6 +1,6 @@
 //! The ØMQ context type.
 
-use crate::{auth::AuthServer, error::msg_from_errno};
+use crate::{auth::server::AuthServer, error::msg_from_errno};
 use libzmq_sys as sys;
 use sys::errno;
 
