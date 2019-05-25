@@ -9,7 +9,7 @@ A strict subset of ØMQ with an ergonomic API.
 
 ```toml
 [dependencies]
-libzmq = "0.1.2"
+libzmq = "0.1.3"
 ```
 
 # Dead Simple Sample
