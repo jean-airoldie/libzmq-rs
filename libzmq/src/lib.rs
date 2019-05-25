@@ -18,7 +18,9 @@ mod socket;
 mod utils;
 
 pub use ctx::{Ctx, CtxBuilder};
-pub use endpoint::{EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr, INPROC_MAX_SIZE};
+pub use endpoint::{
+    EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr, INPROC_MAX_SIZE,
+};
 pub use error::{Error, ErrorKind};
 pub use group::*;
 pub use msg::*;

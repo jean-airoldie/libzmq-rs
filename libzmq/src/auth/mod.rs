@@ -318,8 +318,8 @@ enum AuthCommand {
     RemoveWhitelist(Ipv6Addr),
     AddPlainClientCreds(PlainClientCreds),
     RemovePlainClientCreds(String),
-    AddCurveCert(CurveKey),
-    RemoveCurveCert(CurveKey),
+    AddCurveKey(CurveKey),
+    RemoveCurveKey(CurveKey),
     SetCurveAuth(bool),
 }
 
@@ -498,17 +498,17 @@ impl AuthClient {
         K: Into<CurveKey>,
     {
         let key = key.into();
-        self.command(&AuthCommand::AddCurveCert(key))
+        self.command(&AuthCommand::AddCurveKey(key))
     }
 
     /// Remove the given public `CurveKey` from the `AuthServer`'s store
     /// if it is present.
-    pub fn remove_curve_cert<K>(&self, key: K) -> Result<(), Error>
+    pub fn remove_curve_key<K>(&self, key: K) -> Result<(), Error>
     where
         K: Into<CurveKey>,
     {
         let key = key.into();
-        self.command(&AuthCommand::RemoveCurveCert(key))
+        self.command(&AuthCommand::RemoveCurveKey(key))
     }
 
     /// Sets whether to use authentication for the `CURVE` mechanism.
@@ -631,11 +631,11 @@ impl AuthServer {
                 info!("removed user: {}", &username);
                 self.passwords.remove(&username);
             }
-            AuthCommand::AddCurveCert(key) => {
+            AuthCommand::AddCurveKey(key) => {
                 info!("added z85 key: {}", key.as_str());
                 self.curve_certs.insert(key);
             }
-            AuthCommand::RemoveCurveCert(key) => {
+            AuthCommand::RemoveCurveKey(key) => {
                 info!("removed z85 key: {}", key.as_str());
                 self.curve_certs.remove(&key);
             }
