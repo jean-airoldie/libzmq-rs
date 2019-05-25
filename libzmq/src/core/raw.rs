@@ -162,8 +162,6 @@ fn unbind(socket_ptr: *mut c_void, c_str: CString) -> Result<(), Error> {
 pub struct RawSocket {
     socket_mut_ptr: *mut c_void,
     ctx: Ctx,
-    connected: Mutex<Vec<Endpoint>>,
-    bound: Mutex<Vec<Endpoint>>,
     mechanism: Mutex<Mechanism>,
 }
 
@@ -206,8 +204,6 @@ impl RawSocket {
             Ok(Self {
                 ctx,
                 socket_mut_ptr,
-                connected: Mutex::default(),
-                bound: Mutex::default(),
                 mechanism: Mutex::default(),
             })
         }
@@ -240,14 +236,6 @@ impl RawSocket {
     /// This is safe since the pointed socket is thread safe.
     pub(crate) fn as_mut_ptr(&self) -> *mut c_void {
         self.socket_mut_ptr
-    }
-
-    pub(crate) fn connected(&self) -> &Mutex<Vec<Endpoint>> {
-        &self.connected
-    }
-
-    pub(crate) fn bound(&self) -> &Mutex<Vec<Endpoint>> {
-        &self.bound
     }
 
     pub(crate) fn mechanism(&self) -> &Mutex<Mechanism> {

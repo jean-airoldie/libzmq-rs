@@ -82,7 +82,6 @@ pub trait Socket: GetRawSocket {
     {
         let mut count = 0;
         let raw_socket = self.raw_socket();
-        let mut guard = raw_socket.connected().lock().unwrap();
 
         for endpoint in endpoints.into_iter() {
             let endpoint: Endpoint = endpoint.into();
@@ -90,7 +89,6 @@ pub trait Socket: GetRawSocket {
                 .connect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            guard.push(endpoint);
             count += 1;
         }
 
@@ -102,35 +100,6 @@ pub trait Socket: GetRawSocket {
         } else {
             Ok(())
         }
-    }
-
-    /// Returns a snapshot of the list of connected `Endpoint`.
-    ///
-    /// Example
-    /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Client, InprocAddr, addr::Endpoint};
-    /// use std::convert::TryInto;
-    ///
-    /// let addr: InprocAddr = "test".try_into()?;
-    ///
-    /// let client = Client::new()?;
-    /// assert!(client.connected().is_empty());
-    ///
-    /// client.connect(&addr)?;
-    /// let endpoint = Endpoint::from(&addr);
-    /// assert!(client.connected().contains((&endpoint).into()));
-    ///
-    /// client.disconnect(addr)?;
-    /// assert!(client.connected().is_empty());
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    fn connected(&self) -> Vec<Endpoint> {
-        self.raw_socket().connected().lock().unwrap().to_owned()
     }
 
     /// Disconnect the socket from one or more [`Endpoints`].
@@ -168,7 +137,6 @@ pub trait Socket: GetRawSocket {
     {
         let mut count = 0;
         let raw_socket = self.raw_socket();
-        let mut guard = raw_socket.connected().lock().unwrap();
 
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
@@ -176,8 +144,6 @@ pub trait Socket: GetRawSocket {
                 .disconnect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            let position = guard.iter().position(|e| e == &endpoint).unwrap();
-            guard.remove(position);
             count += 1;
         }
 
@@ -194,9 +160,8 @@ pub trait Socket: GetRawSocket {
     /// Schedules a bind to one or more [`Endpoints`] and then accepts
     /// incoming connections.
     ///
-    /// Since ØMQ handles all connections behind the curtain, one cannot know
-    /// exactly when the connection is truly established a blocking `send`
-    /// or `recv` call is made on that connection.
+    /// As opposed to `connect`, the socket will straight await and start
+    /// accepting connections.
     ///
     /// When any of the connection attempt fail, the `Error` will contain the position
     /// of the iterator before the failure. This represents the number of
@@ -232,7 +197,6 @@ pub trait Socket: GetRawSocket {
     {
         let mut count = 0;
         let raw_socket = self.raw_socket();
-        let mut guard = raw_socket.bound().lock().unwrap();
 
         for endpoint in endpoints.into_iter() {
             let endpoint: Endpoint = endpoint.into();
@@ -240,9 +204,6 @@ pub trait Socket: GetRawSocket {
                 .bind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            // In case the endpoint had a system assigned port.
-            let endpoint = self.last_endpoint().unwrap().unwrap();
-            guard.push(endpoint);
             count += 1;
         }
 
@@ -254,45 +215,6 @@ pub trait Socket: GetRawSocket {
         } else {
             Ok(())
         }
-    }
-    /// Returns a snapshot of the list of bound `Endpoint`.
-    ///
-    /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Radio, InprocAddr, addr::Endpoint};
-    /// use std::convert::TryInto;
-    ///
-    /// let first: InprocAddr = "test1".try_into()?;
-    /// let second: InprocAddr = "test2".try_into()?;
-    ///
-    /// let radio = Radio::new()?;
-    /// assert!(radio.bound().is_empty());
-    ///
-    /// radio.bind(vec![&first, &second])?;
-    /// {
-    ///     let bound = radio.bound();
-    ///     let first = Endpoint::from(&first);
-    ///     assert!(bound.contains(&first));
-    ///     let second = Endpoint::from(&second);
-    ///     assert!(bound.contains(&second));
-    /// }
-    ///
-    /// radio.unbind(&first)?;
-    /// {
-    ///     let bound = radio.bound();
-    ///     let first = Endpoint::from(&first);
-    ///     assert!(!bound.contains((&first).into()));
-    ///     let second = Endpoint::from(&second);
-    ///     assert!(bound.contains((&second).into()));
-    /// }
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    fn bound(&self) -> Vec<Endpoint> {
-        self.raw_socket().bound().lock().unwrap().to_owned()
     }
 
     /// Unbinds the socket from one or more [`Endpoints`].
@@ -333,7 +255,6 @@ pub trait Socket: GetRawSocket {
     {
         let mut count = 0;
         let raw_socket = self.raw_socket();
-        let mut guard = raw_socket.bound().lock().unwrap();
 
         for endpoint in endpoints.into_iter() {
             let endpoint = endpoint.into();
@@ -341,8 +262,6 @@ pub trait Socket: GetRawSocket {
                 .unbind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            let position = guard.iter().position(|e| e == &endpoint).unwrap();
-            guard.remove(position);
             count += 1;
         }
 
