@@ -2,8 +2,9 @@ use std::{env, path::PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-env-changed=PROFILE");
 
-    let wants_debug = cfg!(debug_assertions);
+    let wants_debug = env::var_os("PROFILE").unwrap() == "debug";
 
     let artifacts = zeromq_src::Build::new()
         .link_static(true)
