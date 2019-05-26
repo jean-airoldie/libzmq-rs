@@ -27,4 +27,4 @@ version-sync = "0.8"
 cmake = "0.1"
 bindgen = "0.49.0"
 # Use `libzmq` version 4.3.2 which is still a dev preview.
-zeromq-src = "=0.1.4-preview"
+zeromq-src = "=0.1.6-preview"
