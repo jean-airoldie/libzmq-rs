@@ -116,31 +116,33 @@ impl From<CurveServerCreds> for Mechanism {
 pub enum Mechanism {
     /// No encryption or authentication.
     ///
-    /// A socket using the `Null` mechanism can only connect other sockets
-    /// using the same mechanism.
+    /// A socket using the `Null` mechanism connect or accept connections from
+    /// sockets also using the `Null` mechanism.
     Null,
     /// Plain text authentication with no encryption.
     ///
-    /// A socket using the `PlainClient` mechanism can only connect to a
-    /// socket using the `PlainServer`.
+    /// A socket using the `PlainClient` mechanism connects to sockets using
+    /// the `PlainServer` mechanism.
     PlainClient(PlainClientCreds),
     /// Plain text authentication with no encryption.
     ///
-    /// A socket using the `PlainServer` mechanism can only connect to a
-    /// socket using the `PlainClient`.
+    /// A socket using the `PlainServer` mechanism accept connections from
+    /// sockets using the `PlainClient` mechanism.
     PlainServer,
-    /// Secure authentication and encryption using the `Curve` public-key mechanism.
+    /// Secure authentication and encryption using the `Curve` public-key
+    /// mechanism.
     ///
     /// By default authentication is done using a whitelist of public keys.
     /// However, authentication can be disabled.
     ///
-    /// A socket using the `CurveClient` mechanism can only connect to a
-    /// socket using the `CurveServer`.
+    /// A socket using the `CurveClient` mechanism connects to socket using the
+    /// `CurveServer` mechanism.
     CurveClient(CurveClientCreds),
-    /// Secure authentication and encryption using the `Curve` public-key mechanism.
+    /// Secure authentication and encryption using the `Curve` public-key
+    /// mechanism.
     ///
-    /// A socket using the `CurveClient` mechanism can only connect to a
-    /// socket using the `CurveServer`.
+    /// A socket using the `CurveServer` mechanism accepts connections from
+    /// sockets using the `CurveClient` mechanism.
     CurveServer(CurveServerCreds),
 }
 
