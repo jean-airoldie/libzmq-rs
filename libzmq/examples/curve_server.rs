@@ -48,3 +48,14 @@ fn main() -> Result<(), failure::Error> {
 
     Ok(())
 }
+
+// Make sure that the example properly runs since the config file is dynamic.
+#[cfg(test)]
+mod tests {
+    use super::main;
+
+    #[test]
+    fn main_runs() {
+        main().unwrap();
+    }
+}

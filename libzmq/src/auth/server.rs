@@ -287,9 +287,12 @@ impl AuthServer {
             AuthRequest::SetPlainRegistry(creds) => {
                 info!("reset plain registry");
                 self.plain_registry.clear();
-                let users: Vec<&str> = creds.iter().map(|c| c.username.as_str()).collect();
+                let users: Vec<&str> =
+                    creds.iter().map(|c| c.username.as_str()).collect();
                 info!("added users : {:#?} to plain registry", users);
-                self.plain_registry.extend(creds.into_iter().map(|c| (c.username, c.password)));
+                self.plain_registry.extend(
+                    creds.into_iter().map(|c| (c.username, c.password)),
+                );
 
                 AuthReply::Success
             }

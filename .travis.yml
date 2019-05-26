@@ -8,6 +8,8 @@ env:
 before_script:
   - rustup component add rustfmt
 script:
+  - cargo test --all-targets --no-run
+  - cargo test --all
+  - cargo test --examples
   - cargo fmt --all -- --check
-  - cargo build
-  - cargo test --package libzmq --all-features
+  - cargo clippy -- --check

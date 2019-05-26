@@ -168,9 +168,11 @@ impl AuthClient {
     where
         I: IntoIpAddrs,
     {
-        let ips: Vec<Ipv6Addr> = ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
+        let ips: Vec<Ipv6Addr> =
+            ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
 
-        self.request(&AuthRequest::SetBlacklist(ips)).map_err(Error::cast)
+        self.request(&AuthRequest::SetBlacklist(ips))
+            .map_err(Error::cast)
     }
 
     /// Add the ips to the `AuthServer`'s whitelist.
@@ -221,7 +223,8 @@ impl AuthClient {
     where
         I: IntoIpAddrs,
     {
-        let ips: Vec<Ipv6Addr> = ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
+        let ips: Vec<Ipv6Addr> =
+            ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
 
         self.request(&AuthRequest::SetWhitelist(ips))
     }
@@ -275,7 +278,8 @@ impl AuthClient {
         I: IntoIterator<Item = E>,
         E: Into<PlainClientCreds>,
     {
-        let plain_creds: Vec<PlainClientCreds> = creds.into_iter().map(|e| e.into()).collect();
+        let plain_creds: Vec<PlainClientCreds> =
+            creds.into_iter().map(|e| e.into()).collect();
 
         self.request(&AuthRequest::SetPlainRegistry(plain_creds))
     }
@@ -303,7 +307,10 @@ impl AuthClient {
 
     /// Remove the given public keys from the `AuthServer`'s curve registry
     /// if they are present.
-    pub fn remove_curve_registry<I, E>(&self, keys: I) -> Result<(), Error<usize>>
+    pub fn remove_curve_registry<I, E>(
+        &self,
+        keys: I,
+    ) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<CurveKey>,
