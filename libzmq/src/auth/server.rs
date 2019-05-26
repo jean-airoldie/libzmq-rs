@@ -151,11 +151,13 @@ struct AuthResult {
 pub(crate) struct AuthServer {
     //  ZAP handler socket
     handler: OldSocket,
-    command: Server,
+    request: Server,
     whitelist: HashSet<Ipv6Addr>,
     blacklist: HashSet<Ipv6Addr>,
-    plain_creds: HashMap<String, String>,
-    curve_certs: HashSet<CurveKey>,
+    plain_registry: HashMap<String, String>,
+    // Allowed public client keys.
+    curve_registry: HashSet<CurveKey>,
+    // Whether curve auth is enabled.
     curve_auth: bool,
 }
 
@@ -168,16 +170,16 @@ impl AuthServer {
         let mut handler = OldSocket::with_ctx(OldSocketType::Router, &ctx)?;
         handler.bind(&*ZAP_ENDPOINT)?;
 
-        let command = Server::with_ctx(ctx)?;
-        command.bind(&*COMMAND_ENDPOINT).map_err(Error::cast)?;
+        let request = Server::with_ctx(ctx)?;
+        request.bind(&*COMMAND_ENDPOINT).map_err(Error::cast)?;
 
         Ok(AuthServer {
             handler,
-            command,
+            request,
             whitelist: HashSet::default(),
             blacklist: HashSet::default(),
-            plain_creds: HashMap::default(),
-            curve_certs: HashSet::default(),
+            plain_registry: HashMap::default(),
+            curve_registry: HashSet::default(),
             curve_auth: true,
         })
     }
@@ -185,7 +187,7 @@ impl AuthServer {
     pub(crate) fn run(&mut self) -> Result<(), Error> {
         let mut poller = Poller::new();
         poller.add(&self.handler, PollId(0), READABLE)?;
-        poller.add(&self.command, PollId(1), READABLE)?;
+        poller.add(&self.request, PollId(1), READABLE)?;
 
         let mut events = Events::new();
 
@@ -209,15 +211,17 @@ impl AuthServer {
                             self.handler.send_multipart(reply)?;
                         }
                         PollId(1) => {
-                            let msg = self.command.recv_msg()?;
+                            let msg = self.request.recv_msg()?;
                             let id = msg.routing_id().unwrap();
-                            let command: AuthCommand =
+                            let request: AuthRequest =
                                 bincode::deserialize(msg.as_bytes()).unwrap();
 
-                            self.on_command(command);
-                            let mut msg = Msg::new();
+                            let reply = self.on_request(request);
+                            let ser = bincode::serialize(&reply).unwrap();
+
+                            let mut msg: Msg = ser.into();
                             msg.set_routing_id(id);
-                            self.command.send(msg).map_err(Error::cast)?;
+                            self.request.send(msg).map_err(Error::cast)?;
                         }
                         _ => unreachable!(),
                     }
@@ -226,47 +230,98 @@ impl AuthServer {
         }
     }
 
-    fn on_command(&mut self, command: AuthCommand) {
-        match command {
-            AuthCommand::AddWhitelist(ip) => {
+    fn on_request(&mut self, request: AuthRequest) -> AuthReply {
+        match request {
+            AuthRequest::AddWhitelist(ip) => {
                 info!("added IP : {} to whitelist", &ip);
                 self.whitelist.insert(ip);
+
+                AuthReply::Success
             }
-            AuthCommand::RemoveWhitelist(ip) => {
+            AuthRequest::RemoveWhitelist(ip) => {
                 info!("remove IP : {} to whitelist", &ip);
                 self.whitelist.remove(&ip);
+
+                AuthReply::Success
             }
-            AuthCommand::AddBlacklist(ip) => {
+            AuthRequest::SetWhitelist(ips) => {
+                info!("reset whitelist");
+                self.whitelist.clear();
+                info!("added IPs: {:#?} to whitelist", &ips);
+                self.whitelist.extend(ips);
+
+                AuthReply::Success
+            }
+            AuthRequest::AddBlacklist(ip) => {
                 info!("added IP : {} to blacklist", &ip);
                 self.blacklist.insert(ip);
+
+                AuthReply::Success
             }
-            AuthCommand::RemoveBlacklist(ip) => {
+            AuthRequest::RemoveBlacklist(ip) => {
                 info!("removed IP : {} from blacklist", &ip);
                 self.blacklist.remove(&ip);
+
+                AuthReply::Success
             }
-            AuthCommand::AddPlainClientCreds(creds) => {
-                info!("added user : {}", &creds.username);
-                self.plain_creds.insert(creds.username, creds.password);
+            AuthRequest::SetBlacklist(ips) => {
+                info!("reset blacklist");
+                self.blacklist.clear();
+                info!("added IPs: {:#?} to blacklist", &ips);
+                self.blacklist.extend(ips);
+
+                AuthReply::Success
             }
-            AuthCommand::RemovePlainClientCreds(username) => {
-                info!("removed user: {}", &username);
-                self.plain_creds.remove(&username);
+            AuthRequest::AddPlainRegistry(creds) => {
+                info!("added user : {} to plain registry", &creds.username);
+                self.plain_registry.insert(creds.username, creds.password);
+
+                AuthReply::Success
             }
-            AuthCommand::AddCurveKey(key) => {
-                info!("added z85 key: {}", key.as_str());
-                self.curve_certs.insert(key);
+            AuthRequest::RemovePlainRegistry(username) => {
+                info!("removed user: {} from plain registry", &username);
+                self.plain_registry.remove(&username);
+
+                AuthReply::Success
             }
-            AuthCommand::RemoveCurveKey(key) => {
-                info!("removed z85 key: {}", key.as_str());
-                self.curve_certs.remove(&key);
+            AuthRequest::SetPlainRegistry(creds) => {
+                info!("reset plain registry");
+                self.plain_registry.clear();
+                let users: Vec<&str> = creds.iter().map(|c| c.username.as_str()).collect();
+                info!("added users : {:#?} to plain registry", users);
+                self.plain_registry.extend(creds.into_iter().map(|c| (c.username, c.password)));
+
+                AuthReply::Success
             }
-            AuthCommand::SetCurveAuth(enabled) => {
+            AuthRequest::AddCurveRegistry(key) => {
+                info!("added public key: {} to curve registry", key.as_str());
+                self.curve_registry.insert(key);
+
+                AuthReply::Success
+            }
+            AuthRequest::RemoveCurveRegistry(key) => {
+                info!("removed public key: {} to curve registry", key.as_str());
+                self.curve_registry.remove(&key);
+
+                AuthReply::Success
+            }
+            AuthRequest::SetCurveRegistry(keys) => {
+                info!("reset cerve registry");
+                self.curve_registry.clear();
+                info!("added public keys: {:#?} to curve registry", &keys);
+                self.curve_registry.extend(keys);
+
+                AuthReply::Success
+            }
+            AuthRequest::SetCurveAuth(enabled) => {
                 if enabled {
                     info!("enabled curve auth");
                 } else {
                     info!("disabled curve auth");
                 }
                 self.curve_auth = enabled;
+
+                AuthReply::Success
             }
         }
     }
@@ -359,7 +414,7 @@ impl AuthServer {
     }
 
     fn auth_plain(&mut self, creds: PlainClientCreds) -> Option<AuthResult> {
-        match self.plain_creds.get(&creds.username) {
+        match self.plain_registry.get(&creds.username) {
             Some(password) => {
                 info!("allowed user: {}", &creds.username);
                 if password == &creds.password {
@@ -385,7 +440,7 @@ impl AuthServer {
                 user_id: String::new(),
                 metadata: vec![],
             })
-        } else if self.curve_certs.contains(&public_key) {
+        } else if self.curve_registry.contains(&public_key) {
             info!("allowed curve public key {}", public_key);
             Some(AuthResult {
                 user_id: public_key.as_str().to_owned(),

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use std::{convert::TryFrom, option};
 
+/// Credentials for a `PLAIN` client.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlainClientCreds {
     pub username: String,

@@ -5,17 +5,26 @@ use serde::{Deserialize, Serialize};
 
 use std::net::{IpAddr, Ipv6Addr};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) enum AuthCommand {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum AuthRequest {
     AddBlacklist(Ipv6Addr),
     RemoveBlacklist(Ipv6Addr),
+    SetBlacklist(Vec<Ipv6Addr>),
     AddWhitelist(Ipv6Addr),
     RemoveWhitelist(Ipv6Addr),
-    AddPlainClientCreds(PlainClientCreds),
-    RemovePlainClientCreds(String),
-    AddCurveKey(CurveKey),
-    RemoveCurveKey(CurveKey),
+    SetWhitelist(Vec<Ipv6Addr>),
+    AddPlainRegistry(PlainClientCreds),
+    RemovePlainRegistry(String),
+    SetPlainRegistry(Vec<PlainClientCreds>),
+    AddCurveRegistry(CurveKey),
+    RemoveCurveRegistry(CurveKey),
+    SetCurveRegistry(Vec<CurveKey>),
     SetCurveAuth(bool),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) enum AuthReply {
+    Success,
 }
 
 fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
@@ -57,7 +66,7 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 ///     .build()?;
 ///
 /// // We need to tell the `AuthServer` to allow the client's public key.
-/// let _ = AuthBuilder::new().curve_keys(client_cert.public()).build()?;
+/// let _ = AuthBuilder::new().curve_registry(client_cert.public()).build()?;
 ///
 /// let bound = server.last_endpoint()?;
 ///
@@ -104,16 +113,18 @@ impl AuthClient {
         Ok(AuthClient { client })
     }
 
-    fn command(&self, command: &AuthCommand) -> Result<(), Error> {
-        let ser = bincode::serialize(command).unwrap();
+    fn request(&self, request: &AuthRequest) -> Result<(), Error> {
+        let ser = bincode::serialize(request).unwrap();
 
         self.client.send(ser).map_err(Error::cast)?;
         let msg = self.client.recv_msg()?;
-        assert!(msg.is_empty());
+        let reply: AuthReply = bincode::deserialize(msg.as_bytes()).unwrap();
+
+        assert_eq!(reply, AuthReply::Success);
         Ok(())
     }
 
-    /// Add the ip to the `AuthServer`'s blacklist.
+    /// Add the ips to the `AuthServer`'s blacklist.
     ///
     /// Blacklisted ips will be denied access.
     pub fn add_blacklist<I>(&self, ips: I) -> Result<(), Error<usize>>
@@ -124,7 +135,7 @@ impl AuthClient {
 
         for ip in ips.into_ip_addrs() {
             let ipv6 = into_ipv6(ip);
-            self.command(&AuthCommand::AddBlacklist(ipv6))
+            self.request(&AuthRequest::AddBlacklist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -132,8 +143,8 @@ impl AuthClient {
         Ok(())
     }
 
-    /// Remove the ip from the `AuthServer`'s blacklist, if it
-    /// is present.
+    /// Remove the ips from the `AuthServer`'s blacklist, if
+    /// they are present.
     pub fn remove_blacklist<I>(&self, ips: I) -> Result<(), Error<usize>>
     where
         I: IntoIpAddrs,
@@ -142,7 +153,7 @@ impl AuthClient {
 
         for ip in ips.into_ip_addrs() {
             let ipv6 = into_ipv6(ip);
-            self.command(&AuthCommand::RemoveBlacklist(ipv6))
+            self.request(&AuthRequest::RemoveBlacklist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -150,7 +161,19 @@ impl AuthClient {
         Ok(())
     }
 
-    /// Add the ip to the `AuthServer`'s whitelist.
+    /// Set the ips in the `AuthServer`'s blacklist.
+    ///
+    /// Blacklisted ips will be denied access.
+    pub fn set_blacklist<I>(&self, ips: I) -> Result<(), Error>
+    where
+        I: IntoIpAddrs,
+    {
+        let ips: Vec<Ipv6Addr> = ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
+
+        self.request(&AuthRequest::SetBlacklist(ips)).map_err(Error::cast)
+    }
+
+    /// Add the ips to the `AuthServer`'s whitelist.
     ///
     /// If the whitelist is not empty, only ips in present
     /// in the whitelist are allowed. The whitelist takes precedence
@@ -163,7 +186,7 @@ impl AuthClient {
 
         for ip in ips.into_ip_addrs() {
             let ipv6 = into_ipv6(ip);
-            self.command(&AuthCommand::AddWhitelist(ipv6))
+            self.request(&AuthRequest::AddWhitelist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -171,7 +194,7 @@ impl AuthClient {
         Ok(())
     }
 
-    /// Remove the ip from the `AuthServer`'s whitelist, if it
+    /// Remove the ips from the `AuthServer`'s whitelist, if it
     /// is present.
     pub fn remove_whitelist<I>(&self, ips: I) -> Result<(), Error<usize>>
     where
@@ -181,7 +204,7 @@ impl AuthClient {
 
         for ip in ips.into_ip_addrs() {
             let ipv6 = into_ipv6(ip);
-            self.command(&AuthCommand::RemoveWhitelist(ipv6))
+            self.request(&AuthRequest::RemoveWhitelist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -189,10 +212,24 @@ impl AuthClient {
         Ok(())
     }
 
-    /// Add the plain client's credentials to the `AuthServer`'s whitelist.
+    /// Set the ips in the `AuthServer`'s whitelist.
     ///
-    /// Only credentials present in the whitelist can successfully authenticate.
-    pub fn add_plain_creds<I, E>(&self, iter: I) -> Result<(), Error<usize>>
+    /// If the whitelist is not empty, only ips in present
+    /// in the whitelist are allowed. The whitelist takes precedence
+    /// over the blacklist.
+    pub fn set_whitelist<I>(&self, ips: I) -> Result<(), Error>
+    where
+        I: IntoIpAddrs,
+    {
+        let ips: Vec<Ipv6Addr> = ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
+
+        self.request(&AuthRequest::SetWhitelist(ips))
+    }
+
+    /// Add the credentials to the `AuthServer`'s plain registry.
+    ///
+    /// Only credentials present in the registry can successfully authenticate.
+    pub fn add_plain_registry<I, E>(&self, iter: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<PlainClientCreds>,
@@ -201,7 +238,7 @@ impl AuthClient {
 
         for creds in iter.into_iter() {
             let creds = creds.into();
-            self.command(&AuthCommand::AddPlainClientCreds(creds))
+            self.request(&AuthRequest::AddPlainRegistry(creds))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -209,9 +246,8 @@ impl AuthClient {
         Ok(())
     }
 
-    /// Remove the username's credentials from the `AuthServer`'s whitelist
-    /// if they exist.
-    pub fn remove_plain_creds<I, E>(
+    /// Remove the credentials with the given usernames from the plain registry.
+    pub fn remove_plain_registry<I, E>(
         &self,
         usernames: I,
     ) -> Result<(), Error<usize>>
@@ -223,7 +259,7 @@ impl AuthClient {
 
         for username in usernames.into_iter() {
             let username = username.into();
-            self.command(&AuthCommand::RemovePlainClientCreds(username))
+            self.request(&AuthRequest::RemovePlainRegistry(username))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -231,11 +267,24 @@ impl AuthClient {
         Ok(())
     }
 
-    /// Add the given public `CurveKey` to the whitelist.
+    /// Set the credentials in the `AuthServer`'s plain registry.
+    ///
+    /// Only credentials present in the registry can successfully authenticate.
+    pub fn set_plain_registry<I, E>(&self, creds: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = E>,
+        E: Into<PlainClientCreds>,
+    {
+        let plain_creds: Vec<PlainClientCreds> = creds.into_iter().map(|e| e.into()).collect();
+
+        self.request(&AuthRequest::SetPlainRegistry(plain_creds))
+    }
+
+    /// Add the curve keys to the curve registry.
     ///
     /// Only public keys present in the whitelist are allowed to authenticate
     /// via the `CURVE` mechanism.
-    pub fn add_curve_keys<I, E>(&self, keys: I) -> Result<(), Error<usize>>
+    pub fn add_curve_registry<I, E>(&self, keys: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<CurveKey>,
@@ -244,7 +293,7 @@ impl AuthClient {
 
         for key in keys.into_iter() {
             let key = key.into();
-            self.command(&AuthCommand::AddCurveKey(key))
+            self.request(&AuthRequest::AddCurveRegistry(key))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -252,9 +301,9 @@ impl AuthClient {
         Ok(())
     }
 
-    /// Remove the given public `CurveKey` from the `AuthServer`'s store
-    /// if it is present.
-    pub fn remove_curve_keys<I, E>(&self, keys: I) -> Result<(), Error<usize>>
+    /// Remove the given public keys from the `AuthServer`'s curve registry
+    /// if they are present.
+    pub fn remove_curve_registry<I, E>(&self, keys: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<CurveKey>,
@@ -263,12 +312,23 @@ impl AuthClient {
 
         for key in keys.into_iter() {
             let key = key.into();
-            self.command(&AuthCommand::RemoveCurveKey(key))
+            self.request(&AuthRequest::RemoveCurveRegistry(key))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
         }
         Ok(())
+    }
+
+    /// Set the public keys in the `AuthServer`'s curve registry.
+    pub fn set_curve_registry<I, E>(&self, keys: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = E>,
+        E: Into<CurveKey>,
+    {
+        let keys: Vec<CurveKey> = keys.into_iter().map(|e| e.into()).collect();
+
+        self.request(&AuthRequest::SetCurveRegistry(keys))
     }
 
     /// Sets whether to use authentication for the `CURVE` mechanism.
@@ -277,55 +337,62 @@ impl AuthClient {
     /// in the whitelist will be allowed to authenticate. Otherwise all sockets
     /// authenticate successfully.
     pub fn set_curve_auth(&self, enabled: bool) -> Result<(), Error> {
-        self.command(&AuthCommand::SetCurveAuth(enabled))
+        self.request(&AuthRequest::SetCurveAuth(enabled))
     }
 }
 
 /// A Configuration of the `AuthServer`.
 ///
-/// A `AuthClient` must be used to communicate
-/// the configuration with the server.
+/// A `AuthClient` must be used to communicate this configuration with the
+/// server.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AuthConfig {
     blacklist: Option<Vec<IpAddr>>,
     whitelist: Option<Vec<IpAddr>>,
-    plain_creds: Option<Vec<PlainClientCreds>>,
-    curve_keys: Option<Vec<CurveKey>>,
+    plain_registry: Option<Vec<PlainClientCreds>>,
+    curve_registry: Option<Vec<CurveKey>>,
     curve_auth: Option<bool>,
 }
 
 impl AuthConfig {
+    /// Create an empty `AuthConfig`.
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<AuthClient, Error<usize>> {
+    /// Attempts to build a `AuthClient` and transmit the configuration
+    /// to the `AuthServer` associated with the default global `Ctx`.
+    pub fn build(&self) -> Result<AuthClient, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<AuthClient, Error<usize>>
+    /// Attempts to build a `AuthClient` and transmit the configuration
+    /// to the `AuthServer` associated with the given `Ctx`.
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<AuthClient, Error>
     where
         C: Into<Ctx>,
     {
         let ctx: Ctx = ctx.into();
-        let client = AuthClient::with_ctx(ctx).map_err(Error::cast)?;
-        self.apply(&client)?;
+        let client = AuthClient::with_ctx(ctx)?;
+        self.transmit(&client)?;
 
         Ok(client)
     }
 
-    pub fn apply(&self, client: &AuthClient) -> Result<(), Error<usize>> {
+    /// Attempts to transmit the configuration via the supplied `AuthClient`
+    /// to the associated `AuthServer`.
+    pub fn transmit(&self, client: &AuthClient) -> Result<(), Error> {
         if let Some(ref blacklist) = self.blacklist {
-            client.add_blacklist(blacklist)?;
+            client.set_blacklist(blacklist)?;
         }
         if let Some(ref whitelist) = self.whitelist {
-            client.add_whitelist(whitelist)?;
+            client.set_whitelist(whitelist)?;
         }
-        if let Some(ref creds) = self.plain_creds {
-            client.add_plain_creds(creds)?;
+        if let Some(ref creds) = self.plain_registry {
+            client.set_plain_registry(creds)?;
         }
-        if let Some(ref keys) = self.curve_keys {
-            client.add_curve_keys(keys)?;
+        if let Some(ref keys) = self.curve_registry {
+            client.set_curve_registry(keys)?;
         }
         if let Some(enabled) = self.curve_auth {
             client.set_curve_auth(enabled).map_err(Error::cast)?;
@@ -352,24 +419,24 @@ impl AuthConfig {
         self.whitelist = maybe;
     }
 
-    pub fn set_plain_creds<I, E>(&mut self, maybe: Option<I>)
+    pub fn set_plain_registry<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
         E: Into<PlainClientCreds>,
     {
         let maybe: Option<Vec<PlainClientCreds>> =
             maybe.map(|e| e.into_iter().map(Into::into).collect());
-        self.plain_creds = maybe;
+        self.plain_registry = maybe;
     }
 
-    pub fn set_curve_keys<I, E>(&mut self, maybe: Option<I>)
+    pub fn set_curve_registry<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
         E: Into<CurveKey>,
     {
         let maybe: Option<Vec<CurveKey>> =
             maybe.map(|e| e.into_iter().map(Into::into).collect());
-        self.curve_keys = maybe;
+        self.curve_registry = maybe;
     }
 
     pub fn set_curve_auth(&mut self, maybe: Option<bool>) {
@@ -377,6 +444,10 @@ impl AuthConfig {
     }
 }
 
+/// A builder for a `AuthClient`.
+///
+/// Creates a `AuthClient` and transmits a configuration to the associated
+/// `AuthServer`.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AuthBuilder {
     inner: AuthConfig,
@@ -387,11 +458,11 @@ impl AuthBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<AuthClient, Error<usize>> {
+    pub fn build(&self) -> Result<AuthClient, Error> {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<AuthClient, Error<usize>>
+    pub fn with_ctx<C>(&self, ctx: C) -> Result<AuthClient, Error>
     where
         C: Into<Ctx>,
     {
@@ -414,21 +485,21 @@ impl AuthBuilder {
         self
     }
 
-    pub fn plain_creds<I, E>(&mut self, iter: I) -> &mut Self
+    pub fn plain_registry<I, E>(&mut self, iter: I) -> &mut Self
     where
         I: IntoIterator<Item = E>,
         E: Into<PlainClientCreds>,
     {
-        self.inner.set_plain_creds(Some(iter));
+        self.inner.set_plain_registry(Some(iter));
         self
     }
 
-    pub fn curve_keys<I, E>(&mut self, keys: I) -> &mut Self
+    pub fn curve_registry<I, E>(&mut self, keys: I) -> &mut Self
     where
         I: IntoIterator<Item = E>,
         E: Into<CurveKey>,
     {
-        self.inner.set_curve_keys(Some(keys));
+        self.inner.set_curve_registry(Some(keys));
         self
     }
 
@@ -546,7 +617,7 @@ mod test {
 
         let creds = PlainClientCreds { username, password };
         let _ = AuthBuilder::new()
-            .plain_creds(&creds)
+            .plain_registry(&creds)
             .with_ctx(&ctx)
             .unwrap();
 
@@ -579,7 +650,7 @@ mod test {
         let client_cert = CurveCert::new_unique();
 
         let _ = AuthBuilder::new()
-            .curve_keys(client_cert.public())
+            .curve_registry(client_cert.public())
             .with_ctx(&ctx)
             .unwrap();
 
