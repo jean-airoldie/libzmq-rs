@@ -2,15 +2,11 @@ use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{
-    str,
-    sync::Arc,
-    time::Duration,
-};
+use std::{str, sync::Arc, time::Duration};
 
-/// A `Gather` socket is used by a pipeline node to receive messages
-/// from upstream pipeline nodes. Messages are fair-queued from among all
-/// connected upstream nodes.
+/// A `Gather` socket is used to receive pipelined messages.
+///
+/// Messages are fair-queued from among all connected [`Scatter`] sockets.
 ///
 /// # Summary of Characteristics
 /// | Characteristic            | Value                  |
@@ -40,7 +36,7 @@ use std::{
 ///     .bind(&addr_b)
 ///     .build()?;
 ///
-/// // Connected the worker to both load balancers.
+/// // Connect the worker to both load balancers.
 /// let worker = GatherBuilder::new()
 ///     .connect(&[addr_a, addr_b])
 ///     .recv_high_water_mark(1)
@@ -53,7 +49,7 @@ use std::{
 ///     lb_b.try_send("b")?;
 /// }
 ///
-/// // The messages received should be fair-queues amongst
+/// // The messages received should be fair-queues from
 /// // our two load balancers.
 /// let mut msg = Msg::new();
 /// for i in 0..200 {
@@ -68,6 +64,8 @@ use std::{
 /// #     Ok(())
 /// # }
 /// ```
+///
+/// [`Scatter`]: struct.Scatter.html
 #[derive(Debug, Clone)]
 pub struct Gather {
     inner: Arc<RawSocket>,
@@ -86,9 +84,7 @@ impl Gather {
     pub fn new() -> Result<Self, Error> {
         let inner = Arc::new(RawSocket::new(RawSocketType::Gather)?);
 
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 
     /// Create a `Gather` socket from a specific context.
@@ -105,9 +101,7 @@ impl Gather {
     {
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Gather, ctx)?);
 
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 
     /// Returns a reference to the context of the socket.
@@ -334,18 +328,15 @@ mod test {
         let addr_b = InprocAddr::new_unique();
 
         // Create our two load balancers.
-        let lb_a = ScatterBuilder::new()
-            .bind(&addr_a)
-            .build().unwrap();
-        let lb_b = ScatterBuilder::new()
-            .bind(&addr_b)
-            .build().unwrap();
+        let lb_a = ScatterBuilder::new().bind(&addr_a).build().unwrap();
+        let lb_b = ScatterBuilder::new().bind(&addr_b).build().unwrap();
 
         // Connected the worker to both load balancers.
         let worker = GatherBuilder::new()
             .connect(&[addr_a, addr_b])
             .recv_high_water_mark(1)
-            .build().unwrap();
+            .build()
+            .unwrap();
 
         for _ in 0..100 {
             lb_a.try_send("a").unwrap();

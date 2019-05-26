@@ -2,15 +2,11 @@ use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{
-    str,
-    sync::Arc,
-    time::Duration,
-};
+use std::{str, sync::Arc, time::Duration};
 
-/// A `Scatter` socket is used by a pipeline node to send messages
-/// to downstream pipeline nodes. Messages are round-robined to all
-/// connected downstream nodes.
+/// A `Scatter` socket is used to pipeline messages to workers.
+///
+/// Messages are round-robined to all connected [`Gather`] sockets.
 ///
 /// # Summary of Characteristics
 /// | Characteristic            | Value                  |
@@ -59,6 +55,8 @@ use std::{
 /// #     Ok(())
 /// # }
 /// ```
+///
+/// [`Gather`]: struct.Gather.html
 #[derive(Debug, Clone)]
 pub struct Scatter {
     inner: Arc<RawSocket>,
@@ -77,9 +75,7 @@ impl Scatter {
     pub fn new() -> Result<Self, Error> {
         let inner = Arc::new(RawSocket::new(RawSocketType::Scatter)?);
 
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 
     /// Create a `Scatter` socket from a specific context.
@@ -96,9 +92,7 @@ impl Scatter {
     {
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Scatter, ctx)?);
 
-        Ok(Self {
-            inner,
-        })
+        Ok(Self { inner })
     }
 
     /// Returns a reference to the context of the socket.
@@ -308,7 +302,7 @@ impl BuildSend for ScatterBuilder {}
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{prelude::*, *};
+    use crate::*;
 
     #[test]
     fn test_ser_de() {
@@ -324,21 +318,21 @@ mod test {
         let addr = InprocAddr::new_unique();
 
         // Our load balancing producer.
-        let lb = ScatterBuilder::new()
-            .bind(&addr)
-            .build().unwrap();
+        let lb = ScatterBuilder::new().bind(&addr).build().unwrap();
 
         let worker_a = GatherBuilder::new()
             .connect(&addr)
             .recv_high_water_mark(1)
             .recv_timeout(Duration::from_millis(300))
-            .build().unwrap();
+            .build()
+            .unwrap();
 
         let worker_b = GatherBuilder::new()
             .connect(&addr)
             .recv_high_water_mark(1)
             .recv_timeout(Duration::from_millis(300))
-            .build().unwrap();
+            .build()
+            .unwrap();
 
         // Send messages to workers in a round-robin fashion.
         lb.send("").unwrap();
