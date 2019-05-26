@@ -14,6 +14,7 @@ use std::{
 /// The maximum number of characters in a `inproc` address.
 pub const INPROC_MAX_SIZE: usize = 256;
 
+/// A trait equivalent to `IntoIter<Item=Into<IpAddr>>` for `std::net::*` types.
 pub trait IntoIpAddrs {
     /// Returned iterator over ip addresses which this type may correspond
     /// to.
