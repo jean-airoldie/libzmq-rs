@@ -63,7 +63,8 @@ fn send(
 pub trait SendMsg: GetRawSocket {
     /// Push a message into the outgoing socket queue.
     ///
-    /// This operation might block if the socket is in mute state.
+    /// This operation might block until the mute state end or,
+    /// if it set, `send_timeout` expires.
     ///
     /// If the message is a `Msg`, `Vec<u8>`, `[u8]`, or a `String`, it is not copied.
     ///
@@ -75,11 +76,13 @@ pub trait SendMsg: GetRawSocket {
     /// the ownership is returned.
     ///
     /// ## Possible Error Variants
+    /// * [`WouldBlock`] (if `send_timeout` expires)
     /// * [`CtxTerminated`]
     /// * [`Interrupted`]
     /// * [`HostUnreachable`] (only for [`Server`] socket)
     ///
     /// [`zmq_msg_send`]: http://api.zeromq.org/master:zmq-msg-send
+    /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable

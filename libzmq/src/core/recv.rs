@@ -49,12 +49,14 @@ fn recv(
 pub trait RecvMsg: GetRawSocket {
     /// Retreive a message from the inbound socket queue.
     ///
-    /// This operation might block until the socket receives a message.
+    /// This operation might block until the socket receives a message or,
+    /// if it is set, until `recv_timeout` expires.
     ///
     /// # Error
     /// The `Msg` is returned as the content of the `Error`.
     ///
     /// ## Possible Error Variants
+    /// * [`WouldBlock`] (if `recv_timeout` expires)
     /// * [`CtxTerminated`]
     /// * [`Interrupted`]
     ///
