@@ -171,10 +171,14 @@ impl RawSocket {
         Self::with_ctx(sock_type, ctx)
     }
 
-    pub(crate) fn with_ctx(
+    pub(crate) fn with_ctx<C>(
         sock_type: RawSocketType,
-        ctx: Ctx,
-    ) -> Result<Self, Error> {
+        ctx: C,
+    ) -> Result<Self, Error>
+    where
+        C: Into<Ctx>,
+    {
+        let ctx = ctx.into();
         let socket_mut_ptr =
             unsafe { sys::zmq_socket(ctx.as_ptr(), sock_type.into()) };
 

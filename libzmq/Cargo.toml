@@ -39,6 +39,7 @@ criterion = "0.2"
 version-sync = "0.8"
 ron = "0.5"
 quickcheck = "0.8.3"
+serde_yaml = "0.8"
 
 [build-dependencies]
 flatc-rust = "0.1"
@@ -46,3 +47,9 @@ flatc-rust = "0.1"
 [[bench]]
 name = "bench_main"
 harness = false
+
+[[example]]
+name = "auth"
+
+[[example]]
+name = "gen_curve_cert"

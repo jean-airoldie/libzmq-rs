@@ -124,7 +124,6 @@ impl Radio {
     where
         C: Into<Ctx>,
     {
-        let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Radio, ctx)?);
 
         Ok(Self { inner })
@@ -190,7 +189,6 @@ impl RadioConfig {
     where
         C: Into<Ctx>,
     {
-        let ctx: Ctx = ctx.into();
         let radio = Radio::with_ctx(ctx).map_err(Error::cast)?;
         self.apply(&radio)?;
 

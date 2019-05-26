@@ -6,8 +6,10 @@ compiler:
 env:
   - RUST_BACKTRACE=1 RUST_LOG=error
 before_script:
-  - rustup component add rustfmt
+  - rustup component add rustfmt clippy
 script:
+  - cargo test --all-targets --no-run
+  - cargo test --all
+  - cargo test --examples
   - cargo fmt --all -- --check
-  - cargo build
-  - cargo test --package libzmq --all-features
+  - cargo clippy --all-targets -- -D warnings

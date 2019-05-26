@@ -32,6 +32,7 @@ pub use utils::*;
 
 /// Configurations for *libzmq* types.
 pub mod config {
+    pub use crate::auth::client::AuthConfig;
     pub use crate::ctx::CtxConfig;
     pub use crate::socket::{
         ClientConfig, ConfigType, DishConfig, RadioConfig, ServerConfig,
@@ -41,8 +42,8 @@ pub mod config {
 /// Address related types.
 pub mod addr {
     pub use crate::endpoint::{
-        AddrParseError, Endpoint, Hostname, Interface, Port, SocketAddr,
-        SrcAddr,
+        AddrParseError, Endpoint, Hostname, Interface, IntoIpAddrs, Port,
+        SocketAddr, SrcAddr,
     };
 }
 

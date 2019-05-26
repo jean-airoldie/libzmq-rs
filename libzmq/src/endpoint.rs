@@ -5,13 +5,75 @@ use uuid::Uuid;
 use std::{
     convert::TryFrom,
     fmt,
-    net::{self, IpAddr},
+    net::{self, IpAddr, Ipv4Addr, Ipv6Addr},
     option,
     str::{self, FromStr},
+    vec,
 };
 
 /// The maximum number of characters in a `inproc` address.
 pub const INPROC_MAX_SIZE: usize = 256;
+
+/// A trait equivalent to `IntoIter<Item=Into<IpAddr>>` for `std::net::*` types.
+pub trait IntoIpAddrs {
+    /// Returned iterator over ip addresses which this type may correspond
+    /// to.
+    type IntoIter: Iterator<Item = IpAddr>;
+
+    /// Converts this object to an iterator of resolved `IpAddr`s.
+    fn into_ip_addrs(self) -> Self::IntoIter;
+}
+
+impl IntoIpAddrs for IpAddr {
+    type IntoIter = option::IntoIter<Self>;
+    fn into_ip_addrs(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
+impl IntoIpAddrs for Ipv4Addr {
+    type IntoIter = option::IntoIter<IpAddr>;
+    fn into_ip_addrs(self) -> Self::IntoIter {
+        IpAddr::V4(self.to_owned()).into_ip_addrs()
+    }
+}
+
+impl IntoIpAddrs for Ipv6Addr {
+    type IntoIter = option::IntoIter<IpAddr>;
+    fn into_ip_addrs(self) -> Self::IntoIter {
+        IpAddr::V6(self.to_owned()).into_ip_addrs()
+    }
+}
+
+impl<'a> IntoIpAddrs for &'a [IpAddr] {
+    type IntoIter = vec::IntoIter<IpAddr>;
+
+    fn into_ip_addrs(self) -> Self::IntoIter {
+        let ips: Vec<IpAddr> = self.iter().map(ToOwned::to_owned).collect();
+        ips.into_ip_addrs()
+    }
+}
+
+impl<T> IntoIpAddrs for &T
+where
+    T: IntoIpAddrs + ?Sized + Clone,
+{
+    type IntoIter = T::IntoIter;
+    fn into_ip_addrs(self) -> Self::IntoIter {
+        (*self).clone().into_ip_addrs()
+    }
+}
+
+impl<E> IntoIpAddrs for Vec<E>
+where
+    E: Into<IpAddr>,
+{
+    type IntoIter = vec::IntoIter<IpAddr>;
+    fn into_ip_addrs(self) -> Self::IntoIter {
+        let ips: Vec<IpAddr> = self.into_iter().map(E::into).collect();
+        ips.into_iter()
+    }
+}
 
 /// An error that occurs when an address cannot be parsed.
 ///
@@ -1206,7 +1268,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// [`zmq_pgm`]: http://api.zeromq.org/master:zmq_pgm
 /// [`zmq_vmci`]: http://api.zeromq.org/master:zmq_vmci
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum Endpoint {
     /// Unicast transport using TCP, see [`zmq_tcp`].
     ///

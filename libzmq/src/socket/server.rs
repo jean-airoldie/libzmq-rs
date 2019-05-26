@@ -116,7 +116,6 @@ impl Server {
     where
         C: Into<Ctx>,
     {
-        let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Server, ctx)?);
 
         Ok(Self { inner })
@@ -166,8 +165,7 @@ impl ServerConfig {
     where
         C: Into<Ctx>,
     {
-        let ctx: Ctx = ctx.into();
-        let server = Server::with_ctx(ctx).map_err(Error::cast)?;
+        let server = Server::with_ctx(ctx.into()).map_err(Error::cast)?;
         self.apply(&server)?;
 
         Ok(server)
