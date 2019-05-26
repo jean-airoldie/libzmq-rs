@@ -32,7 +32,7 @@ pub use utils::*;
 
 /// Configurations for *libzmq* types.
 pub mod config {
-    pub use crate::auth::server::AuthConfig;
+    pub use crate::auth::client::AuthConfig;
     pub use crate::ctx::CtxConfig;
     pub use crate::socket::{
         ClientConfig, ConfigType, DishConfig, RadioConfig, ServerConfig,

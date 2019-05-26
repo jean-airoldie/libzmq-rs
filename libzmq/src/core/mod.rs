@@ -38,11 +38,7 @@ mod private {
     impl Sealed for OldSocket {}
 }
 
-use crate::{
-    addr::Endpoint,
-    auth::*,
-    error::{Error, ErrorKind},
-};
+use crate::{addr::Endpoint, auth::*, error::Error};
 use std::time::Duration;
 
 /// Methods shared by all thread-safe sockets.

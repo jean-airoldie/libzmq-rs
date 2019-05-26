@@ -10,11 +10,12 @@
 //! configuration can be modified by using a `AuthClient` which send commands
 //! to the handler.
 
+pub(crate) mod client;
 mod curve;
+mod mechanism;
 pub(crate) mod server;
 
+pub use client::{AuthBuilder, AuthClient};
 pub use curve::*;
-pub use server::{
-    AuthBuilder, AuthClient, CurveClientCreds, CurveServerCreds, Mechanism,
-    PlainClientCreds, StatusCode, StatusCodeParseError,
-};
+pub use mechanism::*;
+pub use server::{StatusCode, StatusCodeParseError};
