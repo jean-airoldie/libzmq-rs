@@ -71,7 +71,7 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 /// let bound = server.last_endpoint()?;
 ///
 /// let client_creds = CurveClientCreds {
-///     client: client_cert,
+///     client: Some(client_cert),
 ///     server: server_cert.public().to_owned(),
 /// };
 ///
@@ -657,7 +657,7 @@ mod test {
         };
 
         let client_creds = CurveClientCreds {
-            client: client_cert,
+            client: Some(client_cert),
             server: server_cert.public().to_owned(),
         };
 
@@ -685,14 +685,13 @@ mod test {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server_cert = CurveCert::new_unique();
-        let client_cert = CurveCert::new_unique();
 
         let server_creds = CurveServerCreds {
             secret: server_cert.secret().clone(),
         };
 
         let client_creds = CurveClientCreds {
-            client: client_cert,
+            client: None,
             server: server_cert.public().clone(),
         };
 
@@ -720,7 +719,6 @@ mod test {
         let ctx = Ctx::new();
 
         let server_cert = CurveCert::new_unique();
-        let client_cert = CurveCert::new_unique();
 
         let _ = AuthBuilder::new().no_curve_auth().with_ctx(&ctx).unwrap();
 
@@ -731,7 +729,7 @@ mod test {
         };
 
         let client_creds = CurveClientCreds {
-            client: client_cert,
+            client: None,
             server: server_cert.public().to_owned(),
         };
 

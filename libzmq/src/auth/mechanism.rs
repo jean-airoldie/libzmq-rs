@@ -52,8 +52,9 @@ impl<'a> IntoIterator for &'a PlainClientCreds {
 /// Credentials for a `Curve` client.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveClientCreds {
-    /// The client's `CurveCert`.
-    pub client: CurveCert,
+    /// The client's `CurveCert`. If the certificate is not specified,
+    /// it will be generated at runtime.
+    pub client: Option<CurveCert>,
     /// The server's public `CurveKey`.
     ///
     /// This is used to ensure the server's identity.

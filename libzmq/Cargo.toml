@@ -49,7 +49,7 @@ name = "bench_main"
 harness = false
 
 [[example]]
-name = "curve_server"
+name = "auth"
 
 [[example]]
 name = "gen_curve_cert"

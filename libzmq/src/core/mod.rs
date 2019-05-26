@@ -39,7 +39,7 @@ mod private {
 }
 
 use crate::{addr::Endpoint, auth::*, error::Error};
-use std::time::Duration;
+use std::{sync::MutexGuard, time::Duration};
 
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
@@ -394,21 +394,28 @@ pub trait Socket: GetRawSocket {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Client, auth::{PlainClientCreds, Mechanism}};
-    ///
-    /// let username = "some name".to_owned();
-    /// let password = "some password".to_owned();
-    ///
-    /// let creds = PlainClientCreds {
-    ///     username,
-    ///     password,
-    /// };
+    /// use libzmq::{prelude::*, Client, auth::*};
     ///
     /// let client = Client::new()?;
     /// assert_eq!(client.mechanism(), Mechanism::Null);
     ///
+    /// let server_cert = CurveCert::new_unique();
+    ///
+    /// let creds = CurveClientCreds {
+    ///     // The missing client certificate will be generated.
+    ///     client: None,
+    ///     server: server_cert.public().to_owned(),
+    /// };
+    ///
     /// client.set_mechanism(&creds)?;
-    /// assert_eq!(client.mechanism(), Mechanism::PlainClient(creds));
+    ///
+    /// if let Mechanism::CurveClient(creds) = client.mechanism() {
+    ///     assert_eq!(&creds.server, server_cert.public());
+    ///     // Indeed it was automatically generated.
+    ///     assert!(creds.client.is_some());
+    /// } else {
+    ///     unreachable!()
+    /// }
     /// #
     /// #     Ok(())
     /// # }
@@ -419,64 +426,101 @@ pub trait Socket: GetRawSocket {
     where
         M: Into<Mechanism>,
     {
-        let mechanism = mechanism.into();
         let raw_socket = self.raw_socket();
-        let mut mutex = raw_socket.mechanism().lock().unwrap();
+        let mechanism = mechanism.into();
+        let mutex = raw_socket.mechanism().lock().unwrap();
 
-        if *mutex == mechanism {
-            return Ok(());
-        }
-
-        // Undo the previous mechanism.
-        match &*mutex {
-            Mechanism::Null => (),
-            Mechanism::PlainClient(_) => {
-                raw_socket.set_username(None)?;
-                raw_socket.set_password(None)?;
-            }
-            Mechanism::PlainServer => {
-                raw_socket.set_plain_server(false)?;
-            }
-            Mechanism::CurveClient(_) => {
-                raw_socket.set_curve_server_key(None)?;
-                raw_socket.set_curve_public_key(None)?;
-                raw_socket.set_curve_secret_key(None)?;
-            }
-            Mechanism::CurveServer(_) => {
-                raw_socket.set_curve_secret_key(None)?;
-                raw_socket.set_curve_server(false)?;
-            }
-        }
-
-        // Apply the new mechanism.
-        match &mechanism {
-            Mechanism::Null => (),
-            Mechanism::PlainClient(creds) => {
-                raw_socket.set_username(Some(&creds.username))?;
-                raw_socket.set_password(Some(&creds.password))?;
-            }
-            Mechanism::PlainServer => {
-                raw_socket.set_plain_server(true)?;
-            }
-            Mechanism::CurveClient(creds) => {
-                let server_key: BinCurveKey = (&creds.server).into();
-                raw_socket.set_curve_server_key(Some(&server_key))?;
-                let public_key: BinCurveKey = creds.client.public().into();
-                raw_socket.set_curve_public_key(Some(&public_key))?;
-                let secret_key: BinCurveKey = creds.client.secret().into();
-                raw_socket.set_curve_secret_key(Some(&secret_key))?;
-            }
-            Mechanism::CurveServer(creds) => {
-                let secret_key: BinCurveKey = (&creds.secret).into();
-                raw_socket.set_curve_secret_key(Some(&secret_key))?;
-                raw_socket.set_curve_server(true)?;
-            }
-        }
-
-        // Update mechanism
-        *mutex = mechanism;
-        Ok(())
+        set_mechanism(raw_socket, mechanism, mutex)
     }
+}
+
+fn set_mechanism(
+    raw_socket: &RawSocket,
+    mut mechanism: Mechanism,
+    mut mutex: MutexGuard<Mechanism>,
+) -> Result<(), Error> {
+    if *mutex == mechanism {
+        return Ok(());
+    }
+
+    // Undo the previous mechanism.
+    match &*mutex {
+        Mechanism::Null => (),
+        Mechanism::PlainClient(_) => {
+            raw_socket.set_username(None)?;
+            raw_socket.set_password(None)?;
+        }
+        Mechanism::PlainServer => {
+            raw_socket.set_plain_server(false)?;
+        }
+        Mechanism::CurveClient(_) => {
+            raw_socket.set_curve_server_key(None)?;
+            raw_socket.set_curve_public_key(None)?;
+            raw_socket.set_curve_secret_key(None)?;
+        }
+        Mechanism::CurveServer(_) => {
+            raw_socket.set_curve_secret_key(None)?;
+            raw_socket.set_curve_server(false)?;
+        }
+    }
+
+    // Check if we need to generate a client cert.
+    let mut missing_client_cert = false;
+    if let Mechanism::CurveClient(creds) = &mechanism {
+        if creds.client.is_none() {
+            missing_client_cert = true;
+        }
+    }
+
+    // Generate a client certificate if it was not supplied.
+    if missing_client_cert {
+        let cert = CurveCert::new_unique();
+        let server_key = {
+            if let Mechanism::CurveClient(creds) = mechanism {
+                creds.server
+            } else {
+                unreachable!()
+            }
+        };
+
+        let creds = CurveClientCreds {
+            client: Some(cert),
+            server: server_key,
+        };
+        mechanism = Mechanism::CurveClient(creds);
+    }
+
+    // Apply the new mechanism.
+    match &mechanism {
+        Mechanism::Null => (),
+        Mechanism::PlainClient(creds) => {
+            raw_socket.set_username(Some(&creds.username))?;
+            raw_socket.set_password(Some(&creds.password))?;
+        }
+        Mechanism::PlainServer => {
+            raw_socket.set_plain_server(true)?;
+        }
+        Mechanism::CurveClient(creds) => {
+            let server_key: BinCurveKey = (&creds.server).into();
+            raw_socket.set_curve_server_key(Some(&server_key))?;
+
+            // Cannot fail since we would have generated a cert.
+            let cert = creds.client.as_ref().unwrap();
+            let public_key: BinCurveKey = cert.public().into();
+            raw_socket.set_curve_public_key(Some(&public_key))?;
+            let secret_key: BinCurveKey = cert.secret().into();
+            raw_socket.set_curve_secret_key(Some(&secret_key))?;
+        }
+        Mechanism::CurveServer(creds) => {
+            let secret_key: BinCurveKey = (&creds.secret).into();
+            raw_socket.set_curve_secret_key(Some(&secret_key))?;
+            raw_socket.set_curve_server(true)?;
+        }
+    }
+
+    // Update mechanism
+    *mutex = mechanism;
+    Ok(())
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
