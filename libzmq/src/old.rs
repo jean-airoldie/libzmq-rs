@@ -95,8 +95,7 @@ impl OldSocket {
     where
         C: Into<Ctx>,
     {
-        let ctx = ctx.into();
-        let inner = RawSocket::with_ctx(socket.into(), ctx)?;
+        let inner = RawSocket::with_ctx(socket.into(), ctx.into())?;
 
         Ok(Self { inner })
     }
@@ -113,8 +112,7 @@ impl OldSocket {
     where
         M: Into<Msg>,
     {
-        let msg = msg.into();
-        send(self.inner.as_mut_ptr(), msg, more)
+        send(self.inner.as_mut_ptr(), msg.into(), more)
     }
 
     pub(crate) fn send_multipart<I, M>(&mut self, iter: I) -> Result<(), Error>
@@ -124,8 +122,7 @@ impl OldSocket {
     {
         let mut last = None;
 
-        for msg in iter.into_iter() {
-            let msg: Msg = msg.into();
+        for msg in iter.into_iter().map(M::into) {
             if last == None {
                 last = Some(msg);
             } else {

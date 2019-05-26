@@ -48,7 +48,7 @@ impl<'a> IntoIpAddrs for &'a [IpAddr] {
     type IntoIter = vec::IntoIter<IpAddr>;
 
     fn into_ip_addrs(self) -> Self::IntoIter {
-        let ips: Vec<IpAddr> = self.iter().map(|i| i.to_owned()).collect();
+        let ips: Vec<IpAddr> = self.iter().map(ToOwned::to_owned).collect();
         ips.into_ip_addrs()
     }
 }
@@ -69,7 +69,7 @@ where
 {
     type IntoIter = vec::IntoIter<IpAddr>;
     fn into_ip_addrs(self) -> Self::IntoIter {
-        let ips: Vec<IpAddr> = self.into_iter().map(|e| e.into()).collect();
+        let ips: Vec<IpAddr> = self.into_iter().map(E::into).collect();
         ips.into_iter()
     }
 }

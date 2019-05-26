@@ -84,12 +84,11 @@ pub trait SendMsg: GetRawSocket {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
+    fn send<M>(&self, msg: M) -> Result<(), Error<Msg>>
     where
         M: Into<Msg>,
     {
-        let msg: Msg = sendable.into();
-        send(self.raw_socket().as_mut_ptr(), msg, false)
+        send(self.raw_socket().as_mut_ptr(), msg.into(), false)
     }
 
     /// Try to push a message into the outgoing socket queue without blocking.
@@ -118,12 +117,11 @@ pub trait SendMsg: GetRawSocket {
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
-    fn try_send<M>(&self, sendable: M) -> Result<(), Error<Msg>>
+    fn try_send<M>(&self, msg: M) -> Result<(), Error<Msg>>
     where
         M: Into<Msg>,
     {
-        let msg: Msg = sendable.into();
-        send(self.raw_socket().as_mut_ptr(), msg, true)
+        send(self.raw_socket().as_mut_ptr(), msg.into(), true)
     }
 
     /// The high water mark for outbound messages on the specified socket.

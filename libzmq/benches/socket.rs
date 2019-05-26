@@ -18,7 +18,7 @@ lazy_static! {
 }
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
-    let mut rng: Isaac64Rng = SeedableRng::seed_from_u64(123490814327);
+    let mut rng: Isaac64Rng = SeedableRng::seed_from_u64(123_490_814_327);
     let mut dataset = Vec::with_capacity(dataset_size);
 
     for _ in 0..dataset_size {
@@ -31,7 +31,7 @@ fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
 
 pub(crate) fn bench(c: &mut Criterion) {
     c.bench(
-        &format!("50u8 msg on TCP"),
+        &"50u8 msg on TCP".to_owned(),
         Benchmark::new("dataset alloc (control)", move |b| {
             b.iter(|| {
                 black_box(gen_dataset(MSG_AMOUNT, MSG_SIZE));

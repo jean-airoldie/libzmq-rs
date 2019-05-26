@@ -173,7 +173,6 @@ impl Dish {
     where
         C: Into<Ctx>,
     {
-        let ctx: Ctx = ctx.into();
         let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dish, ctx)?);
 
         Ok(Self {
@@ -228,8 +227,7 @@ impl Dish {
         let mut count = 0;
         let mut guard = self.groups.lock().unwrap();
 
-        for group in groups.into_iter() {
-            let group = group.into();
+        for group in groups.into_iter().map(G::into) {
             join(self.raw_socket().as_mut_ptr(), &group)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -314,8 +312,7 @@ impl Dish {
         let mut count = 0;
         let mut guard = self.groups.lock().unwrap();
 
-        for group in groups.into_iter() {
-            let group = group.into();
+        for group in groups.into_iter().map(G::into) {
             leave(self.raw_socket().as_mut_ptr(), &group)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -374,7 +371,6 @@ impl DishConfig {
     where
         C: Into<Ctx>,
     {
-        let ctx: Ctx = ctx.into();
         let dish = Dish::with_ctx(ctx).map_err(Error::cast)?;
         self.apply(&dish)?;
 

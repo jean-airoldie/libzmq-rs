@@ -78,8 +78,7 @@ pub trait Socket: GetRawSocket {
         let mut count = 0;
         let raw_socket = self.raw_socket();
 
-        for endpoint in endpoints.into_iter() {
-            let endpoint: Endpoint = endpoint.into();
+        for endpoint in endpoints.into_iter().map(E::into) {
             raw_socket
                 .connect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
@@ -125,8 +124,7 @@ pub trait Socket: GetRawSocket {
         let mut count = 0;
         let raw_socket = self.raw_socket();
 
-        for endpoint in endpoints.into_iter() {
-            let endpoint = endpoint.into();
+        for endpoint in endpoints.into_iter().map(E::into) {
             raw_socket
                 .disconnect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
@@ -177,8 +175,7 @@ pub trait Socket: GetRawSocket {
         let mut count = 0;
         let raw_socket = self.raw_socket();
 
-        for endpoint in endpoints.into_iter() {
-            let endpoint: Endpoint = endpoint.into();
+        for endpoint in endpoints.into_iter().map(E::into) {
             raw_socket
                 .bind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
@@ -227,8 +224,7 @@ pub trait Socket: GetRawSocket {
         let mut count = 0;
         let raw_socket = self.raw_socket();
 
-        for endpoint in endpoints.into_iter() {
-            let endpoint = endpoint.into();
+        for endpoint in endpoints.into_iter().map(E::into) {
             raw_socket
                 .unbind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
@@ -558,7 +554,7 @@ pub trait ConfigureSocket: GetSocketConfig {
         E: Into<Endpoint>,
     {
         let maybe: Option<Vec<Endpoint>> =
-            maybe.map(|e| e.into_iter().map(Into::into).collect());
+            maybe.map(|e| e.into_iter().map(E::into).collect());
         self.socket_config_mut().connect = maybe;
     }
 
@@ -572,7 +568,7 @@ pub trait ConfigureSocket: GetSocketConfig {
         E: Into<Endpoint>,
     {
         let maybe: Option<Vec<Endpoint>> =
-            maybe.map(|e| e.into_iter().map(Into::into).collect());
+            maybe.map(|e| e.into_iter().map(E::into).collect());
         self.socket_config_mut().bind = maybe;
     }
 
@@ -678,8 +674,8 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     where
         M: Into<Mechanism>,
     {
-        let mechanism = mechanism.into();
-        self.socket_config_mut().set_mechanism(Some(mechanism));
+        self.socket_config_mut()
+            .set_mechanism(Some(mechanism.into()));
         self
     }
 }

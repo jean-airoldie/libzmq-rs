@@ -133,8 +133,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for ip in ips.into_ip_addrs() {
-            let ipv6 = into_ipv6(ip);
+        for ipv6 in ips.into_ip_addrs().map(into_ipv6) {
             self.request(&AuthRequest::AddBlacklist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -151,8 +150,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for ip in ips.into_ip_addrs() {
-            let ipv6 = into_ipv6(ip);
+        for ipv6 in ips.into_ip_addrs().map(into_ipv6) {
             self.request(&AuthRequest::RemoveBlacklist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -168,8 +166,7 @@ impl AuthClient {
     where
         I: IntoIpAddrs,
     {
-        let ips: Vec<Ipv6Addr> =
-            ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
+        let ips: Vec<Ipv6Addr> = ips.into_ip_addrs().map(into_ipv6).collect();
 
         self.request(&AuthRequest::SetBlacklist(ips))
             .map_err(Error::cast)
@@ -186,8 +183,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for ip in ips.into_ip_addrs() {
-            let ipv6 = into_ipv6(ip);
+        for ipv6 in ips.into_ip_addrs().map(into_ipv6) {
             self.request(&AuthRequest::AddWhitelist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -204,8 +200,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for ip in ips.into_ip_addrs() {
-            let ipv6 = into_ipv6(ip);
+        for ipv6 in ips.into_ip_addrs().map(into_ipv6) {
             self.request(&AuthRequest::RemoveWhitelist(ipv6))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -223,8 +218,7 @@ impl AuthClient {
     where
         I: IntoIpAddrs,
     {
-        let ips: Vec<Ipv6Addr> =
-            ips.into_ip_addrs().map(|i| into_ipv6(i)).collect();
+        let ips: Vec<Ipv6Addr> = ips.into_ip_addrs().map(into_ipv6).collect();
 
         self.request(&AuthRequest::SetWhitelist(ips))
     }
@@ -239,8 +233,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for creds in iter.into_iter() {
-            let creds = creds.into();
+        for creds in iter.into_iter().map(E::into) {
             self.request(&AuthRequest::AddPlainRegistry(creds))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -260,8 +253,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for username in usernames.into_iter() {
-            let username = username.into();
+        for username in usernames.into_iter().map(E::into) {
             self.request(&AuthRequest::RemovePlainRegistry(username))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -279,7 +271,7 @@ impl AuthClient {
         E: Into<PlainClientCreds>,
     {
         let plain_creds: Vec<PlainClientCreds> =
-            creds.into_iter().map(|e| e.into()).collect();
+            creds.into_iter().map(E::into).collect();
 
         self.request(&AuthRequest::SetPlainRegistry(plain_creds))
     }
@@ -295,8 +287,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for key in keys.into_iter() {
-            let key = key.into();
+        for key in keys.into_iter().map(E::into) {
             self.request(&AuthRequest::AddCurveRegistry(key))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -317,8 +308,7 @@ impl AuthClient {
     {
         let mut count = 0;
 
-        for key in keys.into_iter() {
-            let key = key.into();
+        for key in keys.into_iter().map(E::into) {
             self.request(&AuthRequest::RemoveCurveRegistry(key))
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
@@ -333,7 +323,7 @@ impl AuthClient {
         I: IntoIterator<Item = E>,
         E: Into<CurveKey>,
     {
-        let keys: Vec<CurveKey> = keys.into_iter().map(|e| e.into()).collect();
+        let keys: Vec<CurveKey> = keys.into_iter().map(E::into).collect();
 
         self.request(&AuthRequest::SetCurveRegistry(keys))
     }
@@ -367,28 +357,27 @@ impl AuthConfig {
         Self::default()
     }
 
-    /// Attempts to build a `AuthClient` and transmit the configuration
+    /// Attempts to build a `AuthClient` and send the configuration
     /// to the `AuthServer` associated with the default global `Ctx`.
     pub fn build(&self) -> Result<AuthClient, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    /// Attempts to build a `AuthClient` and transmit the configuration
+    /// Attempts to build a `AuthClient` and send the configuration
     /// to the `AuthServer` associated with the given `Ctx`.
     pub fn with_ctx<C>(&self, ctx: C) -> Result<AuthClient, Error>
     where
         C: Into<Ctx>,
     {
-        let ctx: Ctx = ctx.into();
         let client = AuthClient::with_ctx(ctx)?;
-        self.transmit(&client)?;
+        self.apply(&client)?;
 
         Ok(client)
     }
 
-    /// Attempts to transmit the configuration via the supplied `AuthClient`
-    /// to the associated `AuthServer`.
-    pub fn transmit(&self, client: &AuthClient) -> Result<(), Error> {
+    /// Apply the configuration to the `AuthClient` which will send
+    /// it to its associated `AuthServer`.
+    pub fn apply(&self, client: &AuthClient) -> Result<(), Error> {
         if let Some(ref blacklist) = self.blacklist {
             client.set_blacklist(blacklist)?;
         }
@@ -432,7 +421,7 @@ impl AuthConfig {
         E: Into<PlainClientCreds>,
     {
         let maybe: Option<Vec<PlainClientCreds>> =
-            maybe.map(|e| e.into_iter().map(Into::into).collect());
+            maybe.map(|e| e.into_iter().map(E::into).collect());
         self.plain_registry = maybe;
     }
 
@@ -442,7 +431,7 @@ impl AuthConfig {
         E: Into<CurveKey>,
     {
         let maybe: Option<Vec<CurveKey>> =
-            maybe.map(|e| e.into_iter().map(Into::into).collect());
+            maybe.map(|e| e.into_iter().map(E::into).collect());
         self.curve_registry = maybe;
     }
 
@@ -453,7 +442,7 @@ impl AuthConfig {
 
 /// A builder for a `AuthClient`.
 ///
-/// Creates a `AuthClient` and transmits a configuration to the associated
+/// Creates a `AuthClient` and sends the configuration to the associated
 /// `AuthServer`.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AuthBuilder {
