@@ -63,10 +63,9 @@ pub trait Socket: GetRawSocket {
     /// # Usage Contract
     /// * The endpoint(s) must be valid (Endpoint does not do any validation atm).
     /// * The endpoint's protocol must be supported by the socket.
-    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`InvalidInput`] (invalid endpoint)
     /// * [`IncompatTransport`] (transport not supported)
     /// * [`CtxTerminated`]
     ///
@@ -92,14 +91,7 @@ pub trait Socket: GetRawSocket {
             count += 1;
         }
 
-        // Empty iterator case.
-        if count == 0 {
-            Err(Error::new(ErrorKind::InvalidInput {
-                msg: "empty iterator",
-            }))
-        } else {
-            Ok(())
-        }
+        Ok(())
     }
 
     /// Disconnect the socket from one or more [`Endpoints`].
@@ -117,10 +109,9 @@ pub trait Socket: GetRawSocket {
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
     /// * The endpoint must be already connected to.
-    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`InvalidInput`] (invalid endpoint)
     /// * [`NotFound`] (endpoint not connected to)
     /// * [`CtxTerminated`]
     ///
@@ -147,14 +138,7 @@ pub trait Socket: GetRawSocket {
             count += 1;
         }
 
-        // Empty iterator case.
-        if count == 0 {
-            Err(Error::new(ErrorKind::InvalidInput {
-                msg: "empty iterator",
-            }))
-        } else {
-            Ok(())
-        }
+        Ok(())
     }
 
     /// Schedules a bind to one or more [`Endpoints`] and then accepts
@@ -174,10 +158,9 @@ pub trait Socket: GetRawSocket {
     /// * The transport must be supported by socket type.
     /// * The endpoint must not be in use.
     /// * The endpoint must be local.
-    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`InvalidInput`] (invalid endpoint)
     /// * [`IncompatTransport`] (transport is not supported)
     /// * [`AddrInUse`] (addr already in use)
     /// * [`AddrNotAvailable`] (not local)
@@ -207,14 +190,7 @@ pub trait Socket: GetRawSocket {
             count += 1;
         }
 
-        // Empty iterator case.
-        if count == 0 {
-            Err(Error::new(ErrorKind::InvalidInput {
-                msg: "empty iterator",
-            }))
-        } else {
-            Ok(())
-        }
+        Ok(())
     }
 
     /// Unbinds the socket from one or more [`Endpoints`].
@@ -235,10 +211,9 @@ pub trait Socket: GetRawSocket {
     /// # Usage Contract
     /// * The endpoint must be valid (Endpoint does not do any validation atm).
     /// * The endpoint must be currently bound.
-    /// * The iterator must not be empty.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint or empty iterator)
+    /// * [`InvalidInput`] (invalid endpoint)
     /// * [`CtxTerminated`]
     /// * [`NotFound`] (endpoint was not bound to)
     ///
@@ -265,14 +240,7 @@ pub trait Socket: GetRawSocket {
             count += 1;
         }
 
-        // Empty iterator case.
-        if count == 0 {
-            Err(Error::new(ErrorKind::InvalidInput {
-                msg: "empty iterator",
-            }))
-        } else {
-            Ok(())
-        }
+        Ok(())
     }
 
     /// Retrieve the last endpoint connected or bound to.
