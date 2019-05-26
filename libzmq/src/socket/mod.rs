@@ -2,12 +2,16 @@
 
 mod client;
 mod dish;
+mod gather;
 mod radio;
+mod scatter;
 mod server;
 
 pub use client::*;
 pub use dish::*;
+pub use gather::*;
 pub use radio::*;
+pub use scatter::*;
 pub use server::*;
 
 use crate::{

@@ -31,6 +31,12 @@ mod private {
     impl Sealed for Dish {}
     impl Sealed for DishConfig {}
     impl Sealed for DishBuilder {}
+    impl Sealed for Scatter {}
+    impl Sealed for ScatterConfig {}
+    impl Sealed for ScatterBuilder {}
+    impl Sealed for Gather {}
+    impl Sealed for GatherConfig {}
+    impl Sealed for GatherBuilder {}
     impl Sealed for SocketType {}
 
     // Pub crate

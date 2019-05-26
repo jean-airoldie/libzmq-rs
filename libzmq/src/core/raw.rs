@@ -27,6 +27,8 @@ pub(crate) enum RawSocketType {
     Router = sys::ZMQ_ROUTER as isize,
     Pair = sys::ZMQ_PAIR as isize,
     Sub = sys::ZMQ_SUB as isize,
+    Scatter = sys::ZMQ_SCATTER as isize,
+    Gather = sys::ZMQ_GATHER as isize,
 }
 
 impl From<RawSocketType> for c_int {
@@ -40,6 +42,8 @@ impl From<RawSocketType> for c_int {
             RawSocketType::Router => RawSocketType::Router as c_int,
             RawSocketType::Pair => RawSocketType::Pair as c_int,
             RawSocketType::Sub => RawSocketType::Sub as c_int,
+            RawSocketType::Scatter => RawSocketType::Scatter as c_int,
+            RawSocketType::Gather => RawSocketType::Gather as c_int,
         }
     }
 }

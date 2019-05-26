@@ -25,8 +25,8 @@ pub use error::{Error, ErrorKind};
 pub use group::*;
 pub use msg::*;
 pub use socket::{
-    Client, ClientBuilder, Dish, DishBuilder, Radio, RadioBuilder, Server,
-    ServerBuilder, SocketType,
+    Client, ClientBuilder, Dish, DishBuilder, Gather, GatherBuilder, Radio,
+    RadioBuilder, Scatter, ScatterBuilder, Server, ServerBuilder, SocketType,
 };
 pub use utils::*;
 
@@ -35,7 +35,8 @@ pub mod config {
     pub use crate::auth::client::AuthConfig;
     pub use crate::ctx::CtxConfig;
     pub use crate::socket::{
-        ClientConfig, ConfigType, DishConfig, RadioConfig, ServerConfig,
+        ClientConfig, ConfigType, DishConfig, GatherConfig, RadioConfig,
+        ScatterConfig, ServerConfig,
     };
 }
 
