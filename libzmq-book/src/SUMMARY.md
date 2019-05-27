@@ -8,5 +8,7 @@
     * [Patterns](./basics/patterns.md)
 * [Advanced](./advanced/README.md)
     * [Custom Protocols](./advanced/protocols.md)
+* [Examples](./examples/README.md)
+    * [Basic Server](./examples/basic_server.md)
 
 [Glossary](./glossary.md)

@@ -53,3 +53,6 @@ name = "auth"
 
 [[example]]
 name = "gen_curve_cert"
+
+[[example]]
+name = "req_rep"
