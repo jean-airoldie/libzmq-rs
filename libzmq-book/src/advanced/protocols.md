@@ -37,5 +37,4 @@ Since contract must be ensured at the application level, it must be properly
 documentated for developpers to be able to respect it.
 
 `ZeroMQ` does not enforce a particular messaging protocol, instead
-it offers all the tools to build one. But in the end, good contracts are hard
-to pull of, whichever way you look at them.
+it offers all the tools to build one.
