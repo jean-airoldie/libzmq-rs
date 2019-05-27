@@ -277,32 +277,6 @@ pub trait Socket: GetRawSocket {
         self.raw_socket().last_endpoint()
     }
 
-    /// Retrieve the maximum length of the queue of outstanding peer connections.
-    ///
-    /// See `ZMQ_BLACKLOG` in [`zmq_getsockopt`].
-    ///
-    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-    fn backlog(&self) -> Result<i32, Error> {
-        self.raw_socket().backlog()
-    }
-
-    /// Set the maximum length of the queue of outstanding peer connections
-    /// for the specified socket; this only applies to connection-oriented
-    /// transports.
-    ///
-    /// See `ZMQ_BACKLOG` in [`zmq_setsockopt`].
-    ///
-    /// # Default Value
-    /// 100
-    ///
-    /// # Applicable Socket Type
-    /// All (Connection Oriented Transports)
-    ///
-    /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
-    fn set_backlog(&self, value: i32) -> Result<(), Error> {
-        self.raw_socket().set_backlog(value)
-    }
-
     /// The interval between sending ZMTP heartbeats.
     fn heartbeat_interval(&self) -> Result<Duration, Error> {
         self.raw_socket().heartbeat_interval()
@@ -534,7 +508,6 @@ fn set_mechanism(
 pub struct SocketConfig {
     pub(crate) connect: Option<Vec<Endpoint>>,
     pub(crate) bind: Option<Vec<Endpoint>>,
-    pub(crate) backlog: Option<i32>,
     pub(crate) heartbeat_interval: Option<Duration>,
     pub(crate) heartbeat_timeout: Option<Duration>,
     pub(crate) heartbeat_ttl: Option<Duration>,
@@ -547,9 +520,6 @@ impl SocketConfig {
         &self,
         socket: &S,
     ) -> Result<(), Error<usize>> {
-        if let Some(value) = self.backlog {
-            socket.set_backlog(value).map_err(Error::cast)?;
-        }
         if let Some(value) = self.heartbeat_interval {
             socket.set_heartbeat_interval(value).map_err(Error::cast)?;
         }
@@ -622,14 +592,6 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config_mut().bind = maybe;
     }
 
-    fn backlog(&self) -> Option<i32> {
-        self.socket_config().backlog
-    }
-
-    fn set_backlog(&mut self, maybe: Option<i32>) {
-        self.socket_config_mut().backlog = maybe;
-    }
-
     fn heartbeat_interval(&self) -> Option<Duration> {
         self.socket_config().heartbeat_interval
     }
@@ -690,11 +652,6 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         E: Into<Endpoint>,
     {
         self.socket_config_mut().set_bind(Some(endpoints));
-        self
-    }
-
-    fn backlog(&mut self, len: i32) -> &mut Self {
-        self.socket_config_mut().set_backlog(Some(len));
         self
     }
 
