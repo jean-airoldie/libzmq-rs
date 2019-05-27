@@ -1,6 +1,6 @@
 # Summary
 
-[About this guide](./about.md)
+[About](./about.md)
 
 * [Basics](./basics/README.md)
     * [Socket](./basics/socket.md)

@@ -1,4 +1,6 @@
-# About this guide
+# About
+
+## This is a WIP guide
 
 I believe that `ZeroMQ` is a diamond in the rough that is still a in the early
 adoption stage despite being a mature project. In my opinon, the lack of traction

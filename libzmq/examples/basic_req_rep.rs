@@ -10,7 +10,7 @@ fn main() -> Result<(), failure::Error> {
         .build()?;
 
     // Spawn the server thread.
-    let handle = thread::spawn(move || -> Result<(), failure::Error> {
+    let handle = thread::spawn(move || -> Result<(), Error> {
         loop {
             let request = server.recv_msg()?;
             assert_eq!(request.to_str(), Ok("ping"));
@@ -19,7 +19,8 @@ fn main() -> Result<(), failure::Error> {
             let id = request.routing_id().unwrap();
             let mut reply: Msg = "pong".into();
             reply.set_routing_id(id);
-            server.send(reply)?;
+            // We cast the Error<Msg> to Error<()>. This drops the Msg.
+            server.send(reply).map_err(Error::cast)?;
         }
     });
 
@@ -32,8 +33,12 @@ fn main() -> Result<(), failure::Error> {
     let msg = client.recv_msg()?;
     assert_eq!(msg.to_str(), Ok("pong"));
 
-    Ctx::global().shutdown()?;
+    // This will cause the server to fail with `CtxTerminated`.
+    Ctx::global().shutdown();
 
     // Join with the thread.
-    handle.join().unwrap()
+    let err = handle.join().unwrap().unwrap_err();
+    assert_eq!(err.kind(), ErrorKind::CtxTerminated);
+
+    Ok(())
 }
