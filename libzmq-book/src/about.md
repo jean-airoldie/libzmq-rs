@@ -15,4 +15,4 @@ could be use. To do so, we will use `libzmq-rs` which is a library aimed at
 making `ZeroMQ` dead simple to use.
 
 ## Reading Tips
-* Search for words you don't understand since they might be part of the glossary.
+* There is a search bar friendly glossary at the end of the guide.

@@ -4,7 +4,7 @@ These are the basic methods required to use a socket.
 
 ## Connect
 
-The socket `connect` method is use to connect to a peer socket bound
+The socket [connect] method is use to connect to a peer socket bound
 at an endpoint to communicate with a peer. Usually a client socket will connect
 to a server socket, but it could be the other way around.
 
@@ -13,7 +13,7 @@ let addr: TcpAddr = "8.8.8.8:420".try_into()?;
 client.connect(addr)?;
 ```
 
-Calling `connect` on a socket is not guaranteed to connect to the peer right
+Calling [connect] on a socket is not guaranteed to connect to the peer right
 away. Usually, the actual connect call will be delayed until it is needed
 (e.g. when sending a message).
 
@@ -28,7 +28,7 @@ and might fail for various reasons.
 
 ## Bind
 
-The socket `bind` method is used to bind a local endpoint to accept connections
+The socket [bind] method is used to bind a local endpoint to accept connections
 from peers. Usually a server socket will bind a known endpoint so that other socket
 can connect to it.
 
@@ -37,28 +37,28 @@ let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 server.bind(addr)?;
 ```
 
-Contrairy to `connect`, `bind` will attempt to bind to the endpoint straight
+Contrairy to [connect], [bind] will attempt to bind to the endpoint straight
 away. If the bind call succeeds, the socket will start to accept connections
 attempts to this endpoint.
 
 ## Send
 
 This a fundamental operation of a socket used to transfert messages to another
-socket. To be able to send messages, a socket must implement the `SendMsg` trait.
+socket. To be able to send messages, a socket must implement the [SendMsg] trait.
 
 ```rust
 client.send(msg)?;
 ```
 
-When `send` is called on a socket, it will attempt to queue the message
+When [send] is called on a socket, it will attempt to queue the message
 to its outgoing buffer. If the buffer is full, meaning it has reached the
-high water mark, the operation will block. If the `send_timeout` is set
+high water mark, the operation will block. If the [send_timeout] is set
 to `None`, the operation will block until the buffer can accomodate for
 the message. Otherwise if a duration is specified, it attempt to queue
-the message for that duration and if it fails, return `WouldBlock`.
+the message for that duration and if it fails, return [WouldBlock].
 the timeout.
 
-There is also the `try_send` method which will return with `WouldBlock` immediately
+There is also the [try_send] method which will return with [WouldBlock] immediately
 if it cannot queue the message.
 
 Queued messages are send by a background I/O thread to the peer socket.
@@ -78,22 +78,22 @@ the user has to decide what to do depending on the context.
 
 ## Recv
 
-You guessed it, `recv` is a socket operation used to receive messages from
+You guessed it, [recv] is a socket operation used to receive messages from
 another socket. To be able to receive messages, a socket must implement
-the `RecvMsg` trait.
+the [RecvMsg] trait.
 
 ```rust
 let msg = client.recv_msg()?;
 ```
 
-Calling `recv` on a socket will attempt to extract a message from its
+Calling [recv] on a socket will attempt to extract a message from its
 incoming buffer. If the incoming buffer is empty, the operation will
-block until a mesage is received in the buffer. If the `recv_timeout`
+block until a mesage is received in the buffer. If the [recv_timeout]
 is specified, it will try to extract a message from the buffer for the
-given duration and return `WouldBlock` if it failed.
+given duration and return [WouldBlock] if it failed.
 
-There is also the `try_recv` method which, similarly to `try_send`, will return
-with `WouldBlock` immediately if it cannot queue the message.
+There is also the [try_recv] method which, similarly to [try_send], will return
+with [WouldBlock] immediately if it cannot queue the message.
 
 The incoming buffer receives message from the background I/O thread from the
 peer socket. For the messages to be actually received two conditions must be met:
@@ -110,3 +110,13 @@ Conceptually, an empty incoming buffer can mean many things:
 Like before, many of these scenarios are conceptually indistinguishable.
 We have to decide what to do depending on the context.
 
+[send]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.SendMsg.html#method.send
+[try_send]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.SendMsg.html#method.try_send
+[SendMsg]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.SendMsg.html
+[recv]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.RecvMsg.html#method.recv
+[try_recv]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.RecvMsg.html#method.try_recv
+[RecvMsg]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.RecvMsg.html
+[connect]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.Socket.html#method.connect
+[bind]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.Socket.html#method.bind
+[send_timeout]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.SendMsg.html#method.send_timeout
+[recv_timeout]: https://docs.rs/libzmq/0.1/libzmq/prelude/trait.RecvMsg.html#method.recv_timeout
