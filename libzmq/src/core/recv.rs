@@ -60,6 +60,7 @@ pub trait RecvMsg: GetRawSocket {
     /// * [`CtxTerminated`]
     /// * [`Interrupted`]
     ///
+    /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     fn recv(&self, msg: &mut Msg) -> Result<(), Error> {
