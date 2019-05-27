@@ -257,14 +257,6 @@ impl RawSocket {
         Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
     }
 
-    pub(crate) fn backlog(&self) -> Result<i32, Error> {
-        getsockopt_scalar(self.as_mut_ptr(), SocketOption::Backlog)
-    }
-
-    pub(crate) fn set_backlog(&self, value: i32) -> Result<(), Error> {
-        setsockopt_scalar(self.as_mut_ptr(), SocketOption::Backlog, value)
-    }
-
     pub(crate) fn heartbeat_interval(&self) -> Result<Duration, Error> {
         getsockopt_option_duration(
             self.as_mut_ptr(),

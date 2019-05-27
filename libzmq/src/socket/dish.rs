@@ -404,7 +404,6 @@ impl DishConfig {
 struct FlatDishConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
-    backlog: Option<i32>,
     #[serde(default)]
     #[serde(with = "humantime_serde")]
     heartbeat_interval: Option<Duration>,
@@ -432,7 +431,6 @@ impl From<DishConfig> for FlatDishConfig {
         Self {
             connect: socket_config.connect,
             bind: socket_config.bind,
-            backlog: socket_config.backlog,
             heartbeat_interval: socket_config.heartbeat_interval,
             heartbeat_timeout: socket_config.heartbeat_timeout,
             heartbeat_ttl: socket_config.heartbeat_ttl,
@@ -450,7 +448,6 @@ impl From<FlatDishConfig> for DishConfig {
         let socket_config = SocketConfig {
             connect: flat.connect,
             bind: flat.bind,
-            backlog: flat.backlog,
             heartbeat_interval: flat.heartbeat_interval,
             heartbeat_timeout: flat.heartbeat_timeout,
             heartbeat_ttl: flat.heartbeat_ttl,

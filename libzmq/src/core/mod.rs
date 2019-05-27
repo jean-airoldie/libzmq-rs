@@ -289,8 +289,8 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Applicable Socket Type
     /// All (connection oriented transports)
-    fn set_heartbeat_interval(&self, duration: Duration) -> Result<(), Error> {
-        self.raw_socket().set_heartbeat_interval(duration)
+    fn set_heartbeat_interval<D>(&self, duration: D) -> Result<(), Error> where D: Into<Duration> {
+        self.raw_socket().set_heartbeat_interval(duration.into())
     }
 
     /// How long to wait before timing-out a connection after sending a
@@ -305,8 +305,8 @@ pub trait Socket: GetRawSocket {
     /// # Default Value
     /// `0`. If `heartbeat_interval` is set, then it uses the same value
     /// by default.
-    fn set_heartbeat_timeout(&self, duration: Duration) -> Result<(), Error> {
-        self.raw_socket().set_heartbeat_timeout(duration)
+    fn set_heartbeat_timeout<D>(&self, duration: D) -> Result<(), Error> where D: Into<Duration> {
+        self.raw_socket().set_heartbeat_timeout(duration.into())
     }
 
     /// The timeout on the remote peer for ZMTP heartbeats.
@@ -324,8 +324,8 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default value
     /// `None`
-    fn set_heartbeat_ttl(&self, duration: Duration) -> Result<(), Error> {
-        self.raw_socket().set_heartbeat_ttl(duration)
+    fn set_heartbeat_ttl<D>(&self, duration: D) -> Result<(), Error> where D: Into<Duration> {
+        self.raw_socket().set_heartbeat_ttl(duration.into())
     }
 
     /// Returns the linger period for the socket shutdown.
@@ -343,8 +343,8 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
-        self.raw_socket().set_linger(maybe)
+    fn set_linger<D>(&self, maybe: Option<D>) -> Result<(), Error> where D: Into<Duration> {
+        self.raw_socket().set_linger(maybe.map(Into::into))
     }
 
     /// Returns the socket's [`Mechanism`].
