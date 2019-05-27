@@ -55,4 +55,4 @@ name = "auth"
 name = "gen_curve_cert"
 
 [[example]]
-name = "inproc_req_rep"
+name = "basic_req_rep"
