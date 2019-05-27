@@ -5,9 +5,7 @@ use std::thread;
 fn main() -> Result<(), failure::Error> {
     let addr: InprocAddr = InprocAddr::new_unique();
 
-    let server = ServerBuilder::new()
-        .bind(&addr)
-        .build()?;
+    let server = ServerBuilder::new().bind(&addr).build()?;
 
     // Spawn the server thread.
     let handle = thread::spawn(move || -> Result<(), Error> {
@@ -24,9 +22,7 @@ fn main() -> Result<(), failure::Error> {
         }
     });
 
-    let client = ClientBuilder::new()
-        .connect(addr)
-        .build()?;
+    let client = ClientBuilder::new().connect(addr).build()?;
 
     // Do some request-reply work.
     client.send("ping")?;

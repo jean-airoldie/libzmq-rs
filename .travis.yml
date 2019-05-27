@@ -13,3 +13,11 @@ script:
   - cargo test --examples
   - cargo fmt --all -- --check
   - cargo clippy --all-targets -- -D warnings
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN
+  local-dir: libzmq-book
+  keep-history: false
+  on:
+    branch: master

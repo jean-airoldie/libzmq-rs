@@ -1,6 +1,6 @@
 use libzmq::{prelude::*, *};
 
-use std::{thread, convert::TryInto, time::Duration};
+use std::{convert::TryInto, thread, time::Duration};
 
 fn main() -> Result<(), failure::Error> {
     // We use a system assigned port here.
