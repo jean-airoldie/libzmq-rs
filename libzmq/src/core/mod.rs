@@ -289,10 +289,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Applicable Socket Type
     /// All (connection oriented transports)
-    fn set_heartbeat_interval<D>(&self, duration: D) -> Result<(), Error>
-    where
-        D: Into<Duration>,
-    {
+    fn set_heartbeat_interval<D>(&self, duration: D) -> Result<(), Error> where D: Into<Duration> {
         self.raw_socket().set_heartbeat_interval(duration.into())
     }
 
@@ -308,10 +305,7 @@ pub trait Socket: GetRawSocket {
     /// # Default Value
     /// `0`. If `heartbeat_interval` is set, then it uses the same value
     /// by default.
-    fn set_heartbeat_timeout<D>(&self, duration: D) -> Result<(), Error>
-    where
-        D: Into<Duration>,
-    {
+    fn set_heartbeat_timeout<D>(&self, duration: D) -> Result<(), Error> where D: Into<Duration> {
         self.raw_socket().set_heartbeat_timeout(duration.into())
     }
 
@@ -330,10 +324,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default value
     /// `None`
-    fn set_heartbeat_ttl<D>(&self, duration: D) -> Result<(), Error>
-    where
-        D: Into<Duration>,
-    {
+    fn set_heartbeat_ttl<D>(&self, duration: D) -> Result<(), Error> where D: Into<Duration> {
         self.raw_socket().set_heartbeat_ttl(duration.into())
     }
 
@@ -352,7 +343,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
+    fn set_linger<D>(&self, maybe: Option<D>) -> Result<(), Error> where D: Into<Duration> {
         self.raw_socket().set_linger(maybe.map(Into::into))
     }
 

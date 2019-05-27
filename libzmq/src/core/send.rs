@@ -192,7 +192,7 @@ pub trait SendMsg: GetRawSocket {
     /// #     Ok(())
     /// # }
     /// ```
-    fn set_send_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
+    fn set_send_timeout<D>(&self, maybe: Option<D>) -> Result<(), Error> where D: Into<Duration> {
         self.raw_socket().set_send_timeout(maybe.map(Into::into))
     }
 }
