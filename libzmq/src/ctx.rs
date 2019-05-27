@@ -5,7 +5,6 @@ use libzmq_sys as sys;
 use sys::errno;
 
 use lazy_static::lazy_static;
-use log::error;
 use serde::{Deserialize, Serialize};
 
 use std::{
@@ -66,7 +65,7 @@ impl RawCtx {
         }
     }
 
-    fn terminate(&self) -> Result<(), String> {
+    fn terminate(&self) {
         // We loop in case `zmq_ctx_term` get interrupted by a signal.
         loop {
             let rc = unsafe { sys::zmq_ctx_term(self.ctx) };
@@ -75,23 +74,17 @@ impl RawCtx {
             } else {
                 let errno = unsafe { sys::zmq_errno() };
                 match errno {
-                    errno::EINTR => (), // termination was interrupted by signal
-                    _ => return Err(msg_from_errno(errno)),
+                    errno::EINTR => (),
+                    _ => unreachable!(),
                 }
             }
         }
-
-        Ok(())
     }
 
-    fn shutdown(&self) -> Result<(), String> {
+    fn shutdown(&self) {
         let rc = unsafe { sys::zmq_ctx_shutdown(self.ctx) };
-        if rc == -1 {
-            let errno = unsafe { sys::zmq_errno() };
-            Err(msg_from_errno(errno))
-        } else {
-            Ok(())
-        }
+        // Should never fail.
+        assert_eq!(rc, 0);
     }
 }
 
@@ -101,9 +94,7 @@ unsafe impl Sync for RawCtx {}
 
 impl Drop for RawCtx {
     fn drop(&mut self) {
-        if let Err(msg) = self.terminate() {
-            error!("error while dropping context: {}", msg);
-        }
+        self.terminate()
     }
 }
 
@@ -294,8 +285,8 @@ impl CtxBuilder {
 /// authentification.
 ///
 /// # Drop
-/// The context will call `terminate` when dropped which will terminate all
-/// blocking calls, which will return `CtxTerminated`, then block until
+/// The context will call terminate when dropped which will cause all
+/// blocking calls to fail with `CtxTerminated`, then block until
 /// the following conditions are met:
 /// * All sockets open within context have been dropped.
 /// * All messages sent by the application with have either been physically
@@ -490,48 +481,17 @@ impl Ctx {
         self.raw.as_ref().set(RawCtxOption::Blocky, !enabled as i32);
     }
 
-    /// Terminate the context.
-    ///
-    /// This will deadlock your program if you are not carefull. You should
-    /// probably we using [`shutdown`] instead.
-    ///
-    /// Any blocking operations currently in progress on
-    /// sockets open within this context shall return immediately with a
-    /// [`CtxTerminated`] error. Any additional operations of
-    /// these sockets will also return a [`CtxTerminated`] error.
-    ///
-    /// This allows blocked threads to properly exit. Otherwise, a thread blocked
-    /// on a `send` call would lose its unsent message(s).
-    ///
-    /// The `terminate` call will then block until all the sockets within
-    /// the context are closed and either all the outgoing messages are sent or
-    /// their linger period has expired.
-    ///
-    /// Read more [`here`].
-    ///
-    /// # Error
-    /// Returns the error msg.
-    ///
-    /// [`CtxTerminated`]: ../error/enum.ErrorKind.html#variant.CtxTerminated
-    /// [`shutdown`]: #method.shutdown
-    /// [`here`]: http://api.zeromq.org/master:zmq-ctx-term
-    pub fn terminate(&self) -> Result<(), String> {
-        self.raw.terminate()
-    }
-
     /// Shutdown the ØMQ context context.
     ///
     /// Context shutdown will cause any blocking operations currently in
-    /// progress on sockets open within context to return immediately with [`CtxTerminated`].
+    /// progress on sockets open within context to fail immediately with
+    /// [`CtxTerminated`].
     ///
     /// Any further operations on sockets open within context shall fail with
     /// with [`CtxTerminated`].
     ///
-    /// # Error
-    /// Returns the error msg.
-    ///
     /// [`CtxTerminated`]: ../error/enum.ErrorKind.html#variant.CtxTerminated
-    pub fn shutdown(&self) -> Result<(), String> {
+    pub fn shutdown(&self) {
         self.raw.shutdown()
     }
 
