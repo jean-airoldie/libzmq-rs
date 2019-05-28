@@ -124,7 +124,7 @@ fn z85_decode(input: &str) -> Result<Vec<u8>, CurveError> {
 ///
 /// [`Z85`]: https://rfc.zeromq.org/spec:32/Z85/
 /// [`CurveCert::new_unique()`]: struct.CurveCert.html#method.new_unique
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CurvePublicKey {
     inner: CurveKey,
@@ -171,6 +171,15 @@ impl fmt::Display for CurvePublicKey {
         write!(f, "{}", self.as_str())
     }
 }
+
+impl fmt::Debug for CurvePublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("CurvePublicKey")
+           .field("key", &self.as_str())
+           .finish()
+    }
+}
+
 
 impl From<CurvePublicKey> for CurveKey {
     fn from(public: CurvePublicKey) -> Self {
@@ -274,7 +283,9 @@ impl CurveSecretKey {
 
 impl fmt::Debug for CurveSecretKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "<hidden>")
+        f.debug_struct("CurvePublicKey")
+           .field("key", &"<hidden>")
+           .finish()
     }
 }
 
