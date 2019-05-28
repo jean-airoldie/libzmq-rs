@@ -5,13 +5,16 @@ use std::{convert::TryInto, thread, time::Duration};
 fn main() -> Result<(), failure::Error> {
     // We use a system assigned port here.
     let addr: TcpAddr = "127.0.0.1:*".try_into()?;
+
     let duration = Duration::from_millis(300);
+    let hb = Heartbeat::new(duration)
+        .timeout(2 * duration)
+        .ttl(2 * duration);
 
     let server = ServerBuilder::new()
         .bind(addr)
         .send_timeout(duration)
-        .heartbeat_timeout(duration)
-        .heartbeat_interval(duration)
+        .heartbeat(&hb)
         .build()?;
 
     // Retrieve the assigned port.
@@ -41,10 +44,9 @@ fn main() -> Result<(), failure::Error> {
 
     let client = ClientBuilder::new()
         .connect(bound)
-        .recv_timeout(Duration::from_millis(300))
-        .send_timeout(Duration::from_millis(300))
-        .heartbeat_timeout(duration)
-        .heartbeat_interval(duration)
+        .recv_timeout(duration)
+        .send_timeout(duration)
+        .heartbeat(hb)
         .build()?;
 
     // Do some request-reply work.

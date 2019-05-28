@@ -9,9 +9,10 @@ client:
   # In a real life scenario the server would have a known addr.
   #connect:
   #  - tcp: "127.0.0.1:3000"
-  heartbeat_interval: 3s
-  heartbeat_timeout: 3s
-  heartbeat_ttl: 3s
+  heartbeat:
+      interval: 1s
+      timeout: 3s
+      ttl: 3s
   send_high_water_mark: 10
   send_timeout: 300ms
   recv_high_water_mark: 100
@@ -29,9 +30,10 @@ server:
   # machine. In a real life scenario we would have a port available.
   bind:
     - tcp: "127.0.0.1:*"
-  heartbeat_interval: 3s
-  heartbeat_timeout: 3s
-  heartbeat_ttl: 3s
+  heartbeat:
+      interval: 3s
+      timeout: 3s
+      ttl: 3s
   send_high_water_mark: 10
   send_timeout: 300ms
   recv_high_water_mark: 100
