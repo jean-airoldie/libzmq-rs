@@ -1,4 +1,7 @@
-use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
+use crate::{
+    addr::Endpoint, auth::*, core::sockopt::*, core::Heartbeat, error::*, Ctx,
+};
+
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -167,6 +170,7 @@ pub struct RawSocket {
     socket_mut_ptr: *mut c_void,
     ctx: Ctx,
     mechanism: Mutex<Mechanism>,
+    heartbeat: Mutex<Option<Heartbeat>>,
 }
 
 impl RawSocket {
@@ -213,6 +217,7 @@ impl RawSocket {
                 ctx,
                 socket_mut_ptr,
                 mechanism: Mutex::default(),
+                heartbeat: Mutex::default(),
             })
         }
     }
@@ -250,20 +255,15 @@ impl RawSocket {
         &self.mechanism
     }
 
+    pub(crate) fn heartbeat(&self) -> &Mutex<Option<Heartbeat>> {
+        &self.heartbeat
+    }
+
     pub(crate) fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
         let maybe =
             getsockopt_string(self.as_mut_ptr(), SocketOption::LastEndpoint)?;
 
         Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
-    }
-
-    pub(crate) fn heartbeat_interval(&self) -> Result<Duration, Error> {
-        getsockopt_option_duration(
-            self.as_mut_ptr(),
-            SocketOption::HeartbeatInterval,
-            -1,
-        )
-        .map(Option::unwrap)
     }
 
     pub(crate) fn set_heartbeat_interval(
@@ -277,15 +277,6 @@ impl RawSocket {
         )
     }
 
-    pub(crate) fn heartbeat_timeout(&self) -> Result<Duration, Error> {
-        getsockopt_option_duration(
-            self.as_mut_ptr(),
-            SocketOption::HeartbeatTimeout,
-            -1,
-        )
-        .map(Option::unwrap)
-    }
-
     pub(crate) fn set_heartbeat_timeout(
         &self,
         duration: Duration,
@@ -295,10 +286,6 @@ impl RawSocket {
             SocketOption::HeartbeatTimeout,
             duration,
         )
-    }
-
-    pub(crate) fn heartbeat_ttl(&self) -> Result<Duration, Error> {
-        getsockopt_duration(self.as_mut_ptr(), SocketOption::HeartbeatTtl)
     }
 
     pub(crate) fn set_heartbeat_ttl(

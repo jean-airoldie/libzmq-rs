@@ -157,7 +157,10 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// # Default
     /// `None`
-    fn set_recv_timeout(&self, maybe: Option<Duration>) -> Result<(), Error> {
+    fn set_recv_timeout<D>(&self, maybe: Option<D>) -> Result<(), Error>
+    where
+        D: Into<Duration>,
+    {
         self.raw_socket().set_recv_timeout(maybe.map(Into::into))
     }
 }

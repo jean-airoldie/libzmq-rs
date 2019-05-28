@@ -17,6 +17,7 @@ pub mod poll;
 mod socket;
 mod utils;
 
+pub use crate::core::Heartbeat;
 pub use ctx::{Ctx, CtxBuilder};
 pub use endpoint::{
     EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr, INPROC_MAX_SIZE,
@@ -60,7 +61,10 @@ pub mod addr {
 ///
 /// The prelude may grow over time as additional items see ubiquitous use.
 pub mod prelude {
-    pub use crate::core::*;
+    pub use crate::core::{
+        BuildRecv, BuildSend, BuildSocket, ConfigureRecv, ConfigureSend,
+        ConfigureSocket, RecvMsg, SendMsg, Socket,
+    };
 }
 
 #[cfg(test)]

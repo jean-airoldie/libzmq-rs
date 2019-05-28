@@ -45,7 +45,79 @@ mod private {
 }
 
 use crate::{addr::Endpoint, auth::*, error::Error};
+
+use serde::{Deserialize, Serialize};
+
 use std::{sync::MutexGuard, time::Duration};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Heartbeat {
+    #[serde(with = "humantime_serde")]
+    pub(crate) interval: Duration,
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
+    pub(crate) timeout: Option<Duration>,
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
+    pub(crate) ttl: Option<Duration>,
+}
+
+/// The hearbeat configuration for a socket.
+///
+/// # Example
+/// ```
+/// use libzmq::Heartbeat;
+/// use std::time::Duration;
+///
+/// let duration = Duration::from_millis(300);
+///
+/// let hb = Heartbeat::new(duration).timeout(2 * duration);
+/// ```
+impl Heartbeat {
+    /// Create a new `Heartbeat` from the given interval.
+    ///
+    /// This interval specifies the duration between each heartbeat.
+    pub fn new<D>(interval: D) -> Self
+    where
+        D: Into<Duration>,
+    {
+        Self {
+            interval: interval.into(),
+            timeout: None,
+            ttl: None,
+        }
+    }
+
+    /// Set a timeout for the `Heartbeat`.
+    ///
+    /// This timeout specifies how long to wait before timing out a connection
+    /// with a peer for not receiving any traffic.
+    pub fn timeout<D>(mut self, timeout: D) -> Self
+    where
+        D: Into<Duration>,
+    {
+        self.timeout = Some(timeout.into());
+        self
+    }
+
+    /// Set a ttl for the `Heartbeat`
+    ///
+    /// This ttl is equivalent to a `heartbeat_timeout` for the remote
+    /// side for this specific connection.
+    pub fn ttl<D>(mut self, ttl: D) -> Self
+    where
+        D: Into<Duration>,
+    {
+        self.ttl = Some(ttl.into());
+        self
+    }
+}
+
+impl<'a> From<&'a Heartbeat> for Heartbeat {
+    fn from(hb: &'a Heartbeat) -> Self {
+        hb.to_owned()
+    }
+}
 
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
@@ -277,66 +349,6 @@ pub trait Socket: GetRawSocket {
         self.raw_socket().last_endpoint()
     }
 
-    /// The interval between sending ZMTP heartbeats.
-    fn heartbeat_interval(&self) -> Result<Duration, Error> {
-        self.raw_socket().heartbeat_interval()
-    }
-
-    /// Sets the interval between sending ZMTP PINGs (aka. heartbeats).
-    ///
-    /// # Default Value
-    /// `None`
-    ///
-    /// # Applicable Socket Type
-    /// All (connection oriented transports)
-    fn set_heartbeat_interval<D>(&self, duration: D) -> Result<(), Error>
-    where
-        D: Into<Duration>,
-    {
-        self.raw_socket().set_heartbeat_interval(duration.into())
-    }
-
-    /// How long to wait before timing-out a connection after sending a
-    /// PING ZMTP command and not receiving any traffic.
-    fn heartbeat_timeout(&self) -> Result<Duration, Error> {
-        self.raw_socket().heartbeat_timeout()
-    }
-
-    /// How long to wait before timing-out a connection after sending a
-    /// PING ZMTP command and not receiving any traffic.
-    ///
-    /// # Default Value
-    /// `0`. If `heartbeat_interval` is set, then it uses the same value
-    /// by default.
-    fn set_heartbeat_timeout<D>(&self, duration: D) -> Result<(), Error>
-    where
-        D: Into<Duration>,
-    {
-        self.raw_socket().set_heartbeat_timeout(duration.into())
-    }
-
-    /// The timeout on the remote peer for ZMTP heartbeats.
-    /// If this option and `heartbeat_interval` is not `None` the remote
-    /// side shall time out the connection if it does not receive any more
-    /// traffic within the TTL period.
-    fn heartbeat_ttl(&self) -> Result<Duration, Error> {
-        self.raw_socket().heartbeat_ttl()
-    }
-
-    /// Set timeout on the remote peer for ZMTP heartbeats.
-    /// If this option and `heartbeat_interval` is not `None` the remote
-    /// side shall time out the connection if it does not receive any more
-    /// traffic within the TTL period.
-    ///
-    /// # Default value
-    /// `None`
-    fn set_heartbeat_ttl<D>(&self, duration: D) -> Result<(), Error>
-    where
-        D: Into<Duration>,
-    {
-        self.raw_socket().set_heartbeat_ttl(duration.into())
-    }
-
     /// Returns the linger period for the socket shutdown.
     fn linger(&self) -> Result<Option<Duration>, Error> {
         self.raw_socket().linger()
@@ -352,7 +364,10 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
+    fn set_linger<D>(&self, maybe: Option<D>) -> Result<(), Error>
+    where
+        D: Into<Duration>,
+    {
         self.raw_socket().set_linger(maybe.map(Into::into))
     }
 
@@ -390,6 +405,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// let server_cert = CurveCert::new_unique();
     /// let creds = CurveClientCreds::new(server_cert.public());
+    ///
     /// client.set_mechanism(&creds)?;
     ///
     /// if let Mechanism::CurveClient(creds) = client.mechanism() {
@@ -414,6 +430,56 @@ pub trait Socket: GetRawSocket {
         let mutex = raw_socket.mechanism().lock().unwrap();
 
         set_mechanism(raw_socket, mechanism, mutex)
+    }
+
+    /// Returns a the socket's heartbeat configuration.
+    fn heartbeat(&self) -> Option<Heartbeat> {
+        self.raw_socket().heartbeat().lock().unwrap().to_owned()
+    }
+
+    /// Set the socket's heartbeat configuration.
+    ///
+    /// Only applies to connection based transports such as `TCP`.
+    /// A value of `None` means no heartbeating.
+    ///
+    /// # Contract
+    /// * timeout and interval duration in ms cannot exceed i32::MAX
+    /// * ttl duration in ms cannot exceed 6553599
+    ///
+    /// # Default value
+    /// `None`
+    ///
+    /// # Return Errors
+    /// * [InvalidInput`]: (if contract no respected)
+    ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Client, Heartbeat, auth::*};
+    /// use std::time::Duration;
+    ///
+    /// let client = Client::new()?;
+    /// assert_eq!(client.heartbeat(), None);
+    ///
+    /// let duration = Duration::from_millis(300);
+    /// let hb = Heartbeat::new(duration).timeout(2 * duration);
+    /// let expected = hb.clone();
+    ///
+    /// client.set_heartbeat(Some(hb))?;
+    /// assert_eq!(client.heartbeat(), Some(expected));
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [`Mechanism`]: ../auth/enum.Mechanism.html
+    fn set_heartbeat(&self, maybe: Option<Heartbeat>) -> Result<(), Error> {
+        let raw_socket = self.raw_socket();
+        let mutex = raw_socket.heartbeat().lock().unwrap();
+
+        set_heartbeat(raw_socket, maybe, mutex)
     }
 }
 
@@ -506,14 +572,39 @@ fn set_mechanism(
     Ok(())
 }
 
+fn set_heartbeat(
+    raw_socket: &RawSocket,
+    maybe: Option<Heartbeat>,
+    mut mutex: MutexGuard<Option<Heartbeat>>,
+) -> Result<(), Error> {
+    if *mutex == maybe {
+        return Ok(());
+    }
+
+    if let Some(heartbeat) = &maybe {
+        raw_socket.set_heartbeat_interval(heartbeat.interval)?;
+        if let Some(timeout) = heartbeat.timeout {
+            raw_socket.set_heartbeat_timeout(timeout)?;
+        }
+        if let Some(ttl) = heartbeat.ttl {
+            raw_socket.set_heartbeat_timeout(ttl)?;
+        }
+    } else {
+        raw_socket.set_heartbeat_interval(Duration::from_millis(0))?;
+        raw_socket.set_heartbeat_timeout(Duration::from_millis(0))?;
+        raw_socket.set_heartbeat_ttl(Duration::from_millis(0))?;
+    }
+
+    *mutex = maybe;
+    Ok(())
+}
+
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct SocketConfig {
     pub(crate) connect: Option<Vec<Endpoint>>,
     pub(crate) bind: Option<Vec<Endpoint>>,
-    pub(crate) heartbeat_interval: Option<Duration>,
-    pub(crate) heartbeat_timeout: Option<Duration>,
-    pub(crate) heartbeat_ttl: Option<Duration>,
+    pub(crate) heartbeat: Option<Heartbeat>,
     pub(crate) linger: Option<Duration>,
     pub(crate) mechanism: Option<Mechanism>,
 }
@@ -523,15 +614,9 @@ impl SocketConfig {
         &self,
         socket: &S,
     ) -> Result<(), Error<usize>> {
-        if let Some(value) = self.heartbeat_interval {
-            socket.set_heartbeat_interval(value).map_err(Error::cast)?;
-        }
-        if let Some(value) = self.heartbeat_timeout {
-            socket.set_heartbeat_timeout(value).map_err(Error::cast)?;
-        }
-        if let Some(value) = self.heartbeat_ttl {
-            socket.set_heartbeat_ttl(value).map_err(Error::cast)?;
-        }
+        socket
+            .set_heartbeat(self.heartbeat.clone())
+            .map_err(Error::cast)?;
         socket.set_linger(self.linger).map_err(Error::cast)?;
         if let Some(ref mechanism) = self.mechanism {
             socket.set_mechanism(mechanism).map_err(Error::cast)?;
@@ -595,30 +680,6 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config_mut().bind = maybe;
     }
 
-    fn heartbeat_interval(&self) -> Option<Duration> {
-        self.socket_config().heartbeat_interval
-    }
-
-    fn set_heartbeat_interval(&mut self, maybe: Option<Duration>) {
-        self.socket_config_mut().heartbeat_interval = maybe;
-    }
-
-    fn heartbeat_timeout(&self) -> Option<Duration> {
-        self.socket_config().heartbeat_timeout
-    }
-
-    fn set_heartbeat_timeout(&mut self, maybe: Option<Duration>) {
-        self.socket_config_mut().heartbeat_timeout = maybe;
-    }
-
-    fn heartbeat_ttl(&self) -> Option<Duration> {
-        self.socket_config().heartbeat_ttl
-    }
-
-    fn set_heartbeat_ttl(&mut self, maybe: Option<Duration>) {
-        self.socket_config_mut().heartbeat_ttl = maybe;
-    }
-
     fn linger(&self) -> Option<Duration> {
         self.socket_config().linger
     }
@@ -633,6 +694,14 @@ pub trait ConfigureSocket: GetSocketConfig {
 
     fn set_mechanism(&mut self, maybe: Option<Mechanism>) {
         self.socket_config_mut().mechanism = maybe;
+    }
+
+    fn heartbeat(&self) -> Option<&Heartbeat> {
+        self.socket_config().heartbeat.as_ref()
+    }
+
+    fn set_heartbeat(&mut self, maybe: Option<Heartbeat>) {
+        self.socket_config_mut().heartbeat = maybe;
     }
 }
 
@@ -658,23 +727,6 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn heartbeat_interval(&mut self, duration: Duration) -> &mut Self {
-        self.socket_config_mut()
-            .set_heartbeat_interval(Some(duration));
-        self
-    }
-
-    fn heartbeat_timeout(&mut self, duration: Duration) -> &mut Self {
-        self.socket_config_mut()
-            .set_heartbeat_timeout(Some(duration));
-        self
-    }
-
-    fn heartbeat_ttl(&mut self, duration: Duration) -> &mut Self {
-        self.socket_config_mut().set_heartbeat_ttl(Some(duration));
-        self
-    }
-
     fn linger(&mut self, maybe: Option<Duration>) -> &mut Self {
         self.socket_config_mut().set_linger(maybe);
         self
@@ -686,6 +738,15 @@ pub trait BuildSocket: GetSocketConfig + Sized {
     {
         self.socket_config_mut()
             .set_mechanism(Some(mechanism.into()));
+        self
+    }
+
+    fn heartbeat<H>(&mut self, heartbeat: H) -> &mut Self
+    where
+        H: Into<Heartbeat>,
+    {
+        self.socket_config_mut()
+            .set_heartbeat(Some(heartbeat.into()));
         self
     }
 }

@@ -223,17 +223,7 @@ impl RadioConfig {
 struct FlatRadioConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    heartbeat_interval: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    heartbeat_timeout: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    heartbeat_ttl: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
+    heartbeat: Option<Heartbeat>,
     linger: Option<Duration>,
     send_high_water_mark: Option<i32>,
     #[serde(default)]
@@ -250,9 +240,7 @@ impl From<RadioConfig> for FlatRadioConfig {
         Self {
             connect: socket_config.connect,
             bind: socket_config.bind,
-            heartbeat_interval: socket_config.heartbeat_interval,
-            heartbeat_timeout: socket_config.heartbeat_timeout,
-            heartbeat_ttl: socket_config.heartbeat_ttl,
+            heartbeat: socket_config.heartbeat,
             linger: socket_config.linger,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
@@ -267,9 +255,7 @@ impl From<FlatRadioConfig> for RadioConfig {
         let socket_config = SocketConfig {
             connect: flat.connect,
             bind: flat.bind,
-            heartbeat_interval: flat.heartbeat_interval,
-            heartbeat_timeout: flat.heartbeat_timeout,
-            heartbeat_ttl: flat.heartbeat_ttl,
+            heartbeat: flat.heartbeat,
             linger: flat.linger,
             mechanism: flat.mechanism,
         };
