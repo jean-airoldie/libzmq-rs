@@ -2,4 +2,4 @@
 authors = ["jean-airoldie"]
 multilingual = false
 src = "src"
-title = "Guide"
+title = "ZeroMQ Guide"
