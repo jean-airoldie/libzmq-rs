@@ -1,4 +1,7 @@
 use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
+
+use serde::{Deserialize, Serialize};
+
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -12,6 +15,30 @@ use std::{
 };
 
 const MAX_HB_TTL: i64 = 6_553_599;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Heartbeat {
+    /// Interval between each heartbeat.
+    #[serde(with = "humantime_serde")]
+    pub(crate) interval: Duration,
+    /// How long to wait before timing out a connection for not
+    /// receiving any traffic.
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
+    pub(crate) timeout: Option<Duration>,
+    /// Sets the heartbeat_timeout for the remote socket for client
+    /// (i.e the remote will terminate the connection with this socket
+    /// if the timeout is expired).
+    #[serde(default)]
+    #[serde(with = "humantime_serde")]
+    pub(crate) ttl: Option<Duration>,
+}
+
+impl<'a> From<&'a Heartbeat> for Heartbeat {
+    fn from(hb: &'a Heartbeat) -> Self {
+        hb.to_owned()
+    }
+}
 
 #[doc(hidden)]
 pub trait GetRawSocket: super::private::Sealed {
@@ -167,6 +194,7 @@ pub struct RawSocket {
     socket_mut_ptr: *mut c_void,
     ctx: Ctx,
     mechanism: Mutex<Mechanism>,
+    heartbeat: Mutex<Option<Heartbeat>>,
 }
 
 impl RawSocket {
@@ -213,6 +241,7 @@ impl RawSocket {
                 ctx,
                 socket_mut_ptr,
                 mechanism: Mutex::default(),
+                heartbeat: Mutex::default(),
             })
         }
     }
@@ -248,6 +277,10 @@ impl RawSocket {
 
     pub(crate) fn mechanism(&self) -> &Mutex<Mechanism> {
         &self.mechanism
+    }
+
+    pub(crate) fn heartbeat(&self) -> &Mutex<Option<Heartbeat>> {
+        &self.heartbeat
     }
 
     pub(crate) fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
