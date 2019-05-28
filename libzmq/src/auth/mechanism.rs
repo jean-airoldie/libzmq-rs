@@ -109,7 +109,7 @@ impl CurveClientCreds {
         }
     }
 
-    /// Assigns as client certificate to the credentials.
+    /// Associates a client `CurveCert` with the credentials.
     pub fn add_cert<C>(mut self, client: C) -> Self
     where
         C: Into<CurveCert>,
