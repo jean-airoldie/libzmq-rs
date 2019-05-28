@@ -148,6 +148,56 @@ impl PublicCurveKey {
         self.inner.as_str()
     }
 }
+impl From<CurvePublicKey> for CurveKey {
+    fn from(public: CurvePublicKey) -> Self {
+        public.inner
+    }
+}
+
+impl<'a> From<&'a CurvePublicKey> for CurvePublicKey {
+    fn from(key: &'a CurvePublicKey) -> Self {
+        key.to_owned()
+    }
+}
+
+impl TryFrom<String> for CurvePublicKey {
+    type Error = CurveError;
+    fn try_from(text: String) -> Result<Self, CurveError> {
+        Self::new(text)
+    }
+}
+
+impl<'a> TryFrom<&'a str> for CurvePublicKey {
+    type Error = CurveError;
+    fn try_from(text: &'a str) -> Result<Self, CurveError> {
+        Self::new(text)
+    }
+}
+
+impl<'a> TryFrom<&'a String> for CurvePublicKey {
+    type Error = CurveError;
+    fn try_from(text: &'a String) -> Result<Self, CurveError> {
+        Self::new(text.as_str())
+    }
+}
+
+impl IntoIterator for CurvePublicKey {
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a CurvePublicKey {
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
 
 /// A public `CURVE` cryptographic key in the printable [`Z85`] representation.
 ///
@@ -204,6 +254,56 @@ impl SecretCurveKey {
     }
 }
 
+impl From<CurveSecretKey> for CurveKey {
+    fn from(public: CurveSecretKey) -> Self {
+        public.inner
+    }
+}
+
+impl<'a> From<&'a CurveSecretKey> for CurveSecretKey {
+    fn from(key: &'a CurveSecretKey) -> Self {
+        key.to_owned()
+    }
+}
+
+impl TryFrom<String> for CurveSecretKey {
+    type Error = CurveError;
+    fn try_from(text: String) -> Result<Self, CurveError> {
+        Self::new(text)
+    }
+}
+
+impl<'a> TryFrom<&'a str> for CurveSecretKey {
+    type Error = CurveError;
+    fn try_from(text: &'a str) -> Result<Self, CurveError> {
+        Self::new(text)
+    }
+}
+
+impl<'a> TryFrom<&'a String> for CurveSecretKey {
+    type Error = CurveError;
+    fn try_from(text: &'a String) -> Result<Self, CurveError> {
+        Self::new(text.as_str())
+    }
+}
+
+impl IntoIterator for CurveSecretKey {
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a CurveSecretKey {
+    type Item = Self;
+    type IntoIter = option::IntoIter<Self>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct CurveKey {
     text: String,
