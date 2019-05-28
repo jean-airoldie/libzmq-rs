@@ -352,10 +352,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger<D>(&self, maybe: Option<D>) -> Result<(), Error>
-    where
-        D: Into<Duration>,
-    {
+    fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
         self.raw_socket().set_linger(maybe.map(Into::into))
     }
 
