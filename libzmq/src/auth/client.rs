@@ -52,9 +52,7 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
-/// let server_creds = CurveServerCreds {
-///     secret: server_cert.secret().to_owned(),
-/// };
+/// let server_creds = CurveServerCreds::new(server_cert.secret());
 ///
 /// // Creates a server using the `CurveServer` mechanism. Since `CURVE`
 /// // authentication is enabled by default, only sockets whose public key
@@ -70,10 +68,8 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 ///
 /// let bound = server.last_endpoint()?;
 ///
-/// let client_creds = CurveClientCreds {
-///     client: Some(client_cert),
-///     server: server_cert.public().to_owned(),
-/// };
+/// let client_creds = CurveClientCreds::new(server_cert.public())
+///     .cert(client_cert);
 ///
 /// // Creates a server using the `CurveServer` mechanism. Since `CURVE`
 /// let client = ClientBuilder::new()
@@ -590,13 +586,9 @@ mod test {
 
         let bound = server.last_endpoint().unwrap().unwrap();
 
-        let username = "ok".to_owned();
-        let password = "lo".to_owned();
-
-        let creds = PlainClientCreds { username, password };
-
         let client = Client::new().unwrap();
 
+        let creds = PlainClientCreds::new("user", "pwd");
         client.set_mechanism(Mechanism::PlainClient(creds)).unwrap();
         client.connect(bound).unwrap();
 
@@ -608,10 +600,7 @@ mod test {
     fn test_plain() {
         let ctx = Ctx::new();
 
-        let username = "ok".to_owned();
-        let password = "lo".to_owned();
-
-        let creds = PlainClientCreds { username, password };
+        let creds = PlainClientCreds::new("user", "pwd");
         let _ = AuthBuilder::new()
             .plain_registry(&creds)
             .with_ctx(&ctx)
@@ -656,10 +645,8 @@ mod test {
             secret: server_cert.secret().to_owned(),
         };
 
-        let client_creds = CurveClientCreds {
-            client: Some(client_cert),
-            server: server_cert.public().to_owned(),
-        };
+        let client_creds =
+            CurveClientCreds::new(server_cert.public()).cert(client_cert);
 
         let server = ServerBuilder::new()
             .bind(&addr)
@@ -685,15 +672,9 @@ mod test {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
         let server_cert = CurveCert::new_unique();
+        let server_creds = CurveServerCreds::new(server_cert.secret());
 
-        let server_creds = CurveServerCreds {
-            secret: server_cert.secret().clone(),
-        };
-
-        let client_creds = CurveClientCreds {
-            client: None,
-            server: server_cert.public().clone(),
-        };
+        let client_creds = CurveClientCreds::new(server_cert.public());
 
         let server = ServerBuilder::new()
             .bind(&addr)
@@ -719,19 +700,11 @@ mod test {
         let ctx = Ctx::new();
 
         let server_cert = CurveCert::new_unique();
+        let server_creds = CurveServerCreds::new(server_cert.secret());
 
         let _ = AuthBuilder::new().no_curve_auth().with_ctx(&ctx).unwrap();
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
-
-        let server_creds = CurveServerCreds {
-            secret: server_cert.secret().to_owned(),
-        };
-
-        let client_creds = CurveClientCreds {
-            client: None,
-            server: server_cert.public().to_owned(),
-        };
 
         let server = ServerBuilder::new()
             .bind(&addr)
@@ -744,6 +717,7 @@ mod test {
 
         let client = Client::with_ctx(&ctx).unwrap();
 
+        let client_creds = CurveClientCreds::new(server_cert.public());
         client.set_mechanism(client_creds).unwrap();
         client.connect(bound).unwrap();
 

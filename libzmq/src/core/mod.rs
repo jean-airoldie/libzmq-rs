@@ -277,32 +277,6 @@ pub trait Socket: GetRawSocket {
         self.raw_socket().last_endpoint()
     }
 
-    /// Retrieve the maximum length of the queue of outstanding peer connections.
-    ///
-    /// See `ZMQ_BLACKLOG` in [`zmq_getsockopt`].
-    ///
-    /// [`zmq_getsockopt`]: http://api.zeromq.org/master:zmq-getsockopt
-    fn backlog(&self) -> Result<i32, Error> {
-        self.raw_socket().backlog()
-    }
-
-    /// Set the maximum length of the queue of outstanding peer connections
-    /// for the specified socket; this only applies to connection-oriented
-    /// transports.
-    ///
-    /// See `ZMQ_BACKLOG` in [`zmq_setsockopt`].
-    ///
-    /// # Default Value
-    /// 100
-    ///
-    /// # Applicable Socket Type
-    /// All (Connection Oriented Transports)
-    ///
-    /// [`zmq_setsockopt`]: http://api.zeromq.org/master:zmq-setsockopt
-    fn set_backlog(&self, value: i32) -> Result<(), Error> {
-        self.raw_socket().set_backlog(value)
-    }
-
     /// The interval between sending ZMTP heartbeats.
     fn heartbeat_interval(&self) -> Result<Duration, Error> {
         self.raw_socket().heartbeat_interval()
@@ -315,8 +289,11 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Applicable Socket Type
     /// All (connection oriented transports)
-    fn set_heartbeat_interval(&self, duration: Duration) -> Result<(), Error> {
-        self.raw_socket().set_heartbeat_interval(duration)
+    fn set_heartbeat_interval<D>(&self, duration: D) -> Result<(), Error>
+    where
+        D: Into<Duration>,
+    {
+        self.raw_socket().set_heartbeat_interval(duration.into())
     }
 
     /// How long to wait before timing-out a connection after sending a
@@ -331,8 +308,11 @@ pub trait Socket: GetRawSocket {
     /// # Default Value
     /// `0`. If `heartbeat_interval` is set, then it uses the same value
     /// by default.
-    fn set_heartbeat_timeout(&self, duration: Duration) -> Result<(), Error> {
-        self.raw_socket().set_heartbeat_timeout(duration)
+    fn set_heartbeat_timeout<D>(&self, duration: D) -> Result<(), Error>
+    where
+        D: Into<Duration>,
+    {
+        self.raw_socket().set_heartbeat_timeout(duration.into())
     }
 
     /// The timeout on the remote peer for ZMTP heartbeats.
@@ -350,8 +330,11 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default value
     /// `None`
-    fn set_heartbeat_ttl(&self, duration: Duration) -> Result<(), Error> {
-        self.raw_socket().set_heartbeat_ttl(duration)
+    fn set_heartbeat_ttl<D>(&self, duration: D) -> Result<(), Error>
+    where
+        D: Into<Duration>,
+    {
+        self.raw_socket().set_heartbeat_ttl(duration.into())
     }
 
     /// Returns the linger period for the socket shutdown.
@@ -369,8 +352,11 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger(&self, maybe: Option<Duration>) -> Result<(), Error> {
-        self.raw_socket().set_linger(maybe)
+    fn set_linger<D>(&self, maybe: Option<D>) -> Result<(), Error>
+    where
+        D: Into<Duration>,
+    {
+        self.raw_socket().set_linger(maybe.map(Into::into))
     }
 
     /// Returns the socket's [`Mechanism`].
@@ -406,19 +392,13 @@ pub trait Socket: GetRawSocket {
     /// assert_eq!(client.mechanism(), Mechanism::Null);
     ///
     /// let server_cert = CurveCert::new_unique();
-    ///
-    /// let creds = CurveClientCreds {
-    ///     // The missing client certificate will be generated.
-    ///     client: None,
-    ///     server: server_cert.public().to_owned(),
-    /// };
-    ///
+    /// let creds = CurveClientCreds::new(server_cert.public());
     /// client.set_mechanism(&creds)?;
     ///
     /// if let Mechanism::CurveClient(creds) = client.mechanism() {
-    ///     assert_eq!(&creds.server, server_cert.public());
+    ///     assert_eq!(creds.server(), server_cert.public());
     ///     // Indeed it was automatically generated.
-    ///     assert!(creds.client.is_some());
+    ///     assert!(creds.client().is_some());
     /// } else {
     ///     unreachable!()
     /// }
@@ -534,7 +514,6 @@ fn set_mechanism(
 pub struct SocketConfig {
     pub(crate) connect: Option<Vec<Endpoint>>,
     pub(crate) bind: Option<Vec<Endpoint>>,
-    pub(crate) backlog: Option<i32>,
     pub(crate) heartbeat_interval: Option<Duration>,
     pub(crate) heartbeat_timeout: Option<Duration>,
     pub(crate) heartbeat_ttl: Option<Duration>,
@@ -547,9 +526,6 @@ impl SocketConfig {
         &self,
         socket: &S,
     ) -> Result<(), Error<usize>> {
-        if let Some(value) = self.backlog {
-            socket.set_backlog(value).map_err(Error::cast)?;
-        }
         if let Some(value) = self.heartbeat_interval {
             socket.set_heartbeat_interval(value).map_err(Error::cast)?;
         }
@@ -622,14 +598,6 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config_mut().bind = maybe;
     }
 
-    fn backlog(&self) -> Option<i32> {
-        self.socket_config().backlog
-    }
-
-    fn set_backlog(&mut self, maybe: Option<i32>) {
-        self.socket_config_mut().backlog = maybe;
-    }
-
     fn heartbeat_interval(&self) -> Option<Duration> {
         self.socket_config().heartbeat_interval
     }
@@ -690,11 +658,6 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         E: Into<Endpoint>,
     {
         self.socket_config_mut().set_bind(Some(endpoints));
-        self
-    }
-
-    fn backlog(&mut self, len: i32) -> &mut Self {
-        self.socket_config_mut().set_backlog(Some(len));
         self
     }
 
