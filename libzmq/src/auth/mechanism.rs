@@ -9,8 +9,32 @@ use std::{convert::TryFrom, option};
 /// Credentials for a `PLAIN` client.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlainClientCreds {
-    pub username: String,
-    pub password: String,
+    pub(crate) username: String,
+    pub(crate) password: String,
+}
+
+impl PlainClientCreds {
+    /// Create a new `PlainClientCreds` from a username and password.
+    pub fn new<U, P>(username: U, password: P) -> Self
+    where
+        U: Into<String>,
+        P: Into<String>,
+    {
+        Self {
+            username: username.into(),
+            password: password.into(),
+        }
+    }
+
+    /// Returns a reference to the username.
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    /// Returns a reference to the password.
+    pub fn password(&self) -> &str {
+        &self.password
+    }
 }
 
 impl<'a> From<&'a PlainClientCreds> for PlainClientCreds {
@@ -52,13 +76,45 @@ impl<'a> IntoIterator for &'a PlainClientCreds {
 /// Credentials for a `Curve` client.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveClientCreds {
-    /// The client's `CurveCert`. If the certificate is not specified,
-    /// it will be automatically generated.
-    pub client: Option<CurveCert>,
-    /// The server's public `CurveKey`.
-    ///
-    /// This is used to ensure the server's identity.
-    pub server: CurveKey,
+    pub(crate) client: Option<CurveCert>,
+    pub(crate) server: CurveKey,
+}
+
+impl CurveClientCreds {
+    /// Create a new `CurveClientCreds` from server public `CurveKey`.
+    /// The client certificate will be generated.
+    pub fn new<S>(server: S) -> Self
+    where
+        S: Into<CurveKey>,
+    {
+        Self {
+            client: None,
+            server: server.into(),
+        }
+    }
+
+    /// Create a new `CurveClientCreds` from a client `CurveCert`
+    /// and a server public `CurveKey`.
+    pub fn with_cert<S, C>(server: S, client: C) -> Self
+    where
+        S: Into<CurveKey>,
+        C: Into<CurveCert>,
+    {
+        Self {
+            server: server.into(),
+            client: Some(client.into()),
+        }
+    }
+
+    /// Returns a reference to the client certificate.
+    pub fn client(&self) -> Option<&CurveCert> {
+        self.client.as_ref()
+    }
+
+    /// Returns a reference to the server public key.
+    pub fn server(&self) -> &CurveKey {
+        &self.server
+    }
 }
 
 impl<'a> From<&'a CurveClientCreds> for CurveClientCreds {
@@ -83,7 +139,24 @@ impl From<CurveClientCreds> for Mechanism {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveServerCreds {
     /// The server's secret `CurveKey`.
-    pub secret: CurveKey,
+    pub(crate) secret: CurveKey,
+}
+
+impl CurveServerCreds {
+    /// Create a new `CurveServerCreds` from a server secret `CurveKey`.
+    pub fn new<S>(secret: S) -> Self
+    where
+        S: Into<CurveKey>,
+    {
+        Self {
+            secret: secret.into(),
+        }
+    }
+
+    /// Returns a reference to the server secret key.
+    pub fn secret(&self) -> &CurveKey {
+        &self.secret
+    }
 }
 
 impl<'a> From<&'a CurveServerCreds> for CurveServerCreds {
