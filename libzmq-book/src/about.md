@@ -13,8 +13,10 @@ requirement to properly understand how the library works and how it can be used.
 
 I want this guide to reduce this time requirement by explaining the key concepts of
 `ZeroMQ`, give real world usage examples as well as a general vision of how it
-could be use. To do so, we will use `libzmq-rs` which is a library aimed at
+could be use. To do so, we will use [libzmq-rs] which is a library aimed at
 making `ZeroMQ` dead simple to use.
 
 ## Reading Tips
 * There is a search-bar friendly glossary at the end of the guide.
+
+[libzmq-rs]: https://github.com/jean-airoldie/libzmq-rs

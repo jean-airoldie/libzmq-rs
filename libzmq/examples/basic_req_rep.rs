@@ -38,3 +38,13 @@ fn main() -> Result<(), failure::Error> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::main;
+
+    #[test]
+    fn main_runs() {
+        main().unwrap();
+    }
+}

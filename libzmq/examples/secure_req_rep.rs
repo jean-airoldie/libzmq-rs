@@ -1,24 +1,46 @@
-use libzmq::{prelude::*, *};
+use libzmq::{prelude::*, *, config::*};
 
-use std::{convert::TryInto, thread, time::Duration};
+use serde::{Serialize, Deserialize};
+
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+    thread,
+};
+
+const CONFIG_FILE: &str = "secure_req_rep.yml";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    auth: AuthConfig,
+    client: ClientConfig,
+    server: ServerConfig,
+}
+
+fn read_file(name: &Path) -> std::io::Result<Vec<u8>> {
+    let mut file = File::open(name)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+    Ok(buf)
+}
 
 fn main() -> Result<(), failure::Error> {
-    // We use a system assigned port here.
-    let addr: TcpAddr = "127.0.0.1:*".try_into()?;
-    let duration = Duration::from_millis(300);
+    let path = PathBuf::from("examples").join(CONFIG_FILE);
 
-    let hb = Heartbeat::new(duration)
-        .add_timeout(3 * duration)
-        .add_ttl(3 * duration);
+    let config: Config =
+        serde_yaml::from_slice(&read_file(&path).unwrap()).unwrap();
 
-    let server = ServerBuilder::new()
-        .bind(addr)
-        .send_timeout(duration)
-        .heartbeat(&hb)
-        .build()?;
+    // Configure the `AuthServer`. We won't need the returned `AuthClient`.
+    let _ = config.auth.build()?;
 
-    // Retrieve the assigned port.
-    let bound = server.last_endpoint()?.unwrap();
+    // Configure our two sockets.
+    let server = config.server.build()?;
+    let client = config.client.build()?;
+
+    // Once again we used a system assigned port for our server.
+    let bound = server.last_endpoint()?;
+    client.connect(bound)?;
 
     // Spawn the server thread. In a real application, this
     // would be on another node.
@@ -42,13 +64,6 @@ fn main() -> Result<(), failure::Error> {
             }
         }
     });
-
-    let client = ClientBuilder::new()
-        .connect(bound)
-        .recv_timeout(duration)
-        .send_timeout(duration)
-        .heartbeat(hb)
-        .build()?;
 
     // Do some request-reply work.
     client.send("ping")?;
