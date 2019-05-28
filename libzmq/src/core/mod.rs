@@ -77,7 +77,10 @@ impl Heartbeat {
     /// Create a new `Heartbeat` from the given interval.
     ///
     /// This interval specifies the duration between each heartbeat.
-    pub fn new<D>(interval: D) -> Self where D: Into<Duration> {
+    pub fn new<D>(interval: D) -> Self
+    where
+        D: Into<Duration>,
+    {
         Self {
             interval: interval.into(),
             timeout: None,
@@ -89,7 +92,10 @@ impl Heartbeat {
     ///
     /// This timeout specifies how long to wait before timing out a connection
     /// with a peer for not receiving any traffic.
-    pub fn timeout<D>(mut self, timeout: D) -> Self where D: Into<Duration> {
+    pub fn timeout<D>(mut self, timeout: D) -> Self
+    where
+        D: Into<Duration>,
+    {
         self.timeout = Some(timeout.into());
         self
     }
@@ -98,7 +104,10 @@ impl Heartbeat {
     ///
     /// This ttl is equivalent to a `heartbeat_timeout` for the remote
     /// side for this specific connection.
-    pub fn ttl<D>(mut self, ttl: D) -> Self where D: Into<Duration> {
+    pub fn ttl<D>(mut self, ttl: D) -> Self
+    where
+        D: Into<Duration>,
+    {
         self.ttl = Some(ttl.into());
         self
     }
