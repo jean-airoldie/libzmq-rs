@@ -1,6 +1,6 @@
-use libzmq::{prelude::*, *, config::*};
+use libzmq::{config::*, prelude::*, *};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use std::{
     fs::File,

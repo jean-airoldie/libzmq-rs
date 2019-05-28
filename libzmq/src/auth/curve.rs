@@ -175,11 +175,10 @@ impl fmt::Display for CurvePublicKey {
 impl fmt::Debug for CurvePublicKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CurvePublicKey")
-           .field("key", &self.as_str())
-           .finish()
+            .field("key", &self.as_str())
+            .finish()
     }
 }
-
 
 impl From<CurvePublicKey> for CurveKey {
     fn from(public: CurvePublicKey) -> Self {
@@ -284,8 +283,8 @@ impl CurveSecretKey {
 impl fmt::Debug for CurveSecretKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CurvePublicKey")
-           .field("key", &"<hidden>")
-           .finish()
+            .field("key", &"<hidden>")
+            .finish()
     }
 }
 
