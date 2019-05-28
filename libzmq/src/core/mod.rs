@@ -50,6 +50,18 @@ use serde::{Deserialize, Serialize};
 
 use std::{sync::MutexGuard, time::Duration};
 
+/// Socket heartbeating configuration.
+///
+/// # Example
+/// ```
+/// use libzmq::Heartbeat;
+/// use std::time::Duration;
+///
+/// let duration = Duration::from_millis(300);
+///
+/// let hb = Heartbeat::new(duration)
+///     .add_timeout(2 * duration);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Heartbeat {
     #[serde(with = "humantime_serde")]
@@ -62,17 +74,6 @@ pub struct Heartbeat {
     pub(crate) ttl: Option<Duration>,
 }
 
-/// The hearbeat configuration for a socket.
-///
-/// # Example
-/// ```
-/// use libzmq::Heartbeat;
-/// use std::time::Duration;
-///
-/// let duration = Duration::from_millis(300);
-///
-/// let hb = Heartbeat::new(duration).timeout(2 * duration);
-/// ```
 impl Heartbeat {
     /// Create a new `Heartbeat` from the given interval.
     ///
@@ -88,11 +89,16 @@ impl Heartbeat {
         }
     }
 
+    /// Returns the interval between each heartbeat.
+    pub fn interval(&self) -> Duration {
+        self.interval
+    }
+
     /// Set a timeout for the `Heartbeat`.
     ///
     /// This timeout specifies how long to wait before timing out a connection
     /// with a peer for not receiving any traffic.
-    pub fn timeout<D>(mut self, timeout: D) -> Self
+    pub fn add_timeout<D>(mut self, timeout: D) -> Self
     where
         D: Into<Duration>,
     {
@@ -100,16 +106,26 @@ impl Heartbeat {
         self
     }
 
+    /// Returns the heartbeat timeout.
+    pub fn timeout(&self) -> Option<Duration> {
+        self.timeout
+    }
+
     /// Set a ttl for the `Heartbeat`
     ///
     /// This ttl is equivalent to a `heartbeat_timeout` for the remote
     /// side for this specific connection.
-    pub fn ttl<D>(mut self, ttl: D) -> Self
+    pub fn add_ttl<D>(mut self, ttl: D) -> Self
     where
         D: Into<Duration>,
     {
         self.ttl = Some(ttl.into());
         self
+    }
+
+    /// Returns the heartbeat ttl.
+    pub fn ttl(&self) -> Option<Duration> {
+        self.ttl
     }
 }
 
@@ -404,14 +420,15 @@ pub trait Socket: GetRawSocket {
     /// assert_eq!(client.mechanism(), Mechanism::Null);
     ///
     /// let server_cert = CurveCert::new_unique();
+    /// // We do not specify a client certificate, so it
+    /// // will be automatically generated.
     /// let creds = CurveClientCreds::new(server_cert.public());
     ///
     /// client.set_mechanism(&creds)?;
     ///
     /// if let Mechanism::CurveClient(creds) = client.mechanism() {
     ///     assert_eq!(creds.server(), server_cert.public());
-    ///     // Indeed it was automatically generated.
-    ///     assert!(creds.client().is_some());
+    ///     assert!(creds.cert().is_some());
     /// } else {
     ///     unreachable!()
     /// }
@@ -464,7 +481,8 @@ pub trait Socket: GetRawSocket {
     /// assert_eq!(client.heartbeat(), None);
     ///
     /// let duration = Duration::from_millis(300);
-    /// let hb = Heartbeat::new(duration).timeout(2 * duration);
+    /// let hb = Heartbeat::new(duration)
+    ///     .add_timeout(2 * duration);
     /// let expected = hb.clone();
     ///
     /// client.set_heartbeat(Some(hb))?;

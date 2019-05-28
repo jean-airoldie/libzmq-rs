@@ -89,19 +89,19 @@ impl<'a> IntoIterator for &'a PlainClientCreds {
 /// let client_cert = CurveCert::new_unique();
 ///
 /// let creds = CurveClientCreds::new(server_cert.public())
-///     .cert(client_cert);
+///     .add_cert(client_cert);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveClientCreds {
     pub(crate) client: Option<CurveCert>,
-    pub(crate) server: PublicCurveKey,
+    pub(crate) server: CurvePublicKey,
 }
 
 impl CurveClientCreds {
-    /// Create a new `CurveClientCreds` from server's `PublicCurveKey`.
+    /// Create a new `CurveClientCreds` from server's `CurvePublicKey`.
     pub fn new<S>(server: S) -> Self
     where
-        S: Into<PublicCurveKey>,
+        S: Into<CurvePublicKey>,
     {
         Self {
             client: None,
@@ -110,7 +110,7 @@ impl CurveClientCreds {
     }
 
     /// Assigns as client certificate to the credentials.
-    pub fn cert<C>(mut self, client: C) -> Self
+    pub fn add_cert<C>(mut self, client: C) -> Self
     where
         C: Into<CurveCert>,
     {
@@ -119,12 +119,12 @@ impl CurveClientCreds {
     }
 
     /// Returns a reference to the client certificate.
-    pub fn client(&self) -> Option<&CurveCert> {
+    pub fn cert(&self) -> Option<&CurveCert> {
         self.client.as_ref()
     }
 
     /// Returns a reference to the server public key.
-    pub fn server(&self) -> &PublicCurveKey {
+    pub fn server(&self) -> &CurvePublicKey {
         &self.server
     }
 }
@@ -158,15 +158,15 @@ impl From<CurveClientCreds> for Mechanism {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveServerCreds {
-    /// The server's `SecretCurveKey`.
-    pub(crate) secret: SecretCurveKey,
+    /// The server's `CurveSecretKey`.
+    pub(crate) secret: CurveSecretKey,
 }
 
 impl CurveServerCreds {
-    /// Create a new `CurveServerCreds` from a server secret `SecretCurveKey`.
+    /// Create a new `CurveServerCreds` from a server secret `CurveSecretKey`.
     pub fn new<S>(secret: S) -> Self
     where
-        S: Into<SecretCurveKey>,
+        S: Into<CurveSecretKey>,
     {
         Self {
             secret: secret.into(),
@@ -174,7 +174,7 @@ impl CurveServerCreds {
     }
 
     /// Returns a reference to the server secret key.
-    pub fn secret(&self) -> &SecretCurveKey {
+    pub fn secret(&self) -> &CurveSecretKey {
         &self.secret
     }
 }

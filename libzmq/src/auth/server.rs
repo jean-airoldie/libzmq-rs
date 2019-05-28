@@ -156,7 +156,7 @@ pub(crate) struct AuthServer {
     blacklist: HashSet<Ipv6Addr>,
     plain_registry: HashMap<String, String>,
     // Allowed public client keys.
-    curve_registry: HashSet<PublicCurveKey>,
+    curve_registry: HashSet<CurvePublicKey>,
     // Whether curve auth is enabled.
     curve_auth: bool,
 }
@@ -385,7 +385,7 @@ impl AuthServer {
                                     .as_bytes()
                                     .to_owned(),
                             );
-                            let public_key: PublicCurveKey =
+                            let public_key: CurvePublicKey =
                                 bin_public_key.into();
 
                             self.auth_curve(public_key)
@@ -436,7 +436,7 @@ impl AuthServer {
         }
     }
 
-    fn auth_curve(&mut self, public_key: PublicCurveKey) -> Option<AuthResult> {
+    fn auth_curve(&mut self, public_key: CurvePublicKey) -> Option<AuthResult> {
         if !self.curve_auth {
             info!("allowed curve public key {}", public_key);
             Some(AuthResult {
