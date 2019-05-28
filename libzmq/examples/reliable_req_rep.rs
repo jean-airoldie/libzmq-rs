@@ -5,11 +5,11 @@ use std::{convert::TryInto, thread, time::Duration};
 fn main() -> Result<(), failure::Error> {
     // We use a system assigned port here.
     let addr: TcpAddr = "127.0.0.1:*".try_into()?;
-
     let duration = Duration::from_millis(300);
+
     let hb = Heartbeat::new(duration)
-        .timeout(2 * duration)
-        .ttl(2 * duration);
+        .timeout(3 * duration)
+        .ttl(3 * duration);
 
     let server = ServerBuilder::new()
         .bind(addr)
@@ -20,7 +20,8 @@ fn main() -> Result<(), failure::Error> {
     // Retrieve the assigned port.
     let bound = server.last_endpoint()?.unwrap();
 
-    // Spawn the server thread.
+    // Spawn the server thread. In a real application, this
+    // would be on another machine.
     let handle = thread::spawn(move || -> Result<(), Error> {
         use ErrorKind::*;
         loop {
