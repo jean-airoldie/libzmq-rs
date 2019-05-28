@@ -16,9 +16,9 @@ pub(crate) enum AuthRequest {
     AddPlainRegistry(PlainClientCreds),
     RemovePlainRegistry(String),
     SetPlainRegistry(Vec<PlainClientCreds>),
-    AddCurveRegistry(PublicCurveKey),
-    RemoveCurveRegistry(PublicCurveKey),
-    SetCurveRegistry(Vec<PublicCurveKey>),
+    AddCurveRegistry(CurvePublicKey),
+    RemoveCurveRegistry(CurvePublicKey),
+    SetCurveRegistry(Vec<CurvePublicKey>),
     SetCurveAuth(bool),
 }
 
@@ -69,7 +69,7 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 /// let bound = server.last_endpoint()?;
 ///
 /// let client_creds = CurveClientCreds::new(server_cert.public())
-///     .cert(client_cert);
+///     .add_cert(client_cert);
 ///
 /// // Creates a server using the `CurveServer` mechanism. Since `CURVE`
 /// let client = ClientBuilder::new()
@@ -279,7 +279,7 @@ impl AuthClient {
     pub fn add_curve_registry<I, E>(&self, keys: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
-        E: Into<PublicCurveKey>,
+        E: Into<CurvePublicKey>,
     {
         let mut count = 0;
 
@@ -300,7 +300,7 @@ impl AuthClient {
     ) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
-        E: Into<PublicCurveKey>,
+        E: Into<CurvePublicKey>,
     {
         let mut count = 0;
 
@@ -317,9 +317,9 @@ impl AuthClient {
     pub fn set_curve_registry<I, E>(&self, keys: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = E>,
-        E: Into<PublicCurveKey>,
+        E: Into<CurvePublicKey>,
     {
-        let keys: Vec<PublicCurveKey> = keys.into_iter().map(E::into).collect();
+        let keys: Vec<CurvePublicKey> = keys.into_iter().map(E::into).collect();
 
         self.request(&AuthRequest::SetCurveRegistry(keys))
     }
@@ -343,7 +343,7 @@ pub struct AuthConfig {
     blacklist: Option<Vec<IpAddr>>,
     whitelist: Option<Vec<IpAddr>>,
     plain_registry: Option<Vec<PlainClientCreds>>,
-    curve_registry: Option<Vec<PublicCurveKey>>,
+    curve_registry: Option<Vec<CurvePublicKey>>,
     curve_auth: Option<bool>,
 }
 
@@ -424,9 +424,9 @@ impl AuthConfig {
     pub fn set_curve_registry<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
-        E: Into<PublicCurveKey>,
+        E: Into<CurvePublicKey>,
     {
-        let maybe: Option<Vec<PublicCurveKey>> =
+        let maybe: Option<Vec<CurvePublicKey>> =
             maybe.map(|e| e.into_iter().map(E::into).collect());
         self.curve_registry = maybe;
     }
@@ -489,7 +489,7 @@ impl AuthBuilder {
     pub fn curve_registry<I, E>(&mut self, keys: I) -> &mut Self
     where
         I: IntoIterator<Item = E>,
-        E: Into<PublicCurveKey>,
+        E: Into<CurvePublicKey>,
     {
         self.inner.set_curve_registry(Some(keys));
         self
@@ -646,7 +646,7 @@ mod test {
         };
 
         let client_creds =
-            CurveClientCreds::new(server_cert.public()).cert(client_cert);
+            CurveClientCreds::new(server_cert.public()).add_cert(client_cert);
 
         let server = ServerBuilder::new()
             .bind(&addr)

@@ -126,12 +126,12 @@ fn z85_decode(input: &str) -> Result<Vec<u8>, CurveError> {
 /// [`CurveCert::new_unique()`]: struct.CurveCert.html#method.new_unique
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct PublicCurveKey {
+pub struct CurvePublicKey {
     inner: CurveKey,
 }
 
-impl PublicCurveKey {
-    /// Create a new `PublicCurveKey` from a valid `Z85` string.
+impl CurvePublicKey {
+    /// Create a new `CurvePublicKey` from a valid `Z85` string.
     pub fn new<S>(text: S) -> Result<Self, CurveError>
     where
         S: Into<String>,
@@ -145,14 +145,14 @@ impl PublicCurveKey {
     ///
     /// # Example
     /// ```
-    /// use libzmq::auth::{CurveCert, PublicCurveKey};
+    /// use libzmq::auth::{CurveCert, CurvePublicKey};
     /// let cert = CurveCert::new_unique();
     ///
-    /// assert_eq!(cert.public(), &PublicCurveKey::from_secret(cert.secret()));
+    /// assert_eq!(cert.public(), &CurvePublicKey::from_secret(cert.secret()));
     /// ```
     pub fn from_secret<K>(secret: K) -> Self
     where
-        K: Into<SecretCurveKey>,
+        K: Into<CurveSecretKey>,
     {
         let key: CurveKey = secret.into().into();
         let inner = CurveKey::from_secret(key);
@@ -166,25 +166,25 @@ impl PublicCurveKey {
     }
 }
 
-impl fmt::Display for PublicCurveKey {
+impl fmt::Display for CurvePublicKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
 
-impl From<PublicCurveKey> for CurveKey {
-    fn from(public: PublicCurveKey) -> Self {
+impl From<CurvePublicKey> for CurveKey {
+    fn from(public: CurvePublicKey) -> Self {
         public.inner
     }
 }
 
-impl<'a> From<&'a PublicCurveKey> for PublicCurveKey {
-    fn from(key: &'a PublicCurveKey) -> Self {
+impl<'a> From<&'a CurvePublicKey> for CurvePublicKey {
+    fn from(key: &'a CurvePublicKey) -> Self {
         key.to_owned()
     }
 }
 
-impl From<BinCurveKey> for PublicCurveKey {
+impl From<BinCurveKey> for CurvePublicKey {
     fn from(key: BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
@@ -192,7 +192,7 @@ impl From<BinCurveKey> for PublicCurveKey {
     }
 }
 
-impl<'a> From<&'a BinCurveKey> for PublicCurveKey {
+impl<'a> From<&'a BinCurveKey> for CurvePublicKey {
     fn from(key: &'a BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
@@ -200,28 +200,28 @@ impl<'a> From<&'a BinCurveKey> for PublicCurveKey {
     }
 }
 
-impl TryFrom<String> for PublicCurveKey {
+impl TryFrom<String> for CurvePublicKey {
     type Error = CurveError;
     fn try_from(text: String) -> Result<Self, CurveError> {
         Self::new(text)
     }
 }
 
-impl<'a> TryFrom<&'a str> for PublicCurveKey {
+impl<'a> TryFrom<&'a str> for CurvePublicKey {
     type Error = CurveError;
     fn try_from(text: &'a str) -> Result<Self, CurveError> {
         Self::new(text)
     }
 }
 
-impl<'a> TryFrom<&'a String> for PublicCurveKey {
+impl<'a> TryFrom<&'a String> for CurvePublicKey {
     type Error = CurveError;
     fn try_from(text: &'a String) -> Result<Self, CurveError> {
         Self::new(text.as_str())
     }
 }
 
-impl IntoIterator for PublicCurveKey {
+impl IntoIterator for CurvePublicKey {
     type Item = Self;
     type IntoIter = option::IntoIter<Self>;
 
@@ -230,7 +230,7 @@ impl IntoIterator for PublicCurveKey {
     }
 }
 
-impl<'a> IntoIterator for &'a PublicCurveKey {
+impl<'a> IntoIterator for &'a CurvePublicKey {
     type Item = Self;
     type IntoIter = option::IntoIter<Self>;
 
@@ -251,12 +251,12 @@ impl<'a> IntoIterator for &'a PublicCurveKey {
 /// [`CurveCert::new_unique()`]: struct.CurveCert.html#method.new_unique
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct SecretCurveKey {
+pub struct CurveSecretKey {
     inner: CurveKey,
 }
 
-impl SecretCurveKey {
-    /// Create a new `SecretCurveKey` from a valid `Z85` string.
+impl CurveSecretKey {
+    /// Create a new `CurveSecretKey` from a valid `Z85` string.
     pub fn new<S>(text: S) -> Result<Self, CurveError>
     where
         S: Into<String>,
@@ -272,25 +272,25 @@ impl SecretCurveKey {
     }
 }
 
-impl fmt::Debug for SecretCurveKey {
+impl fmt::Debug for CurveSecretKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "<hidden>")
     }
 }
 
-impl From<SecretCurveKey> for CurveKey {
-    fn from(public: SecretCurveKey) -> Self {
+impl From<CurveSecretKey> for CurveKey {
+    fn from(public: CurveSecretKey) -> Self {
         public.inner
     }
 }
 
-impl<'a> From<&'a SecretCurveKey> for SecretCurveKey {
-    fn from(key: &'a SecretCurveKey) -> Self {
+impl<'a> From<&'a CurveSecretKey> for CurveSecretKey {
+    fn from(key: &'a CurveSecretKey) -> Self {
         key.to_owned()
     }
 }
 
-impl From<BinCurveKey> for SecretCurveKey {
+impl From<BinCurveKey> for CurveSecretKey {
     fn from(key: BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
@@ -298,7 +298,7 @@ impl From<BinCurveKey> for SecretCurveKey {
     }
 }
 
-impl<'a> From<&'a BinCurveKey> for SecretCurveKey {
+impl<'a> From<&'a BinCurveKey> for CurveSecretKey {
     fn from(key: &'a BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
@@ -306,28 +306,28 @@ impl<'a> From<&'a BinCurveKey> for SecretCurveKey {
     }
 }
 
-impl TryFrom<String> for SecretCurveKey {
+impl TryFrom<String> for CurveSecretKey {
     type Error = CurveError;
     fn try_from(text: String) -> Result<Self, CurveError> {
         Self::new(text)
     }
 }
 
-impl<'a> TryFrom<&'a str> for SecretCurveKey {
+impl<'a> TryFrom<&'a str> for CurveSecretKey {
     type Error = CurveError;
     fn try_from(text: &'a str) -> Result<Self, CurveError> {
         Self::new(text)
     }
 }
 
-impl<'a> TryFrom<&'a String> for SecretCurveKey {
+impl<'a> TryFrom<&'a String> for CurveSecretKey {
     type Error = CurveError;
     fn try_from(text: &'a String) -> Result<Self, CurveError> {
         Self::new(text.as_str())
     }
 }
 
-impl IntoIterator for SecretCurveKey {
+impl IntoIterator for CurveSecretKey {
     type Item = Self;
     type IntoIter = option::IntoIter<Self>;
 
@@ -336,7 +336,7 @@ impl IntoIterator for SecretCurveKey {
     }
 }
 
-impl<'a> IntoIterator for &'a SecretCurveKey {
+impl<'a> IntoIterator for &'a CurveSecretKey {
     type Item = Self;
     type IntoIter = option::IntoIter<Self>;
 
@@ -498,8 +498,8 @@ impl<'a> IntoIterator for &'a CurveKey {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveCert {
-    public: PublicCurveKey,
-    secret: SecretCurveKey,
+    public: CurvePublicKey,
+    secret: CurveSecretKey,
 }
 
 impl CurveCert {
@@ -524,25 +524,25 @@ impl CurveCert {
             let inner = CurveKey {
                 text: public.into_string().unwrap(),
             };
-            PublicCurveKey { inner }
+            CurvePublicKey { inner }
         };
         let secret = {
             let inner = CurveKey {
                 text: secret.into_string().unwrap(),
             };
-            SecretCurveKey { inner }
+            CurveSecretKey { inner }
         };
 
         Self { public, secret }
     }
 
     /// Returns a reference to the certificate's public key.
-    pub fn public(&self) -> &PublicCurveKey {
+    pub fn public(&self) -> &CurvePublicKey {
         &self.public
     }
 
     /// Returns a reference to the certificate's secret key.
-    pub fn secret(&self) -> &SecretCurveKey {
+    pub fn secret(&self) -> &CurveSecretKey {
         &self.secret
     }
 }
@@ -580,32 +580,32 @@ impl<'a> From<&'a CurveKey> for BinCurveKey {
     }
 }
 
-impl From<PublicCurveKey> for BinCurveKey {
-    fn from(key: PublicCurveKey) -> Self {
+impl From<CurvePublicKey> for BinCurveKey {
+    fn from(key: CurvePublicKey) -> Self {
         let bytes = z85_decode(key.as_str()).unwrap();
 
         BinCurveKey { bytes }
     }
 }
 
-impl<'a> From<&'a PublicCurveKey> for BinCurveKey {
-    fn from(key: &'a PublicCurveKey) -> Self {
+impl<'a> From<&'a CurvePublicKey> for BinCurveKey {
+    fn from(key: &'a CurvePublicKey) -> Self {
         let bytes = z85_decode(key.as_str()).unwrap();
 
         BinCurveKey { bytes }
     }
 }
 
-impl From<SecretCurveKey> for BinCurveKey {
-    fn from(key: SecretCurveKey) -> Self {
+impl From<CurveSecretKey> for BinCurveKey {
+    fn from(key: CurveSecretKey) -> Self {
         let bytes = z85_decode(key.as_str()).unwrap();
 
         BinCurveKey { bytes }
     }
 }
 
-impl<'a> From<&'a SecretCurveKey> for BinCurveKey {
-    fn from(key: &'a SecretCurveKey) -> Self {
+impl<'a> From<&'a CurveSecretKey> for BinCurveKey {
+    fn from(key: &'a CurveSecretKey) -> Self {
         let bytes = z85_decode(key.as_str()).unwrap();
 
         BinCurveKey { bytes }
