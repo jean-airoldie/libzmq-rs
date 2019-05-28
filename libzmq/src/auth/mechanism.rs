@@ -94,14 +94,14 @@ impl<'a> IntoIterator for &'a PlainClientCreds {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveClientCreds {
     pub(crate) client: Option<CurveCert>,
-    pub(crate) server: CurveKey,
+    pub(crate) server: PublicCurveKey,
 }
 
 impl CurveClientCreds {
-    /// Create a new `CurveClientCreds` from server public `CurveKey`.
+    /// Create a new `CurveClientCreds` from server's `PublicCurveKey`.
     pub fn new<S>(server: S) -> Self
     where
-        S: Into<CurveKey>,
+        S: Into<PublicCurveKey>,
     {
         Self {
             client: None,
@@ -124,7 +124,7 @@ impl CurveClientCreds {
     }
 
     /// Returns a reference to the server public key.
-    pub fn server(&self) -> &CurveKey {
+    pub fn server(&self) -> &PublicCurveKey {
         &self.server
     }
 }
@@ -158,15 +158,15 @@ impl From<CurveClientCreds> for Mechanism {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveServerCreds {
-    /// The server's secret `CurveKey`.
-    pub(crate) secret: CurveKey,
+    /// The server's `SecretCurveKey`.
+    pub(crate) secret: SecretCurveKey,
 }
 
 impl CurveServerCreds {
-    /// Create a new `CurveServerCreds` from a server secret `CurveKey`.
+    /// Create a new `CurveServerCreds` from a server secret `SecretCurveKey`.
     pub fn new<S>(secret: S) -> Self
     where
-        S: Into<CurveKey>,
+        S: Into<SecretCurveKey>,
     {
         Self {
             secret: secret.into(),
@@ -174,7 +174,7 @@ impl CurveServerCreds {
     }
 
     /// Returns a reference to the server secret key.
-    pub fn secret(&self) -> &CurveKey {
+    pub fn secret(&self) -> &SecretCurveKey {
         &self.secret
     }
 }
