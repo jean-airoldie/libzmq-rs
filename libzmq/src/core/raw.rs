@@ -1,6 +1,4 @@
-use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx};
-
-use serde::{Deserialize, Serialize};
+use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx, core::Heartbeat};
 
 use libzmq_sys as sys;
 use sys::errno;
@@ -15,30 +13,6 @@ use std::{
 };
 
 const MAX_HB_TTL: i64 = 6_553_599;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Heartbeat {
-    /// Interval between each heartbeat.
-    #[serde(with = "humantime_serde")]
-    pub(crate) interval: Duration,
-    /// How long to wait before timing out a connection for not
-    /// receiving any traffic.
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    pub(crate) timeout: Option<Duration>,
-    /// Sets the heartbeat_timeout for the remote socket for client
-    /// (i.e the remote will terminate the connection with this socket
-    /// if the timeout is expired).
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    pub(crate) ttl: Option<Duration>,
-}
-
-impl<'a> From<&'a Heartbeat> for Heartbeat {
-    fn from(hb: &'a Heartbeat) -> Self {
-        hb.to_owned()
-    }
-}
 
 #[doc(hidden)]
 pub trait GetRawSocket: super::private::Sealed {
