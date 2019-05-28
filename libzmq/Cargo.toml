@@ -49,7 +49,13 @@ name = "bench_main"
 harness = false
 
 [[example]]
-name = "auth"
+name = "gen_curve_cert"
 
 [[example]]
-name = "gen_curve_cert"
+name = "basic_req_rep"
+
+[[example]]
+name = "reliable_req_rep"
+
+[[example]]
+name = "secure_req_rep"

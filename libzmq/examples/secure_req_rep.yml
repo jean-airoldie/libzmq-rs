@@ -2,25 +2,28 @@
 # `$ cargo run --example gen_curve_cert`
 
 auth:
-  # Disable curve authentication. Traffic is still encrypted.
-  curve_auth: false
+  # The public keys allowed to authenticate. Note that this is
+  # the client's public key.
+  curve_registry:
+    - "n%3)5@(3pzp)v8yt6RW3eQVq5OQYb#TEodD^6oA^"
 
 client:
   # In a real life scenario the server would have a known addr.
   #connect:
   #  - tcp: "127.0.0.1:3000"
-  heartbeat_interval: 3s
-  heartbeat_timeout: 3s
-  heartbeat_ttl: 3s
+  heartbeat:
+      interval: 1s
+      timeout: 3s
+      ttl: 3s
   send_high_water_mark: 10
   send_timeout: 300ms
   recv_high_water_mark: 100
   recv_timeout: 300ms
   mechanism:
     curve_client:
-      # We don't specify a client certificate so it will be generated instead.
-      # In this case, putting the `client` field is optional but more explicit.
-      client: ~
+      client:
+        public: "n%3)5@(3pzp)v8yt6RW3eQVq5OQYb#TEodD^6oA^"
+        secret: "JiUDa>>owH1+mPTWs=>Jcyt%h.C1E4Js>)(g{geY"
       # This is the server's public key.
       server: "et189NB9uJC7?J+XU8JRhCbF?gOP9+o%kli=y2b8"
 
@@ -29,9 +32,10 @@ server:
   # machine. In a real life scenario we would have a port available.
   bind:
     - tcp: "127.0.0.1:*"
-  heartbeat_interval: 3s
-  heartbeat_timeout: 3s
-  heartbeat_ttl: 3s
+  heartbeat:
+      interval: 1s
+      timeout: 3s
+      ttl: 3s
   send_high_water_mark: 10
   send_timeout: 300ms
   recv_high_water_mark: 100
