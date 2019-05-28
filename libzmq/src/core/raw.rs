@@ -5,6 +5,7 @@ use crate::{
     core::{Heartbeat, Period},
     error::*,
     Ctx, CtxHandle,
+    monitor::init_socket_monitor, InprocAddr,
 };
 
 use libzmq_sys as sys;
@@ -174,6 +175,7 @@ pub struct RawSocket {
     ctx: CtxHandle,
     mechanism: Mutex<Mechanism>,
     heartbeat: Mutex<Option<Heartbeat>>,
+    monitor_addr: InprocAddr,
 }
 
 impl RawSocket {
@@ -214,11 +216,15 @@ impl RawSocket {
                 Some("global"),
             )?;
 
+            let monitor_addr = InprocAddr::new_unique();
+            init_socket_monitor(socket_mut_ptr, &monitor_addr);
+
             Ok(Self {
                 ctx,
                 socket_mut_ptr,
                 mechanism: Mutex::default(),
                 heartbeat: Mutex::default(),
+                monitor_addr,
             })
         }
     }
@@ -432,6 +438,26 @@ impl RawSocket {
         assert_curve_enabled();
         let key = key.map(BinCurveKey::as_bytes);
         setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveServerKey, key)
+    }
+
+    pub(crate) fn subscribe(&self, bytes: &[u8]) -> Result<(), Error> {
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::Subscribe,
+            Some(bytes),
+        )
+    }
+
+    pub(crate) fn unsubscribe(&self, bytes: &[u8]) -> Result<(), Error> {
+        setsockopt_bytes(
+            self.as_mut_ptr(),
+            SocketOption::Unsubscribe,
+            Some(bytes),
+        )
+    }
+
+    pub(crate) fn monitor_addr(&self) -> &InprocAddr {
+        &self.monitor_addr
     }
 }
 

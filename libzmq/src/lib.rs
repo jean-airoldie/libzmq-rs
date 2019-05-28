@@ -11,6 +11,7 @@ mod ctx;
 mod endpoint;
 mod error;
 mod group;
+pub mod monitor;
 mod msg;
 mod old;
 pub mod poll;

@@ -2,7 +2,7 @@ use crate::{
     addr::Endpoint,
     core::{GetRawSocket, RawSocket, RawSocketType},
     error::*,
-    CtxHandle, Msg,
+    Ctx, Msg, Period, CtxHandle,
 };
 use libzmq_sys as sys;
 use sys::errno;
@@ -95,6 +95,22 @@ impl OldSocket {
         self.inner.bind(&endpoint)
     }
 
+    pub(crate) fn connect<E>(&mut self, endpoint: E) -> Result<(), Error>
+    where
+        E: Into<Endpoint>,
+    {
+        let endpoint = endpoint.into();
+        self.inner.connect(&endpoint)
+    }
+
+    pub(crate) fn disconnect<E>(&mut self, endpoint: E) -> Result<(), Error>
+    where
+        E: Into<Endpoint>,
+    {
+        let endpoint = endpoint.into();
+        self.inner.disconnect(&endpoint)
+    }
+
     pub(crate) fn send<M>(&mut self, msg: M, more: bool) -> Result<(), Error>
     where
         M: Into<Msg>,
@@ -135,6 +151,25 @@ impl OldSocket {
             }
         }
         Ok(vec)
+    }
+
+    pub(crate) fn subscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.inner.subscribe(bytes)
+    }
+
+    pub(crate) fn unsubscribe(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.inner.unsubscribe(bytes)
+    }
+
+    pub(crate) fn set_recv_timeout(
+        &mut self,
+        timeout: Period,
+    ) -> Result<(), Error> {
+        self.inner.set_recv_timeout(timeout)
+    }
+
+    pub(crate) fn recv_timeout(&self) -> Result<Period, Error> {
+        self.inner.recv_timeout()
     }
 }
 
