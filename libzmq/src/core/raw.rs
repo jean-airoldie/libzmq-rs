@@ -1,4 +1,6 @@
-use crate::{addr::Endpoint, auth::*, core::sockopt::*, error::*, Ctx, core::Heartbeat};
+use crate::{
+    addr::Endpoint, auth::*, core::sockopt::*, core::Heartbeat, error::*, Ctx,
+};
 
 use libzmq_sys as sys;
 use sys::errno;
@@ -264,15 +266,6 @@ impl RawSocket {
         Ok(maybe.map(|s| Endpoint::from_zmq(s.as_str())))
     }
 
-    pub(crate) fn heartbeat_interval(&self) -> Result<Duration, Error> {
-        getsockopt_option_duration(
-            self.as_mut_ptr(),
-            SocketOption::HeartbeatInterval,
-            -1,
-        )
-        .map(Option::unwrap)
-    }
-
     pub(crate) fn set_heartbeat_interval(
         &self,
         duration: Duration,
@@ -284,15 +277,6 @@ impl RawSocket {
         )
     }
 
-    pub(crate) fn heartbeat_timeout(&self) -> Result<Duration, Error> {
-        getsockopt_option_duration(
-            self.as_mut_ptr(),
-            SocketOption::HeartbeatTimeout,
-            -1,
-        )
-        .map(Option::unwrap)
-    }
-
     pub(crate) fn set_heartbeat_timeout(
         &self,
         duration: Duration,
@@ -302,10 +286,6 @@ impl RawSocket {
             SocketOption::HeartbeatTimeout,
             duration,
         )
-    }
-
-    pub(crate) fn heartbeat_ttl(&self) -> Result<Duration, Error> {
-        getsockopt_duration(self.as_mut_ptr(), SocketOption::HeartbeatTtl)
     }
 
     pub(crate) fn set_heartbeat_ttl(

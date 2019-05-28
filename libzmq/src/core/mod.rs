@@ -433,8 +433,15 @@ pub trait Socket: GetRawSocket {
     /// Only applies to connection based transports such as `TCP`.
     /// A value of `None` means no heartbeating.
     ///
+    /// # Contract
+    /// * timeout and interval duration in ms cannot exceed i32::MAX
+    /// * ttl duration in ms cannot exceed 6553599
+    ///
     /// # Default value
     /// `None`
+    ///
+    /// # Return Errors
+    /// * [InvalidInput`]: (if contract no respected)
     ///
     /// # Example
     /// ```

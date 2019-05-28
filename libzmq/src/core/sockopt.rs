@@ -221,14 +221,6 @@ pub(crate) fn getsockopt_option_duration(
     }
 }
 
-pub(crate) fn getsockopt_duration(
-    mut_sock_ptr: *mut c_void,
-    option: SocketOption,
-) -> Result<Duration, Error> {
-    let ms: i32 = getsockopt_scalar(mut_sock_ptr, option)?;
-    Ok(Duration::from_millis(ms as u64))
-}
-
 fn setsockopt(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,
