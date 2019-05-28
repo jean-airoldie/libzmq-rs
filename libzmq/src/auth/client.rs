@@ -68,7 +68,8 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 ///
 /// let bound = server.last_endpoint()?;
 ///
-/// let client_creds = CurveClientCreds::with_cert(server_cert.public(), client_cert);
+/// let client_creds = CurveClientCreds::new(server_cert.public())
+///     .cert(client_cert);
 ///
 /// // Creates a server using the `CurveServer` mechanism. Since `CURVE`
 /// let client = ClientBuilder::new()
@@ -645,7 +646,7 @@ mod test {
         };
 
         let client_creds =
-            CurveClientCreds::with_cert(server_cert.public(), client_cert);
+            CurveClientCreds::new(server_cert.public()).cert(client_cert);
 
         let server = ServerBuilder::new()
             .bind(&addr)

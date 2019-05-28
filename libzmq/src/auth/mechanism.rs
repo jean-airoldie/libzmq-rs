@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, option};
 
 /// Credentials for a `PLAIN` client.
+/// # Example
+/// ```
+/// use libzmq::auth::*;
+///
+/// let creds = PlainClientCreds::new("user", "pass");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlainClientCreds {
     pub(crate) username: String,
@@ -74,6 +80,17 @@ impl<'a> IntoIterator for &'a PlainClientCreds {
 }
 
 /// Credentials for a `Curve` client.
+///
+/// # Example
+/// ```
+/// use libzmq::auth::*;
+///
+/// let server_cert = CurveCert::new_unique();
+/// let client_cert = CurveCert::new_unique();
+///
+/// let creds = CurveClientCreds::new(server_cert.public())
+///     .cert(client_cert);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveClientCreds {
     pub(crate) client: Option<CurveCert>,
@@ -82,7 +99,6 @@ pub struct CurveClientCreds {
 
 impl CurveClientCreds {
     /// Create a new `CurveClientCreds` from server public `CurveKey`.
-    /// The client certificate will be generated.
     pub fn new<S>(server: S) -> Self
     where
         S: Into<CurveKey>,
@@ -93,17 +109,13 @@ impl CurveClientCreds {
         }
     }
 
-    /// Create a new `CurveClientCreds` from a client `CurveCert`
-    /// and a server public `CurveKey`.
-    pub fn with_cert<S, C>(server: S, client: C) -> Self
+    /// Assigns as client certificate to the credentials.
+    pub fn cert<C>(mut self, client: C) -> Self
     where
-        S: Into<CurveKey>,
         C: Into<CurveCert>,
     {
-        Self {
-            server: server.into(),
-            client: Some(client.into()),
-        }
+        self.client = Some(client.into());
+        self
     }
 
     /// Returns a reference to the client certificate.
@@ -136,6 +148,14 @@ impl From<CurveClientCreds> for Mechanism {
 }
 
 /// Credentials for a `Curve` server.
+/// # Example
+/// ```
+/// use libzmq::auth::*;
+///
+/// let server_cert = CurveCert::new_unique();
+///
+/// let creds = CurveServerCreds::new(server_cert.secret());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CurveServerCreds {
     /// The server's secret `CurveKey`.
