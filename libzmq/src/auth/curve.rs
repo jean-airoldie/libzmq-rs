@@ -172,7 +172,6 @@ impl fmt::Display for PublicCurveKey {
     }
 }
 
-
 impl From<PublicCurveKey> for CurveKey {
     fn from(public: PublicCurveKey) -> Self {
         public.inner
@@ -189,9 +188,7 @@ impl From<BinCurveKey> for PublicCurveKey {
     fn from(key: BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
-        Self {
-            inner
-        }
+        Self { inner }
     }
 }
 
@@ -199,9 +196,7 @@ impl<'a> From<&'a BinCurveKey> for PublicCurveKey {
     fn from(key: &'a BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
-        Self {
-            inner
-        }
+        Self { inner }
     }
 }
 
@@ -299,9 +294,7 @@ impl From<BinCurveKey> for SecretCurveKey {
     fn from(key: BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
-        Self {
-            inner
-        }
+        Self { inner }
     }
 }
 
@@ -309,9 +302,7 @@ impl<'a> From<&'a BinCurveKey> for SecretCurveKey {
     fn from(key: &'a BinCurveKey) -> Self {
         let inner: CurveKey = key.into();
 
-        Self {
-            inner
-        }
+        Self { inner }
     }
 }
 
