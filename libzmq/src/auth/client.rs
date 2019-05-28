@@ -528,7 +528,7 @@ mod test {
         let client =
             ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
 
-        client.send("").unwrap();
+        client.try_send("").unwrap();
         assert!(server.recv_msg().is_err());
     }
 
@@ -552,7 +552,7 @@ mod test {
         let client =
             ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
 
-        client.send("").unwrap();
+        client.try_send("").unwrap();
         server.recv_msg().unwrap();
     }
 
@@ -569,7 +569,8 @@ mod test {
         let client = Client::new().unwrap();
 
         client.connect(bound).unwrap();
-        client.send("").unwrap();
+
+        client.try_send("").unwrap();
         server.recv_msg().unwrap();
     }
 
@@ -592,7 +593,7 @@ mod test {
         client.set_mechanism(Mechanism::PlainClient(creds)).unwrap();
         client.connect(bound).unwrap();
 
-        client.send("").unwrap();
+        client.try_send("").unwrap();
         assert!(server.recv_msg().is_err());
     }
 
@@ -623,7 +624,7 @@ mod test {
             .with_ctx(&ctx)
             .unwrap();
 
-        client.send("").unwrap();
+        client.try_send("").unwrap();
         server.recv_msg().unwrap();
     }
 
@@ -663,7 +664,7 @@ mod test {
             .with_ctx(&ctx)
             .unwrap();
 
-        client.send("").unwrap();
+        client.try_send("").unwrap();
         server.recv_msg().unwrap();
     }
 
@@ -691,7 +692,7 @@ mod test {
             .build()
             .unwrap();
 
-        client.send("").unwrap();
+        client.try_send("").unwrap();
         assert!(server.recv_msg().is_err());
     }
 
@@ -721,7 +722,7 @@ mod test {
         client.set_mechanism(client_creds).unwrap();
         client.connect(bound).unwrap();
 
-        client.send("").unwrap();
+        client.try_send("").unwrap();
         server.recv_msg().unwrap();
     }
 }
