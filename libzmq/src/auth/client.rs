@@ -16,9 +16,9 @@ pub(crate) enum AuthRequest {
     AddPlainRegistry(PlainClientCreds),
     RemovePlainRegistry(String),
     SetPlainRegistry(Vec<PlainClientCreds>),
-    AddCurveRegistry(CurveKey),
-    RemoveCurveRegistry(CurveKey),
-    SetCurveRegistry(Vec<CurveKey>),
+    AddCurveRegistry(PublicCurveKey),
+    RemoveCurveRegistry(PublicCurveKey),
+    SetCurveRegistry(Vec<PublicCurveKey>),
     SetCurveAuth(bool),
 }
 
@@ -279,7 +279,7 @@ impl AuthClient {
     pub fn add_curve_registry<I, E>(&self, keys: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
-        E: Into<CurveKey>,
+        E: Into<PublicCurveKey>,
     {
         let mut count = 0;
 
@@ -300,7 +300,7 @@ impl AuthClient {
     ) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
-        E: Into<CurveKey>,
+        E: Into<PublicCurveKey>,
     {
         let mut count = 0;
 
@@ -317,9 +317,9 @@ impl AuthClient {
     pub fn set_curve_registry<I, E>(&self, keys: I) -> Result<(), Error>
     where
         I: IntoIterator<Item = E>,
-        E: Into<CurveKey>,
+        E: Into<PublicCurveKey>,
     {
-        let keys: Vec<CurveKey> = keys.into_iter().map(E::into).collect();
+        let keys: Vec<PublicCurveKey> = keys.into_iter().map(E::into).collect();
 
         self.request(&AuthRequest::SetCurveRegistry(keys))
     }
@@ -343,7 +343,7 @@ pub struct AuthConfig {
     blacklist: Option<Vec<IpAddr>>,
     whitelist: Option<Vec<IpAddr>>,
     plain_registry: Option<Vec<PlainClientCreds>>,
-    curve_registry: Option<Vec<CurveKey>>,
+    curve_registry: Option<Vec<PublicCurveKey>>,
     curve_auth: Option<bool>,
 }
 
@@ -424,9 +424,9 @@ impl AuthConfig {
     pub fn set_curve_registry<I, E>(&mut self, maybe: Option<I>)
     where
         I: IntoIterator<Item = E>,
-        E: Into<CurveKey>,
+        E: Into<PublicCurveKey>,
     {
-        let maybe: Option<Vec<CurveKey>> =
+        let maybe: Option<Vec<PublicCurveKey>> =
             maybe.map(|e| e.into_iter().map(E::into).collect());
         self.curve_registry = maybe;
     }
@@ -489,7 +489,7 @@ impl AuthBuilder {
     pub fn curve_registry<I, E>(&mut self, keys: I) -> &mut Self
     where
         I: IntoIterator<Item = E>,
-        E: Into<CurveKey>,
+        E: Into<PublicCurveKey>,
     {
         self.inner.set_curve_registry(Some(keys));
         self
