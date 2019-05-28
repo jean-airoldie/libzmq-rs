@@ -18,6 +18,7 @@ script:
   - cargo test --examples
   - cargo fmt --all -- --check
   - cargo clippy --all-targets -- -D warnings
+  - mdbook build libzmq-book
 deploy:
   provider: pages
   skip-cleanup: true
