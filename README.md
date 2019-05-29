@@ -2,6 +2,7 @@
 [![](https://docs.rs/libzmq/badge.svg)][api-docs]
 [![Apache 2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](./LICENSE-APACHE)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE-MIT)
+[![](https://img.shields.io/website/https/jean-airoldie.github.io/libzmq-rs.svg)][website]
 
 > libzmq-rs
 
@@ -103,3 +104,4 @@ dual licensed as above, without any additional terms or conditions.
 [`libzmq`]: https://github.com/zeromq/libzmq
 [crates-io]: https://crates.io/crates/libzmq
 [api-docs]: https://docs.rs/libzmq
+[website]: https://jean-airoldie.github.io/libzmq-rs/
