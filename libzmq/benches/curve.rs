@@ -38,8 +38,6 @@ pub(crate) fn bench(c: &mut Criterion) {
             });
         })
         .with_function("without CURVE encryption", move |b| {
-            let ctx = Ctx::new();
-
             let producer = ServerBuilder::new().bind(&*ADDR).build().unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
