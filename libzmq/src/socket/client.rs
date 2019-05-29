@@ -184,17 +184,11 @@ struct FlatClientConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    linger: Option<Duration>,
-    send_high_water_mark: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    send_timeout: Option<Duration>,
-    recv_high_water_mark: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    recv_timeout: Option<Duration>,
+    linger: Period,
+    send_high_water_mark: Quantity,
+    send_timeout: Period,
+    recv_high_water_mark: Quantity,
+    recv_timeout: Period,
     mechanism: Option<Mechanism>,
 }
 

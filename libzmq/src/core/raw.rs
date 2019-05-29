@@ -1,5 +1,10 @@
 use crate::{
-    addr::Endpoint, auth::*, core::sockopt::*, core::Heartbeat, error::*, Ctx,
+    addr::Endpoint,
+    auth::*,
+    core::sockopt::*,
+    core::{Heartbeat, Period, Quantity},
+    error::*,
+    Ctx,
 };
 
 use libzmq_sys as sys;
@@ -305,18 +310,16 @@ impl RawSocket {
         )
     }
 
-    pub(crate) fn linger(&self) -> Result<Option<Duration>, Error> {
+    pub(crate) fn linger(&self) -> Result<Period, Error> {
         getsockopt_option_duration(self.as_mut_ptr(), SocketOption::Linger, -1)
+            .map(Into::into)
     }
 
-    pub(crate) fn set_linger(
-        &self,
-        maybe: Option<Duration>,
-    ) -> Result<(), Error> {
+    pub(crate) fn set_linger(&self, period: Period) -> Result<(), Error> {
         setsockopt_option_duration(
             self.as_mut_ptr(),
             SocketOption::Linger,
-            maybe,
+            period.into(),
             -1,
         )
     }
@@ -339,90 +342,90 @@ impl RawSocket {
         setsockopt_bool(self.as_mut_ptr(), SocketOption::PlainServer, cond)
     }
 
-    pub(crate) fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
+    pub(crate) fn recv_high_water_mark(&self) -> Result<Quantity, Error> {
         getsockopt_option_scalar(
             self.as_mut_ptr(),
             SocketOption::RecvHighWaterMark,
             0,
-        )
+        ).map(Into::into)
     }
 
     pub(crate) fn set_recv_high_water_mark(
         &self,
-        maybe: Option<i32>,
+        qty: Quantity,
     ) -> Result<(), Error> {
-        if let Some(hwm) = maybe {
+        if let Quantity::Limited(hwm) = qty {
             assert!(hwm != 0, "high water mark cannot be zero");
         }
 
         setsockopt_option_scalar(
             self.as_mut_ptr(),
             SocketOption::RecvHighWaterMark,
-            maybe,
+            qty.into(),
             0,
         )
     }
 
-    pub(crate) fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
+    pub(crate) fn recv_timeout(&self) -> Result<Period, Error> {
         getsockopt_option_duration(
             self.as_mut_ptr(),
             SocketOption::RecvTimeout,
             -1,
-        )
+        ).map(Into::into)
     }
 
     pub(crate) fn set_recv_timeout(
         &self,
-        maybe: Option<Duration>,
+        period: Period,
     ) -> Result<(), Error> {
         setsockopt_option_duration(
             self.as_mut_ptr(),
             SocketOption::RecvTimeout,
-            maybe,
+            period.into(),
             -1,
         )
     }
 
-    pub(crate) fn send_high_water_mark(&self) -> Result<Option<i32>, Error> {
+    pub(crate) fn send_high_water_mark(&self) -> Result<Quantity, Error> {
         getsockopt_option_scalar(
             self.as_mut_ptr(),
             SocketOption::SendHighWaterMark,
             0,
-        )
+        ).map(Into::into)
     }
 
     pub(crate) fn set_send_high_water_mark(
         &self,
-        maybe: Option<i32>,
+        qty: Quantity,
     ) -> Result<(), Error> {
-        if let Some(hwm) = maybe {
+        if let Quantity::Limited(hwm) = qty {
             assert!(hwm != 0, "high water mark cannot be zero");
         }
 
         setsockopt_option_scalar(
             self.as_mut_ptr(),
             SocketOption::SendHighWaterMark,
-            maybe,
+            qty.into(),
             0,
         )
     }
 
-    pub(crate) fn send_timeout(&self) -> Result<Option<Duration>, Error> {
+    pub(crate) fn send_timeout(&self) -> Result<Period, Error> {
         getsockopt_option_duration(
             self.as_mut_ptr(),
             SocketOption::SendTimeout,
             -1,
-        )
+        ).map(Into::into)
     }
 
     pub(crate) fn set_send_timeout(
         &self,
-        maybe: Option<Duration>,
+        period: Period,
     ) -> Result<(), Error> {
         setsockopt_option_duration(
             self.as_mut_ptr(),
             SocketOption::SendTimeout,
-            maybe,
+            period.into(),
             -1,
         )
     }

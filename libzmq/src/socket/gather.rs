@@ -175,13 +175,9 @@ struct FlatGatherConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    linger: Option<Duration>,
-    recv_high_water_mark: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    recv_timeout: Option<Duration>,
+    linger: Period,
+    recv_high_water_mark: Quantity,
+    recv_timeout: Period,
     mechanism: Option<Mechanism>,
 }
 

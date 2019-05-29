@@ -62,12 +62,10 @@ use std::{sync::Arc, time::Duration};
 ///     loop {
 ///         let mut msg = Msg::new();
 ///         // Alternate between the two groups.
-///         let group = {
-///             if count % 2 == 0 {
-///                 a
-///             } else {
-///                 b
-///             }
+///         let group = if count % 2 == 0 {
+///             a
+///         } else {
+///             b
 ///         };
 ///
 ///         msg.set_group(group);
@@ -224,11 +222,9 @@ struct FlatRadioConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    linger: Option<Duration>,
-    send_high_water_mark: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    send_timeout: Option<Duration>,
+    linger: Period,
+    send_high_water_mark: Quantity,
+    send_timeout: Period,
     no_drop: Option<bool>,
     mechanism: Option<Mechanism>,
 }
