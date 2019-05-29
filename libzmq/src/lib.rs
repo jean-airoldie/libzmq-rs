@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/libzmq/0.1.6")]
+#![doc(html_root_url = "https://docs.rs/libzmq/0.1.7")]
 
 //! *libzmq* - A strict subset of ØMQ with a high level API.
 
