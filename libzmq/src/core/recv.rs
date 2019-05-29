@@ -129,12 +129,13 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
-    /// A value of `None` means no limit.
-    ///
     /// # Default value
     /// 1000
-    fn set_recv_high_water_mark(&self, qty: Quantity) -> Result<(), Error> {
-        self.raw_socket().set_recv_high_water_mark(qty)
+    fn set_recv_high_water_mark<Q>(&self, qty: Q) -> Result<(), Error>
+    where
+        Q: Into<Quantity>,
+    {
+        self.raw_socket().set_recv_high_water_mark(qty.into())
     }
 
     /// The timeout for [`recv`] on the socket.
@@ -153,7 +154,7 @@ pub trait RecvMsg: GetRawSocket {
     /// will until a message is received.
     ///
     /// # Default
-    /// `None`
+    /// `Infinite`
     fn set_recv_timeout<P>(&self, period: P) -> Result<(), Error>
     where
         P: Into<Period>,

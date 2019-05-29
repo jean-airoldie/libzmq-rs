@@ -144,11 +144,13 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
-    /// A value of `None` means no limit.
-    ///
     /// # Default value
     /// 1000
-    fn set_send_high_water_mark(&self, qty: Quantity) -> Result<(), Error> {
+    fn set_send_high_water_mark<Q>(&self, qty: Q) -> Result<(), Error>
+    where
+        Q: Into<Quantity>,
+    {
+        let qty = qty.into();
         self.raw_socket().set_send_high_water_mark(qty)
     }
 
@@ -168,7 +170,7 @@ pub trait SendMsg: GetRawSocket {
     /// it will block until the message is sent.
     ///
     /// # Default Value
-    /// `None`
+    /// `Infinite`
     ///
     /// # Example
     /// ```

@@ -112,11 +112,14 @@ impl From<Period> for Serde<Option<Duration>> {
     }
 }
 
+/// Represents a quantity.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(from = "Option<i32>")]
 #[serde(into = "Option<i32>")]
 pub enum Quantity {
+    /// A fixed quantity.
     Limited(i32),
+    /// A unlimited quantity.
     Unlimited,
 }
 
