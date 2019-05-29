@@ -133,10 +133,7 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// # Default value
     /// 1000
-    fn set_recv_high_water_mark(
-        &self,
-        qty: Quantity,
-    ) -> Result<(), Error> {
+    fn set_recv_high_water_mark(&self, qty: Quantity) -> Result<(), Error> {
         self.raw_socket().set_recv_high_water_mark(qty)
     }
 

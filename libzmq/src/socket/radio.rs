@@ -2,7 +2,7 @@ use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 /// A `Radio` socket is used by a publisher to distribute data to [`Dish`]
 /// sockets.

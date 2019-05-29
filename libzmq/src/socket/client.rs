@@ -2,7 +2,7 @@ use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 /// A `Client` socket is used for advanced request-reply messaging.
 ///

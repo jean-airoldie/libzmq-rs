@@ -2,7 +2,7 @@ use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{str, sync::Arc, time::Duration};
+use std::{str, sync::Arc};
 
 /// A `Gather` socket is used to receive pipelined messages.
 ///

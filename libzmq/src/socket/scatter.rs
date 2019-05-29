@@ -2,7 +2,7 @@ use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{str, sync::Arc, time::Duration};
+use std::{str, sync::Arc};
 
 /// A `Scatter` socket is used to pipeline messages to workers.
 ///
@@ -284,6 +284,7 @@ impl BuildSend for ScatterBuilder {}
 mod test {
     use super::*;
     use crate::*;
+    use std::time::Duration;
 
     #[test]
     fn test_ser_de() {

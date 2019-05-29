@@ -148,10 +148,7 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// # Default value
     /// 1000
-    fn set_send_high_water_mark(
-        &self,
-        qty: Quantity,
-    ) -> Result<(), Error> {
+    fn set_send_high_water_mark(&self, qty: Quantity) -> Result<(), Error> {
         self.raw_socket().set_send_high_water_mark(qty)
     }
 

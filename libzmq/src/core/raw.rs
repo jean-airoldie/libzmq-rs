@@ -347,7 +347,8 @@ impl RawSocket {
             self.as_mut_ptr(),
             SocketOption::RecvHighWaterMark,
             0,
-        ).map(Into::into)
+        )
+        .map(Into::into)
     }
 
     pub(crate) fn set_recv_high_water_mark(
@@ -371,13 +372,11 @@ impl RawSocket {
             self.as_mut_ptr(),
             SocketOption::RecvTimeout,
             -1,
-        ).map(Into::into)
+        )
+        .map(Into::into)
     }
 
-    pub(crate) fn set_recv_timeout(
-        &self,
-        period: Period,
-    ) -> Result<(), Error> {
+    pub(crate) fn set_recv_timeout(&self, period: Period) -> Result<(), Error> {
         setsockopt_option_duration(
             self.as_mut_ptr(),
             SocketOption::RecvTimeout,
@@ -391,7 +390,8 @@ impl RawSocket {
             self.as_mut_ptr(),
             SocketOption::SendHighWaterMark,
             0,
-        ).map(Into::into)
+        )
+        .map(Into::into)
     }
 
     pub(crate) fn set_send_high_water_mark(
@@ -415,13 +415,11 @@ impl RawSocket {
             self.as_mut_ptr(),
             SocketOption::SendTimeout,
             -1,
-        ).map(Into::into)
+        )
+        .map(Into::into)
     }
 
-    pub(crate) fn set_send_timeout(
-        &self,
-        period: Period,
-    ) -> Result<(), Error> {
+    pub(crate) fn set_send_timeout(&self, period: Period) -> Result<(), Error> {
         setsockopt_option_duration(
             self.as_mut_ptr(),
             SocketOption::SendTimeout,
