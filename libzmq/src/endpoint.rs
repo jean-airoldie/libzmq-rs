@@ -555,26 +555,21 @@ pub struct TcpAddr {
 }
 
 impl TcpAddr {
-    pub fn new<A>(host: A) -> Self
+    pub fn new<H>(host: H) -> Self
     where
-        A: Into<SocketAddr>,
+        H: Into<SocketAddr>,
     {
         let host = host.into();
         Self { host, src: None }
     }
 
-    pub fn with_src<A, S>(host: A, src: S) -> Self
+    pub fn add_src<S>(mut self, src: S) -> Self
     where
-        A: Into<SocketAddr>,
         S: Into<SrcAddr>,
     {
-        let host = host.into();
         let src = src.into();
-
-        Self {
-            host,
-            src: Some(src),
-        }
+        self.src = Some(src);
+        self
     }
 
     pub fn host(&self) -> &SocketAddr {
@@ -698,9 +693,9 @@ impl UdpAddr {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn new<A>(host: A) -> Self
+    pub fn new<H>(host: H) -> Self
     where
-        A: Into<SocketAddr>,
+        H: Into<SocketAddr>,
     {
         let host = host.into();
         Self { host, src: None }
@@ -719,27 +714,22 @@ impl UdpAddr {
     ///
     /// // We pass by reference which allocates, but we could
     /// // also give the ownership directly.
-    /// let udp = UdpAddr::with_src(&host, &src);
+    /// let udp = UdpAddr::new(&host).add_src(&src);
     ///
     /// // Note that `SocketAddr` implement `Into<SrcAddr>`,
     /// // so this is also valid.
-    /// let udp = UdpAddr::with_src(&host, &host);
+    /// let udp = UdpAddr::new(&host).add_src(&host);
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn with_src<A, S>(host: A, src: S) -> Self
+    pub fn add_src<S>(mut self, src: S) -> Self
     where
-        A: Into<SocketAddr>,
         S: Into<SrcAddr>,
     {
-        let host = host.into();
         let src = src.into();
-
-        Self {
-            host,
-            src: Some(src),
-        }
+        self.src = Some(src);
+        self
     }
 
     pub fn host(&self) -> &SocketAddr {
@@ -843,9 +833,9 @@ pub struct PgmAddr {
 }
 
 impl PgmAddr {
-    pub fn new<A>(host: A) -> Self
+    pub fn new<H>(host: H) -> Self
     where
-        A: Into<SocketAddr>,
+        H: Into<SocketAddr>,
     {
         let host = host.into();
         Self { host, src: None }
@@ -854,18 +844,13 @@ impl PgmAddr {
     /// A source address can be specified when a client communicate with a public
     /// server from behind a private network. This allows the server's replies to
     /// be routed properly.
-    pub fn with_src<A, S>(host: A, src: S) -> Self
+    pub fn add_src<S>(mut self, src: S) -> Self
     where
-        A: Into<SocketAddr>,
         S: Into<SrcAddr>,
     {
-        let host = host.into();
         let src = src.into();
-
-        Self {
-            host,
-            src: Some(src),
-        }
+        self.src = Some(src);
+        self
     }
 
     pub fn host(&self) -> &SocketAddr {
@@ -968,9 +953,9 @@ pub struct EpgmAddr {
 }
 
 impl EpgmAddr {
-    pub fn new<A>(host: A) -> Self
+    pub fn new<H>(host: H) -> Self
     where
-        A: Into<SocketAddr>,
+        H: Into<SocketAddr>,
     {
         let host = host.into();
         Self { host, src: None }
@@ -979,18 +964,13 @@ impl EpgmAddr {
     /// A source address can be specified when a client communicate with a public
     /// server from behind a private network. This allows the server's replies to
     /// be routed properly.
-    pub fn with_src<A, S>(host: A, src: S) -> Self
+    pub fn add_src<S>(mut self, src: S) -> Self
     where
-        A: Into<SocketAddr>,
         S: Into<SrcAddr>,
     {
-        let host = host.into();
         let src = src.into();
-
-        Self {
-            host,
-            src: Some(src),
-        }
+        self.src = Some(src);
+        self
     }
 
     pub fn host(&self) -> &SocketAddr {
@@ -1102,6 +1082,9 @@ pub struct InprocAddr {
 }
 
 impl InprocAddr {
+    /// Create a new `InprocAddr` addr from a string.
+    ///
+    /// The string cannot be empty or longuer than `INPROC_MAX_SIZE`.
     pub fn new<S>(host: S) -> Result<Self, AddrParseError>
     where
         S: Into<String>,
@@ -1145,6 +1128,7 @@ impl InprocAddr {
         Self::new(Uuid::new_v4().to_string()).unwrap()
     }
 
+    /// Returns the underlying string of the `InprocAddr`.
     pub fn as_str(&self) -> &str {
         self.host.as_str()
     }
