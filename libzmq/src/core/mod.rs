@@ -46,9 +46,110 @@ mod private {
 
 use crate::{addr::Endpoint, auth::*, error::Error};
 
+use humantime_serde::Serde;
 use serde::{Deserialize, Serialize};
 
 use std::{sync::MutexGuard, time::Duration};
+
+/// Represents a period of time.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(from = "Serde<Option<Duration>>")]
+#[serde(into = "Serde<Option<Duration>>")]
+pub enum Period {
+    /// A unbounded period of time.
+    Infinite,
+    /// A bounded period of time.
+    Finite(Duration),
+}
+
+pub use Period::*;
+
+impl Default for Period {
+    fn default() -> Self {
+        Infinite
+    }
+}
+
+#[doc(hidden)]
+impl From<Period> for Option<Duration> {
+    fn from(period: Period) -> Self {
+        match period {
+            Finite(duration) => Some(duration),
+            Infinite => None,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl From<Option<Duration>> for Period {
+    fn from(option: Option<Duration>) -> Self {
+        match option {
+            None => Infinite,
+            Some(duration) => Finite(duration),
+        }
+    }
+}
+
+#[doc(hidden)]
+impl From<Serde<Option<Duration>>> for Period {
+    fn from(serde: Serde<Option<Duration>>) -> Self {
+        match serde.into_inner() {
+            None => Infinite,
+            Some(duration) => Finite(duration),
+        }
+    }
+}
+
+#[doc(hidden)]
+impl From<Period> for Serde<Option<Duration>> {
+    fn from(period: Period) -> Self {
+        let inner = match period {
+            Finite(duration) => Some(duration),
+            Infinite => None,
+        };
+
+        Serde::from(inner)
+    }
+}
+
+/// Represents a quantity.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(from = "Option<i32>")]
+#[serde(into = "Option<i32>")]
+pub enum Quantity {
+    /// A fixed quantity.
+    Limited(i32),
+    /// A unlimited quantity.
+    Unlimited,
+}
+
+pub use Quantity::*;
+
+impl Default for Quantity {
+    fn default() -> Self {
+        Unlimited
+    }
+}
+
+#[doc(hidden)]
+impl From<Quantity> for Option<i32> {
+    fn from(qty: Quantity) -> Self {
+        match qty {
+            Limited(qty) => Some(qty),
+            Unlimited => None,
+        }
+    }
+}
+
+#[doc(hidden)]
+impl From<Option<i32>> for Quantity {
+    fn from(option: Option<i32>) -> Self {
+        match option {
+            None => Unlimited,
+            Some(qty) => Limited(qty),
+        }
+    }
+}
 
 /// Socket heartbeating configuration.
 ///
@@ -66,12 +167,8 @@ use std::{sync::MutexGuard, time::Duration};
 pub struct Heartbeat {
     #[serde(with = "humantime_serde")]
     pub(crate) interval: Duration,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    pub(crate) timeout: Option<Duration>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    pub(crate) ttl: Option<Duration>,
+    pub(crate) timeout: Period,
+    pub(crate) ttl: Period,
 }
 
 impl Heartbeat {
@@ -84,8 +181,8 @@ impl Heartbeat {
     {
         Self {
             interval: interval.into(),
-            timeout: None,
-            ttl: None,
+            timeout: Infinite,
+            ttl: Infinite,
         }
     }
 
@@ -102,12 +199,12 @@ impl Heartbeat {
     where
         D: Into<Duration>,
     {
-        self.timeout = Some(timeout.into());
+        self.timeout = Finite(timeout.into());
         self
     }
 
     /// Returns the heartbeat timeout.
-    pub fn timeout(&self) -> Option<Duration> {
+    pub fn timeout(&self) -> Period {
         self.timeout
     }
 
@@ -119,12 +216,12 @@ impl Heartbeat {
     where
         D: Into<Duration>,
     {
-        self.ttl = Some(ttl.into());
+        self.ttl = Finite(ttl.into());
         self
     }
 
     /// Returns the heartbeat ttl.
-    pub fn ttl(&self) -> Option<Duration> {
+    pub fn ttl(&self) -> Period {
         self.ttl
     }
 }
@@ -366,7 +463,7 @@ pub trait Socket: GetRawSocket {
     }
 
     /// Returns the linger period for the socket shutdown.
-    fn linger(&self) -> Result<Option<Duration>, Error> {
+    fn linger(&self) -> Result<Period, Error> {
         self.raw_socket().linger()
     }
 
@@ -380,11 +477,12 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Default Value
     /// 30 secs
-    fn set_linger<D>(&self, maybe: Option<D>) -> Result<(), Error>
+    fn set_linger<P>(&self, period: P) -> Result<(), Error>
     where
-        D: Into<Duration>,
+        P: Into<Period>,
     {
-        self.raw_socket().set_linger(maybe.map(Into::into))
+        let period = period.into();
+        self.raw_socket().set_linger(period)
     }
 
     /// Returns the socket's [`Mechanism`].
@@ -542,12 +640,10 @@ fn set_mechanism(
     // Generate a client certificate if it was not supplied.
     if missing_client_cert {
         let cert = CurveCert::new_unique();
-        let server_key = {
-            if let Mechanism::CurveClient(creds) = mechanism {
-                creds.server
-            } else {
-                unreachable!()
-            }
+        let server_key = if let Mechanism::CurveClient(creds) = mechanism {
+            creds.server
+        } else {
+            unreachable!()
         };
 
         let creds = CurveClientCreds {
@@ -601,10 +697,10 @@ fn set_heartbeat(
 
     if let Some(heartbeat) = &maybe {
         raw_socket.set_heartbeat_interval(heartbeat.interval)?;
-        if let Some(timeout) = heartbeat.timeout {
+        if let Finite(timeout) = heartbeat.timeout {
             raw_socket.set_heartbeat_timeout(timeout)?;
         }
-        if let Some(ttl) = heartbeat.ttl {
+        if let Finite(ttl) = heartbeat.ttl {
             raw_socket.set_heartbeat_timeout(ttl)?;
         }
     } else {
@@ -623,7 +719,7 @@ pub struct SocketConfig {
     pub(crate) connect: Option<Vec<Endpoint>>,
     pub(crate) bind: Option<Vec<Endpoint>>,
     pub(crate) heartbeat: Option<Heartbeat>,
-    pub(crate) linger: Option<Duration>,
+    pub(crate) linger: Period,
     pub(crate) mechanism: Option<Mechanism>,
 }
 
@@ -698,12 +794,12 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config_mut().bind = maybe;
     }
 
-    fn linger(&self) -> Option<Duration> {
+    fn linger(&self) -> Period {
         self.socket_config().linger
     }
 
-    fn set_linger(&mut self, maybe: Option<Duration>) {
-        self.socket_config_mut().linger = maybe;
+    fn set_linger(&mut self, period: Period) {
+        self.socket_config_mut().linger = period;
     }
 
     fn mechanism(&self) -> Option<&Mechanism> {
@@ -745,8 +841,8 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         self
     }
 
-    fn linger(&mut self, maybe: Option<Duration>) -> &mut Self {
-        self.socket_config_mut().set_linger(maybe);
+    fn linger(&mut self, period: Period) -> &mut Self {
+        self.socket_config_mut().set_linger(period);
         self
     }
 

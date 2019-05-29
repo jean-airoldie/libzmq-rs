@@ -8,7 +8,6 @@ use std::{
     ffi::{c_void, CString},
     str,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
 fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
@@ -405,13 +404,9 @@ struct FlatDishConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    linger: Option<Duration>,
-    recv_high_water_mark: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    recv_timeout: Option<Duration>,
+    linger: Period,
+    recv_high_water_mark: Quantity,
+    recv_timeout: Period,
     groups: Option<Vec<GroupOwned>>,
     mechanism: Option<Mechanism>,
 }
@@ -552,7 +547,7 @@ mod test {
     #[test]
     fn test_dish() {
         use crate::{prelude::*, TcpAddr, *};
-        use std::{convert::TryInto, thread};
+        use std::{convert::TryInto, thread, time::Duration};
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 

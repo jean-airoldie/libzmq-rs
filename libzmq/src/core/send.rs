@@ -133,7 +133,7 @@ pub trait SendMsg: GetRawSocket {
     /// outstanding messages ØMQ shall queue in memory.
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
-    fn send_high_water_mark(&self) -> Result<Option<i32>, Error> {
+    fn send_high_water_mark(&self) -> Result<Quantity, Error> {
         self.raw_socket().send_high_water_mark()
     }
 
@@ -144,15 +144,14 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
-    /// A value of `None` means no limit.
-    ///
     /// # Default value
     /// 1000
-    fn set_send_high_water_mark(
-        &self,
-        maybe: Option<i32>,
-    ) -> Result<(), Error> {
-        self.raw_socket().set_send_high_water_mark(maybe)
+    fn set_send_high_water_mark<Q>(&self, qty: Q) -> Result<(), Error>
+    where
+        Q: Into<Quantity>,
+    {
+        let qty = qty.into();
+        self.raw_socket().set_send_high_water_mark(qty)
     }
 
     /// Sets the timeout for [`send`] on the socket.
@@ -160,7 +159,7 @@ pub trait SendMsg: GetRawSocket {
     /// If some timeout is specified, the [`send`] will return
     /// [`WouldBlock`] after the duration is elapsed. Otherwise,
     /// it will block until the message is sent.
-    fn send_timeout(&self) -> Result<Option<Duration>, Error> {
+    fn send_timeout(&self) -> Result<Period, Error> {
         self.raw_socket().send_timeout()
     }
 
@@ -171,7 +170,7 @@ pub trait SendMsg: GetRawSocket {
     /// it will block until the message is sent.
     ///
     /// # Default Value
-    /// `None`
+    /// `Infinite`
     ///
     /// # Example
     /// ```
@@ -192,19 +191,19 @@ pub trait SendMsg: GetRawSocket {
     /// #     Ok(())
     /// # }
     /// ```
-    fn set_send_timeout<D>(&self, maybe: Option<D>) -> Result<(), Error>
+    fn set_send_timeout<P>(&self, period: P) -> Result<(), Error>
     where
-        D: Into<Duration>,
+        P: Into<Period>,
     {
-        self.raw_socket().set_send_timeout(maybe.map(Into::into))
+        self.raw_socket().set_send_timeout(period.into())
     }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct SendConfig {
-    pub(crate) send_high_water_mark: Option<i32>,
-    pub(crate) send_timeout: Option<Duration>,
+    pub(crate) send_high_water_mark: Quantity,
+    pub(crate) send_timeout: Period,
 }
 
 impl SendConfig {
@@ -225,32 +224,32 @@ pub trait GetSendConfig: private::Sealed {
 
 /// A set of provided methods for the configuration of socket that implements `SendMsg`.
 pub trait ConfigureSend: GetSendConfig {
-    fn send_high_water_mark(&self) -> Option<i32> {
+    fn send_high_water_mark(&self) -> Quantity {
         self.send_config().send_high_water_mark
     }
 
-    fn set_send_high_water_mark(&mut self, maybe: Option<i32>) {
-        self.send_config_mut().send_high_water_mark = maybe;
+    fn set_send_high_water_mark(&mut self, qty: Quantity) {
+        self.send_config_mut().send_high_water_mark = qty;
     }
 
-    fn send_timeout(&self) -> Option<Duration> {
+    fn send_timeout(&self) -> Period {
         self.send_config().send_timeout
     }
 
-    fn set_send_timeout(&mut self, maybe: Option<Duration>) {
-        self.send_config_mut().send_timeout = maybe;
+    fn set_send_timeout(&mut self, period: Period) {
+        self.send_config_mut().send_timeout = period;
     }
 }
 
 /// A set of provided methods for the builder of a socket that implements `SendMsg`.
 pub trait BuildSend: GetSendConfig {
     fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        self.send_config_mut().send_high_water_mark = Some(hwm);
+        self.send_config_mut().send_high_water_mark = Limited(hwm);
         self
     }
 
     fn send_timeout(&mut self, timeout: Duration) -> &mut Self {
-        self.send_config_mut().send_timeout = Some(timeout);
+        self.send_config_mut().send_timeout = Finite(timeout);
         self
     }
 }

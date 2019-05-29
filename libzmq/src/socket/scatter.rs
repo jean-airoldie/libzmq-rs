@@ -2,7 +2,7 @@ use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
 
 use serde::{Deserialize, Serialize};
 
-use std::{str, sync::Arc, time::Duration};
+use std::{str, sync::Arc};
 
 /// A `Scatter` socket is used to pipeline messages to workers.
 ///
@@ -166,13 +166,9 @@ struct FlatScatterConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    linger: Option<Duration>,
-    send_high_water_mark: Option<i32>,
-    #[serde(default)]
-    #[serde(with = "humantime_serde")]
-    send_timeout: Option<Duration>,
+    linger: Period,
+    send_high_water_mark: Quantity,
+    send_timeout: Period,
     mechanism: Option<Mechanism>,
 }
 
@@ -288,6 +284,7 @@ impl BuildSend for ScatterBuilder {}
 mod test {
     use super::*;
     use crate::*;
+    use std::time::Duration;
 
     #[test]
     fn test_ser_de() {

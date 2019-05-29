@@ -1,5 +1,5 @@
 use crate::{
-    core::{private, raw::GetRawSocket},
+    core::{raw::GetRawSocket, *},
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
 };
@@ -118,7 +118,7 @@ pub trait RecvMsg: GetRawSocket {
     /// incoming messages ØMQ shall queue in memory.
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
-    fn recv_high_water_mark(&self) -> Result<Option<i32>, Error> {
+    fn recv_high_water_mark(&self) -> Result<Quantity, Error> {
         self.raw_socket().recv_high_water_mark()
     }
 
@@ -129,15 +129,13 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
-    /// A value of `None` means no limit.
-    ///
     /// # Default value
     /// 1000
-    fn set_recv_high_water_mark(
-        &self,
-        maybe: Option<i32>,
-    ) -> Result<(), Error> {
-        self.raw_socket().set_recv_high_water_mark(maybe)
+    fn set_recv_high_water_mark<Q>(&self, qty: Q) -> Result<(), Error>
+    where
+        Q: Into<Quantity>,
+    {
+        self.raw_socket().set_recv_high_water_mark(qty.into())
     }
 
     /// The timeout for [`recv`] on the socket.
@@ -145,7 +143,7 @@ pub trait RecvMsg: GetRawSocket {
     /// If some timeout is specified, [`recv`] will return
     /// [`WouldBlock`] after the duration is elapsed. Otherwise it
     /// will until a message is received.
-    fn recv_timeout(&self) -> Result<Option<Duration>, Error> {
+    fn recv_timeout(&self) -> Result<Period, Error> {
         self.raw_socket().recv_timeout()
     }
 
@@ -156,20 +154,20 @@ pub trait RecvMsg: GetRawSocket {
     /// will until a message is received.
     ///
     /// # Default
-    /// `None`
-    fn set_recv_timeout<D>(&self, maybe: Option<D>) -> Result<(), Error>
+    /// `Infinite`
+    fn set_recv_timeout<P>(&self, period: P) -> Result<(), Error>
     where
-        D: Into<Duration>,
+        P: Into<Period>,
     {
-        self.raw_socket().set_recv_timeout(maybe.map(Into::into))
+        self.raw_socket().set_recv_timeout(period.into())
     }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct RecvConfig {
-    pub(crate) recv_high_water_mark: Option<i32>,
-    pub(crate) recv_timeout: Option<Duration>,
+    pub(crate) recv_high_water_mark: Quantity,
+    pub(crate) recv_timeout: Period,
 }
 
 impl RecvConfig {
@@ -190,32 +188,32 @@ pub trait GetRecvConfig: private::Sealed {
 
 /// A set of provided methods for the configuration of a socket that implements `RecvMsg`.
 pub trait ConfigureRecv: GetRecvConfig {
-    fn recv_high_water_mark(&self) -> Option<i32> {
+    fn recv_high_water_mark(&self) -> Quantity {
         self.recv_config().recv_high_water_mark
     }
 
-    fn set_recv_high_water_mark(&mut self, maybe: Option<i32>) {
-        self.recv_config_mut().recv_high_water_mark = maybe;
+    fn set_recv_high_water_mark(&mut self, qty: Quantity) {
+        self.recv_config_mut().recv_high_water_mark = qty;
     }
 
-    fn recv_timeout(&self) -> Option<Duration> {
+    fn recv_timeout(&self) -> Period {
         self.recv_config().recv_timeout
     }
 
-    fn set_recv_timeout(&mut self, maybe: Option<Duration>) {
-        self.recv_config_mut().recv_timeout = maybe;
+    fn set_recv_timeout(&mut self, period: Period) {
+        self.recv_config_mut().recv_timeout = period;
     }
 }
 
 /// A set of provided methods for the builder of a socket that implements `RecvMsg`.
 pub trait BuildRecv: GetRecvConfig {
     fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        self.recv_config_mut().recv_high_water_mark = Some(hwm);
+        self.recv_config_mut().recv_high_water_mark = Limited(hwm);
         self
     }
 
     fn recv_timeout(&mut self, timeout: Duration) -> &mut Self {
-        self.recv_config_mut().recv_timeout = Some(timeout);
+        self.recv_config_mut().recv_timeout = Finite(timeout);
         self
     }
 }

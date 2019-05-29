@@ -1,6 +1,6 @@
 //! The ØMQ context type.
 
-use crate::{auth::server::AuthServer, error::msg_from_errno};
+use crate::{auth::server::AuthServer, error::*};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -47,22 +47,33 @@ struct RawCtx {
 }
 
 impl RawCtx {
-    fn get(&self, option: RawCtxOption) -> Option<i32> {
-        let value = unsafe { sys::zmq_ctx_get(self.ctx, option.into()) };
-        if value == -1 {
-            None
+    fn get(&self, option: RawCtxOption) -> i32 {
+        unsafe { sys::zmq_ctx_get(self.ctx, option.into()) }
+    }
+
+    fn set(&self, option: RawCtxOption, value: i32) -> Result<(), Error> {
+        let rc = unsafe { sys::zmq_ctx_set(self.ctx, option.into(), value) };
+
+        if rc == -1 {
+            let errno = unsafe { sys::zmq_errno() };
+            match errno {
+                errno::EINVAL => Err(Error::new(ErrorKind::InvalidInput {
+                    msg: "invalid value",
+                })),
+                _ => panic!(msg_from_errno(errno)),
+            }
         } else {
-            Some(value)
+            Ok(())
         }
     }
 
-    // The `zmq_ctx` is already thread safe, so no need to make this mutable.
-    fn set(&self, option: RawCtxOption, value: i32) {
-        let rc = unsafe { sys::zmq_ctx_set(self.ctx, option.into(), value) };
-        if rc == -1 {
-            let errno = unsafe { sys::zmq_errno() };
-            panic!(msg_from_errno(errno));
-        }
+    fn set_bool(&self, opt: RawCtxOption, flag: bool) -> Result<(), Error> {
+        self.set(opt, flag as i32)
+    }
+
+    fn get_bool(&self, opt: RawCtxOption) -> bool {
+        let flag = self.get(opt);
+        flag != 0
     }
 
     fn terminate(&self) {
@@ -137,19 +148,28 @@ impl CtxConfig {
         Self::default()
     }
 
-    pub fn apply(&self, ctx: &Ctx) {
+    pub fn build(&self) -> Result<Ctx, Error> {
+        let ctx = Ctx::new();
+        self.apply(&ctx)?;
+
+        Ok(ctx)
+    }
+
+    pub fn apply(&self, ctx: &Ctx) -> Result<(), Error> {
         if let Some(value) = self.io_threads {
-            ctx.set_io_threads(value);
+            ctx.set_io_threads(value)?;
         }
         if let Some(value) = self.max_sockets {
-            ctx.set_max_sockets(value);
+            ctx.set_max_sockets(value)?;
         }
         if let Some(value) = self.max_msg_size {
-            ctx.set_max_msg_size(value);
+            ctx.set_max_msg_size(value)?;
         }
         if let Some(value) = self.no_linger {
-            ctx.set_no_linger(value);
+            ctx.set_no_linger(value)?;
         }
+
+        Ok(())
     }
 
     pub fn io_threads(&self) -> Option<i32> {
@@ -204,27 +224,36 @@ impl CtxBuilder {
     ///
     /// # Usage Example
     /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
     /// use libzmq::*;
     ///
     /// let ctx = CtxBuilder::new()
     ///   .io_threads(2)
-    ///   .no_linger(true)
-    ///   .build();
+    ///   .no_linger()
+    ///   .build()?;
     ///
     /// assert_eq!(ctx.io_threads(), 2);
     /// assert_eq!(ctx.no_linger(), true);
+    /// #
+    /// #     Ok(())
+    /// # }
     /// ```
-    pub fn build(&self) -> Ctx {
+    pub fn build(&self) -> Result<Ctx, Error> {
         let ctx = Ctx::new();
-        self.apply(&ctx);
+        self.apply(&ctx)?;
 
-        ctx
+        Ok(ctx)
     }
 
     /// Applies a `CtxBuilder` to an existing `Ctx`.
     ///
     /// # Usage Example
     /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
     /// use libzmq::*;
     ///
     /// let global = Ctx::global();
@@ -233,16 +262,19 @@ impl CtxBuilder {
     ///   .io_threads(0)
     ///   .max_msg_size(420)
     ///   .max_sockets(69)
-    ///   .no_linger(true)
-    ///   .apply(global);
+    ///   .no_linger()
+    ///   .apply(global)?;
     ///
     /// assert_eq!(global.io_threads(), 0);
     /// assert_eq!(global.max_msg_size(), 420);
     /// assert_eq!(global.no_linger(), true);
     /// assert_eq!(global.max_sockets(), 69);
+    /// #
+    /// #     Ok(())
+    /// # }
     /// ```
-    pub fn apply(&self, ctx: &Ctx) {
-        self.inner.apply(ctx);
+    pub fn apply(&self, ctx: &Ctx) -> Result<(), Error> {
+        self.inner.apply(ctx)
     }
 
     /// See [`set_io_threads`].
@@ -272,8 +304,8 @@ impl CtxBuilder {
     /// See [`set_no_linger`].
     ///
     /// [`set_no_linger`]: struct.Ctx.html#method.set_no_linger
-    pub fn no_linger(&mut self, value: bool) -> &mut Self {
-        self.inner.set_no_linger(Some(value));
+    pub fn no_linger(&mut self) -> &mut Self {
+        self.inner.set_no_linger(Some(true));
         self
     }
 }
@@ -327,7 +359,7 @@ impl Ctx {
     pub fn new() -> Self {
         let raw = Arc::new(RawCtx::default());
         // Enable ipv6 by default.
-        raw.set(RawCtxOption::IPV6, true as i32);
+        raw.set_bool(RawCtxOption::IPV6, true).unwrap();
 
         let ctx = Self { raw };
 
@@ -368,7 +400,7 @@ impl Ctx {
 
     /// Returns the size of the ØMQ thread pool for this context.
     pub fn io_threads(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::IOThreads).unwrap()
+        self.raw.as_ref().get(RawCtxOption::IOThreads)
     }
 
     /// Set the size of the ØMQ thread pool to handle I/O operations.
@@ -383,6 +415,9 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
     /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
@@ -390,16 +425,19 @@ impl Ctx {
     ///
     /// // Lets say our app exclusively uses the inproc transport
     /// // for messaging. Then we dont need any I/O threads.
-    /// ctx.set_io_threads(0);
+    /// ctx.set_io_threads(0)?;
     /// assert_eq!(ctx.io_threads(), 0);
+    /// #
+    /// #     Ok(())
+    /// # }
     /// ```
-    pub fn set_io_threads(&self, value: i32) {
-        self.raw.as_ref().set(RawCtxOption::IOThreads, value);
+    pub fn set_io_threads(&self, nb_threads: i32) -> Result<(), Error> {
+        self.raw.as_ref().set(RawCtxOption::IOThreads, nb_threads)
     }
 
     /// Returns the maximum number of sockets allowed for this context.
     pub fn max_sockets(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::MaxSockets).unwrap()
+        self.raw.as_ref().get(RawCtxOption::MaxSockets)
     }
 
     /// Sets the maximum number of sockets allowed on the context.
@@ -409,25 +447,27 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
     /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// assert_eq!(ctx.max_sockets(), 1023);
     ///
-    /// ctx.set_max_sockets(420);
+    /// ctx.set_max_sockets(420)?;
     /// assert_eq!(ctx.max_sockets(), 420);
+    /// #
+    /// #     Ok(())
+    /// # }
     /// ```
-    pub fn set_max_sockets(&self, value: i32) {
-        assert!(
-            value < self.socket_limit(),
-            "cannot be greater than socket limit"
-        );
-        self.raw.as_ref().set(RawCtxOption::MaxSockets, value);
+    pub fn set_max_sockets(&self, max: i32) -> Result<(), Error> {
+        self.raw.as_ref().set(RawCtxOption::MaxSockets, max)
     }
 
     /// Returns the maximum size of a message allowed for this context.
     pub fn max_msg_size(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::MaxMsgSize).unwrap()
+        self.raw.as_ref().get(RawCtxOption::MaxMsgSize)
     }
 
     /// Sets the maximum allowed size of a message sent in the context.
@@ -437,28 +477,34 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
     /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// assert_eq!(ctx.max_msg_size(), i32::max_value());
     ///
-    /// ctx.set_max_msg_size(i32::max_value() - 1);
+    /// ctx.set_max_msg_size(i32::max_value() - 1)?;
     /// assert_eq!(ctx.max_msg_size(), i32::max_value() - 1);
+    /// #
+    /// #     Ok(())
+    /// # }
     /// ```
-    pub fn set_max_msg_size(&self, value: i32) {
-        self.raw.as_ref().set(RawCtxOption::MaxMsgSize, value);
+    pub fn set_max_msg_size(&self, size: i32) -> Result<(), Error> {
+        self.raw.as_ref().set(RawCtxOption::MaxMsgSize, size)
     }
 
     /// Returns the largest number of sockets that the context will accept.
     pub fn socket_limit(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::SocketLimit).unwrap()
+        self.raw.as_ref().get(RawCtxOption::SocketLimit)
     }
 
     /// A value of `true` indicates that all new sockets are given a
     /// linger timeout of zero.
     ///
     pub fn no_linger(&self) -> bool {
-        self.raw.as_ref().get(RawCtxOption::Blocky).unwrap() == 0
+        !self.raw.as_ref().get_bool(RawCtxOption::Blocky)
     }
 
     /// When set to `true`, all new sockets are given a linger timeout
@@ -469,16 +515,22 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
     /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
     /// assert_eq!(ctx.no_linger(), false);
     ///
-    /// ctx.set_no_linger(true);
+    /// ctx.set_no_linger(true)?;
     /// assert_eq!(ctx.no_linger(), true);
+    /// #
+    /// #     Ok(())
+    /// # }
     /// ```
-    pub fn set_no_linger(&self, enabled: bool) {
-        self.raw.as_ref().set(RawCtxOption::Blocky, !enabled as i32);
+    pub fn set_no_linger(&self, enabled: bool) -> Result<(), Error> {
+        self.raw.as_ref().set_bool(RawCtxOption::Blocky, !enabled)
     }
 
     /// Shutdown the ØMQ context context.
