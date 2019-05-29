@@ -30,6 +30,7 @@ fn main() -> Result<(), failure::Error> {
 
     let config: Config =
         serde_yaml::from_slice(&read_file(&path).unwrap()).unwrap();
+    dbg!(&config);
 
     // Configure the `AuthServer`. We won't need the returned `AuthClient`.
     let _ = config.auth.build()?;

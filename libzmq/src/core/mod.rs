@@ -162,10 +162,9 @@ impl From<Option<i32>> for Quantity {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Heartbeat {
+    #[serde(with = "humantime_serde")]
     pub(crate) interval: Duration,
-    #[serde(default)]
     pub(crate) timeout: Period,
-    #[serde(default)]
     pub(crate) ttl: Period,
 }
 

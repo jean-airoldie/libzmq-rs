@@ -272,8 +272,8 @@ impl CtxBuilder {
     /// See [`set_no_linger`].
     ///
     /// [`set_no_linger`]: struct.Ctx.html#method.set_no_linger
-    pub fn no_linger(&mut self, value: bool) -> &mut Self {
-        self.inner.set_no_linger(Some(value));
+    pub fn no_linger(&mut self) -> &mut Self {
+        self.inner.set_no_linger(Some(true));
         self
     }
 }
