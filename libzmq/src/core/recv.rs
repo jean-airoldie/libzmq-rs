@@ -158,7 +158,7 @@ pub trait RecvMsg: GetRawSocket {
     where
         P: Into<Period>,
     {
-        self.raw_socket().set_recv_timeout(period.into().into())
+        self.raw_socket().set_recv_timeout(period.into())
     }
 }
 

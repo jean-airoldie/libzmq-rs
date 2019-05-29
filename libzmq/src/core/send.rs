@@ -193,7 +193,7 @@ pub trait SendMsg: GetRawSocket {
     where
         P: Into<Period>,
     {
-        self.raw_socket().set_send_timeout(period.into().into())
+        self.raw_socket().set_send_timeout(period.into())
     }
 }
 

@@ -208,7 +208,7 @@ impl CtxBuilder {
     ///
     /// let ctx = CtxBuilder::new()
     ///   .io_threads(2)
-    ///   .no_linger(true)
+    ///   .no_linger()
     ///   .build();
     ///
     /// assert_eq!(ctx.io_threads(), 2);
@@ -233,7 +233,7 @@ impl CtxBuilder {
     ///   .io_threads(0)
     ///   .max_msg_size(420)
     ///   .max_sockets(69)
-    ///   .no_linger(true)
+    ///   .no_linger()
     ///   .apply(global);
     ///
     /// assert_eq!(global.io_threads(), 0);
