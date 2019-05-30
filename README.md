@@ -72,7 +72,7 @@ do not need to install [`libzmq`]. However building from source requires:
 To do so we will only use a subset of [`libzmq`]. If you'd rather have a complete
 port, check out [`rust-zmq`].
 
-# Stability Guarantees
+# Versioning & Stability Guarantees
 Expect breaking changes with each release until `0.2`. After that breaking change only on minor
 version until `1.0`. Furthermore, since a large part of the library relies on ØMQ's DRAFT API,
 they will have to be stabilized before the 1.0 version is released.
