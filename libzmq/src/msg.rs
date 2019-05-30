@@ -63,6 +63,12 @@ impl From<RoutingId> for u32 {
     }
 }
 
+impl From<u32> for RoutingId {
+    fn from(u: u32) -> Self {
+        Self(u)
+    }
+}
+
 /// A handle to a message owned by ØMQ.
 ///
 /// A ØMQ message is a discrete unit of data passed between applications
