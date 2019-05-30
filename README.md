@@ -73,7 +73,7 @@ To do so we will only use a subset of [`libzmq`]. If you'd rather have a complet
 port, check out [`rust-zmq`].
 
 # Versioning & Stability Guarantees
-Expect breaking changes with each release until `0.2`. After that breaking change only on minor
+**Expect breaking changes with each release until `0.2`**. After that breaking change only on minor
 version until `1.0`. Furthermore, since a large part of the library relies on ØMQ's DRAFT API,
 they will have to be stabilized before the 1.0 version is released.
 
