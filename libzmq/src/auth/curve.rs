@@ -282,8 +282,8 @@ impl CurveSecretKey {
 
 impl fmt::Debug for CurveSecretKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("CurvePublicKey")
-            .field("key", &"<hidden>")
+        f.debug_struct("CurveServerKey")
+            .field("key", &self.as_str())
             .finish()
     }
 }
