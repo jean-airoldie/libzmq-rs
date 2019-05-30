@@ -8,6 +8,11 @@
 
 A strict subset of ØMQ with an ergonomic API.
 
+# Versioning & Stability Guarantees
+**Expect breaking changes with each release until `0.2`**. After that breaking change only on minor
+version until `1.0`. Furthermore, since a large part of the library relies on ØMQ's DRAFT API,
+they will have to be stabilized before the 1.0 version is released.
+
 ```toml
 [dependencies]
 libzmq = "0.1.7"
@@ -71,11 +76,6 @@ do not need to install [`libzmq`]. However building from source requires:
 
 To do so we will only use a subset of [`libzmq`]. If you'd rather have a complete
 port, check out [`rust-zmq`].
-
-# Versioning & Stability Guarantees
-**Expect breaking changes with each release until `0.2`**. After that breaking change only on minor
-version until `1.0`. Furthermore, since a large part of the library relies on ØMQ's DRAFT API,
-they will have to be stabilized before the 1.0 version is released.
 
 # Frequently Asked Questions
 See the [`FAQ`](./FAQ.md).
