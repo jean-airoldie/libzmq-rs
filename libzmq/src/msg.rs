@@ -57,18 +57,6 @@ use std::{
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct RoutingId(u32);
 
-impl From<RoutingId> for u32 {
-    fn from(r: RoutingId) -> u32 {
-        r.0
-    }
-}
-
-impl From<u32> for RoutingId {
-    fn from(u: u32) -> Self {
-        Self(u)
-    }
-}
-
 /// A handle to a message owned by ØMQ.
 ///
 /// A ØMQ message is a discrete unit of data passed between applications
@@ -217,7 +205,7 @@ impl Msg {
     /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
     pub fn set_routing_id(&mut self, routing_id: RoutingId) {
         let rc = unsafe {
-            sys::zmq_msg_set_routing_id(self.as_mut_ptr(), routing_id.into())
+            sys::zmq_msg_set_routing_id(self.as_mut_ptr(), routing_id.0)
         };
 
         // Should never occur.
@@ -485,5 +473,30 @@ where
 {
     fn from(v: &'a T) -> Self {
         v.clone().into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::mem;
+
+    #[test]
+    fn test_cast_routing_id_slice() {
+        assert_eq!(mem::size_of::<u32>(), mem::size_of::<RoutingId>());
+        let routing_stack: &[u32] = &[1, 2, 3, 4];
+
+        // Cast &[u32] as &[RoutingId].
+        let cast_stack = unsafe {
+            slice::from_raw_parts(
+                routing_stack.as_ptr() as *const RoutingId,
+                routing_stack.len(),
+            )
+        };
+
+        for (&i, &j) in routing_stack.iter().zip(cast_stack.iter()) {
+            assert_eq!(i, j.0);
+        }
     }
 }
