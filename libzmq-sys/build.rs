@@ -20,6 +20,9 @@ fn main() {
         .derive_partialeq(true)
         .derive_debug(true)
         .derive_hash(true)
+        .whitelist_function("^zmq_.*")
+        .whitelist_type("^zmq_.*")
+        .whitelist_var("^ZMQ_.*")
         .clang_args(args)
         .generate()
         .expect("Unable to generate bindings");
