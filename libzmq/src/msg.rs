@@ -1,4 +1,4 @@
-use crate::{error::msg_from_errno, Group};
+use crate::{error::msg_from_errno, GroupOwned, Group};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -257,10 +257,11 @@ impl Msg {
     /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
     pub fn set_group<'a, G>(&mut self, group: G)
     where
-        G: Into<&'a Group>,
+        G: Into<GroupOwned>,
     {
-        let group: &Group = group.into();
-        let c_string = CString::new(group.as_str()).unwrap();
+        let group = group.into();
+        let string: String = group.into();
+        let c_string = CString::new(string).unwrap();
         let rc = unsafe {
             sys::zmq_msg_set_group(self.as_mut_ptr(), c_string.as_ptr())
         };
