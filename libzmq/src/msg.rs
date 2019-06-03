@@ -151,7 +151,7 @@ impl Msg {
     ///
     /// assert_eq!(msg.as_bytes(), bytes);
     /// ```
-    pub fn as_bytes<'a>(&self) -> &'a [u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         // This is safe because we're constraining the slice to the lifetime of
         // this message.
         unsafe {
@@ -162,7 +162,7 @@ impl Msg {
     }
 
     /// Return the message content as a mutable byte slice.
-    pub fn as_bytes_mut<'a>(&mut self) -> &'a mut [u8] {
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
         // This is safe because we're constraining the slice to the lifetime of
         // this message.
         unsafe {
