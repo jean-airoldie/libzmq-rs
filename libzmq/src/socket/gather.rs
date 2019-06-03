@@ -175,7 +175,6 @@ struct FlatGatherConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    linger: Period,
     recv_high_water_mark: Quantity,
     recv_timeout: Period,
     mechanism: Option<Mechanism>,
@@ -189,7 +188,6 @@ impl From<GatherConfig> for FlatGatherConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             heartbeat: socket_config.heartbeat,
-            linger: socket_config.linger,
             mechanism: socket_config.mechanism,
             recv_high_water_mark: recv_config.recv_high_water_mark,
             recv_timeout: recv_config.recv_timeout,
@@ -203,7 +201,6 @@ impl From<FlatGatherConfig> for GatherConfig {
             connect: flat.connect,
             bind: flat.bind,
             heartbeat: flat.heartbeat,
-            linger: flat.linger,
             mechanism: flat.mechanism,
         };
         let recv_config = RecvConfig {

@@ -71,11 +71,6 @@ impl RawCtx {
         self.set(opt, flag as i32)
     }
 
-    fn get_bool(&self, opt: RawCtxOption) -> bool {
-        let flag = self.get(opt);
-        flag != 0
-    }
-
     fn terminate(&self) {
         // We loop in case `zmq_ctx_term` get interrupted by a signal.
         loop {
@@ -140,7 +135,6 @@ pub struct CtxConfig {
     io_threads: Option<i32>,
     max_msg_size: Option<i32>,
     max_sockets: Option<i32>,
-    no_linger: Option<bool>,
 }
 
 impl CtxConfig {
@@ -164,9 +158,6 @@ impl CtxConfig {
         }
         if let Some(value) = self.max_msg_size {
             ctx.set_max_msg_size(value)?;
-        }
-        if let Some(value) = self.no_linger {
-            ctx.set_no_linger(value)?;
         }
 
         Ok(())
@@ -194,14 +185,6 @@ impl CtxConfig {
 
     pub fn set_max_sockets(&mut self, value: Option<i32>) {
         self.max_sockets = value;
-    }
-
-    pub fn no_linger(&self) -> Option<bool> {
-        self.no_linger
-    }
-
-    pub fn set_no_linger(&mut self, value: Option<bool>) {
-        self.no_linger = value;
     }
 }
 
@@ -231,11 +214,9 @@ impl CtxBuilder {
     ///
     /// let ctx = CtxBuilder::new()
     ///   .io_threads(2)
-    ///   .no_linger()
     ///   .build()?;
     ///
     /// assert_eq!(ctx.io_threads(), 2);
-    /// assert_eq!(ctx.no_linger(), true);
     /// #
     /// #     Ok(())
     /// # }
@@ -262,12 +243,10 @@ impl CtxBuilder {
     ///   .io_threads(0)
     ///   .max_msg_size(420)
     ///   .max_sockets(69)
-    ///   .no_linger()
     ///   .apply(global)?;
     ///
     /// assert_eq!(global.io_threads(), 0);
     /// assert_eq!(global.max_msg_size(), 420);
-    /// assert_eq!(global.no_linger(), true);
     /// assert_eq!(global.max_sockets(), 69);
     /// #
     /// #     Ok(())
@@ -298,14 +277,6 @@ impl CtxBuilder {
     /// [`set_max_sockets`]: struct.Ctx.html#method.set_max_sockets
     pub fn max_sockets(&mut self, value: i32) -> &mut Self {
         self.inner.set_max_sockets(Some(value));
-        self
-    }
-
-    /// See [`set_no_linger`].
-    ///
-    /// [`set_no_linger`]: struct.Ctx.html#method.set_no_linger
-    pub fn no_linger(&mut self) -> &mut Self {
-        self.inner.set_no_linger(Some(true));
         self
     }
 }
@@ -360,6 +331,8 @@ impl Ctx {
         let raw = Arc::new(RawCtx::default());
         // Enable ipv6 by default.
         raw.set_bool(RawCtxOption::IPV6, true).unwrap();
+        // Set linger period for all sockets to zero.
+        raw.set_bool(RawCtxOption::Blocky, false).unwrap();
 
         let ctx = Self { raw };
 
@@ -498,39 +471,6 @@ impl Ctx {
     /// Returns the largest number of sockets that the context will accept.
     pub fn socket_limit(&self) -> i32 {
         self.raw.as_ref().get(RawCtxOption::SocketLimit)
-    }
-
-    /// A value of `true` indicates that all new sockets are given a
-    /// linger timeout of zero.
-    ///
-    pub fn no_linger(&self) -> bool {
-        !self.raw.as_ref().get_bool(RawCtxOption::Blocky)
-    }
-
-    /// When set to `true`, all new sockets are given a linger timeout
-    /// of zero.
-    ///
-    /// # Default
-    /// The default value is `false`.
-    ///
-    /// # Usage Example
-    /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
-    /// use libzmq::Ctx;
-    ///
-    /// let ctx = Ctx::new();
-    /// assert_eq!(ctx.no_linger(), false);
-    ///
-    /// ctx.set_no_linger(true)?;
-    /// assert_eq!(ctx.no_linger(), true);
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    pub fn set_no_linger(&self, enabled: bool) -> Result<(), Error> {
-        self.raw.as_ref().set_bool(RawCtxOption::Blocky, !enabled)
     }
 
     /// Shutdown the ØMQ context context.
