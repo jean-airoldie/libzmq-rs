@@ -15,7 +15,7 @@ they will have to be stabilized before the 1.0 version is released.
 
 ```toml
 [dependencies]
-libzmq = "0.1.9"
+libzmq = "0.1.10"
 ```
 
 # Dead Simple Sample
