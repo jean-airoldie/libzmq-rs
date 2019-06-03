@@ -1,18 +1,20 @@
-use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx, GroupOwned};
+use crate::{
+    addr::Endpoint, auth::*, core::*, error::*, Ctx, Group, GroupSlice,
+};
 use libzmq_sys as sys;
 use sys::errno;
 
 use serde::{Deserialize, Serialize};
 
 use std::{
-    ffi::{c_void, CString},
+    ffi::c_void,
     str,
     sync::{Arc, Mutex},
 };
 
-fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
-    let c_str = CString::new(group.as_str()).unwrap();
-    let rc = unsafe { sys::zmq_join(socket_mut_ptr, c_str.as_ptr()) };
+fn join(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
+    let rc =
+        unsafe { sys::zmq_join(socket_mut_ptr, group.as_c_str().as_ptr()) };
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
@@ -35,9 +37,9 @@ fn join(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
     }
 }
 
-fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
-    let c_str = CString::new(group.as_str()).unwrap();
-    let rc = unsafe { sys::zmq_leave(socket_mut_ptr, c_str.as_ptr()) };
+fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
+    let rc =
+        unsafe { sys::zmq_leave(socket_mut_ptr, group.as_c_str().as_ptr()) };
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
@@ -90,28 +92,26 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 ///     .build()?;
 ///
 /// let bound = radio.last_endpoint().unwrap();
-/// let a: &Group = "group a".try_into()?;
+/// let a: Group = "group a".try_into()?;
 ///
 /// let dish = DishBuilder::new()
 ///     .connect(bound)
-///     .join(a)
+///     .join(&a)
 ///     .build()?;
 ///
 /// // Start the feed. It has no conceptual start nor end, thus we
 /// // don't synchronize with the subscribers.
 /// thread::spawn(move || {
-///     let a: &Group = "group a".try_into().unwrap();
-///     let b: &Group = "group b".try_into().unwrap();
+///     let a: Group = "group a".try_into().unwrap();
+///     let b: Group = "group b".try_into().unwrap();
 ///     let mut count = 0;
 ///     loop {
 ///         let mut msg = Msg::new();
 ///         // Alternate between the two groups.
-///         let group = {
-///             if count % 2 == 0 {
-///                 a
-///             } else {
-///                 b
-///             }
+///         let group = if count % 2 == 0 {
+///             &a
+///         } else {
+///             &b
 ///         };
 ///
 ///         msg.set_group(group);
@@ -124,10 +124,10 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 ///
 /// // The dish exclusively receives messages from the groups it joined.
 /// let msg = dish.recv_msg()?;
-/// assert_eq!(msg.group().unwrap(), a);
+/// assert_eq!(msg.group().unwrap(), &a);
 ///
 /// let msg = dish.recv_msg()?;
-/// assert_eq!(msg.group().unwrap(), a);
+/// assert_eq!(msg.group().unwrap(), &a);
 /// #
 /// #     Ok(())
 /// # }
@@ -138,7 +138,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupOwned) -> Result<(), Error> {
 #[derive(Debug, Clone)]
 pub struct Dish {
     inner: Arc<RawSocket>,
-    groups: Arc<Mutex<Vec<GroupOwned>>>,
+    groups: Arc<Mutex<Vec<Group>>>,
 }
 
 impl Dish {
@@ -190,7 +190,6 @@ impl Dish {
     /// of the iterator before the failure. This represents the number of
     /// groups that were joined before the failure.
     ///
-    ///
     /// # Usage Contract
     /// * Each group can be joined at most once.
     ///
@@ -207,7 +206,7 @@ impl Dish {
     /// use libzmq::{prelude::*, Dish, Group};
     /// use std::convert::TryInto;
     ///
-    /// let group: &Group = "some group".try_into()?;
+    /// let group: Group = "some group".try_into()?;
     /// let dish = Dish::new()?;
     /// dish.join(group)?;
     /// #
@@ -221,7 +220,7 @@ impl Dish {
     pub fn join<I, G>(&self, groups: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = G>,
-        G: Into<GroupOwned>,
+        G: Into<Group>,
     {
         let mut count = 0;
         let mut guard = self.groups.lock().unwrap();
@@ -236,7 +235,7 @@ impl Dish {
         Ok(())
     }
 
-    /// Returns a snapshot of the list of joined `Group`.
+    /// Returns a snapshot of the list of joined groups.
     ///
     /// The list might be modified by another thread after it is returned.
     ///
@@ -248,19 +247,19 @@ impl Dish {
     /// use libzmq::{prelude::*, Dish, Group};
     /// use std::convert::TryInto;
     ///
-    /// let first: &Group = "first group".try_into()?;
-    /// let second: &Group = "second group".try_into()?;
+    /// let first: Group = "first group".try_into()?;
+    /// let second: Group = "second group".try_into()?;
     ///
     /// let dish = Dish::new()?;
     /// assert!(dish.joined().is_empty());
     ///
-    /// dish.join(vec![first, second])?;
+    /// dish.join(&[first, second])?;
     /// assert_eq!(dish.joined().len(), 2);
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn joined(&self) -> Vec<GroupOwned> {
+    pub fn joined(&self) -> Vec<Group> {
         self.groups.lock().unwrap().to_owned()
     }
 
@@ -283,10 +282,10 @@ impl Dish {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Dish, GroupOwned};
+    /// use libzmq::{prelude::*, Dish, Group};
     /// use std::convert::TryInto;
     ///
-    /// let group: GroupOwned = "some group".to_owned().try_into()?;
+    /// let group: Group = "some group".to_owned().try_into()?;
     ///
     /// let dish = Dish::new()?;
     /// assert!(dish.joined().is_empty());
@@ -306,16 +305,17 @@ impl Dish {
     pub fn leave<I, G>(&self, groups: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = G>,
-        G: Into<GroupOwned>,
+        G: AsRef<GroupSlice>,
     {
         let mut count = 0;
         let mut guard = self.groups.lock().unwrap();
 
-        for group in groups.into_iter().map(G::into) {
-            leave(self.raw_socket().as_mut_ptr(), &group)
+        for group in groups.into_iter() {
+            let group = group.as_ref();
+            leave(self.raw_socket().as_mut_ptr(), group)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
-            let position = guard.iter().position(|g| g == &group).unwrap();
+            let position = guard.iter().position(|g| g == group).unwrap();
             guard.remove(position);
             count += 1;
         }
@@ -354,7 +354,7 @@ unsafe impl Sync for Dish {}
 pub struct DishConfig {
     socket_config: SocketConfig,
     recv_config: RecvConfig,
-    groups: Option<Vec<GroupOwned>>,
+    groups: Option<Vec<Group>>,
 }
 
 impl DishConfig {
@@ -376,13 +376,13 @@ impl DishConfig {
         Ok(dish)
     }
 
-    pub fn groups(&self) -> Option<&[GroupOwned]> {
+    pub fn groups(&self) -> Option<&[Group]> {
         self.groups.as_ref().map(Vec::as_slice)
     }
 
     pub fn set_groups<I>(&mut self, maybe_groups: Option<I>)
     where
-        I: IntoIterator<Item = GroupOwned>,
+        I: IntoIterator<Item = Group>,
     {
         let groups = maybe_groups.map(|g| g.into_iter().collect());
         self.groups = groups;
@@ -407,7 +407,7 @@ struct FlatDishConfig {
     linger: Period,
     recv_high_water_mark: Quantity,
     recv_timeout: Period,
-    groups: Option<Vec<GroupOwned>>,
+    groups: Option<Vec<Group>>,
     mechanism: Option<Mechanism>,
 }
 
@@ -499,9 +499,9 @@ impl DishBuilder {
     pub fn join<I, G>(&mut self, groups: I) -> &mut Self
     where
         I: IntoIterator<Item = G>,
-        G: Into<GroupOwned>,
+        G: Into<Group>,
     {
-        let groups: Vec<GroupOwned> = groups.into_iter().map(G::into).collect();
+        let groups: Vec<Group> = groups.into_iter().map(G::into).collect();
         self.inner.set_groups(Some(groups));
         self
     }
@@ -554,24 +554,24 @@ mod test {
         let radio = RadioBuilder::new().bind(addr).build().unwrap();
 
         let bound = radio.last_endpoint().unwrap();
-        let a: &Group = "group a".try_into().unwrap();
+        let a: Group = "group a".try_into().unwrap();
 
-        let dish = DishBuilder::new().connect(bound).join(a).build().unwrap();
+        let dish = DishBuilder::new().connect(bound).join(&a).build().unwrap();
 
         // Start the feed. It has no conceptual start nor end, thus we
         // don't synchronize with the subscribers.
         thread::spawn(move || {
-            let a: &Group = "group a".try_into().unwrap();
-            let b: &Group = "group b".try_into().unwrap();
+            let a: Group = "group a".try_into().unwrap();
+            let b: Group = "group b".try_into().unwrap();
             let mut count = 0;
             loop {
                 let mut msg = Msg::new();
                 // Alternate between the two groups.
                 let group = {
                     if count % 2 == 0 {
-                        a
+                        &a
                     } else {
-                        b
+                        &b
                     }
                 };
 
@@ -585,9 +585,9 @@ mod test {
 
         // The dish exclusively receives messages from the groups it joined.
         let msg = dish.recv_msg().unwrap();
-        assert_eq!(msg.group().unwrap(), a);
+        assert_eq!(msg.group().unwrap(), &a);
 
         let msg = dish.recv_msg().unwrap();
-        assert_eq!(msg.group().unwrap(), a);
+        assert_eq!(msg.group().unwrap(), &a);
     }
 }

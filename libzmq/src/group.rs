@@ -4,24 +4,146 @@ use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::{
-    borrow::{Borrow, ToOwned},
+    borrow::{Borrow, Cow, ToOwned},
     convert::TryFrom,
+    ffi::{CStr, CString},
     fmt, ops, option, str,
 };
 
 /// The maximum allowed number of characters in a group.
 pub const MAX_GROUP_SIZE: usize = 15;
 
-/// An error returned when trying to parse a `Group` or `GroupOwned`.
+/// An error returned when trying to parse a `GroupSlice` or `Group`.
 ///
 /// This error occurs from a string that exceeds [`MAX_GROUP_SIZE`] char.
 ///
 /// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Fail, Hash)]
-#[fail(display = "group cannot exceed MAX_GROUP_SIZE char")]
-pub struct GroupParseError(());
+#[fail(display = "unable to parse group: {}", msg)]
+pub struct GroupParseError {
+    msg: &'static str,
+}
 
-/// A `str` slice that is a valid ØMQ group identifier.
+impl GroupParseError {
+    fn new(msg: &'static str) -> Self {
+        Self { msg }
+    }
+}
+
+/// A slice to a [`Group`]
+///
+/// A `GroupSlice` cannot be constructed directly. It is either obtained from a
+/// [`Group`] or from [`Msg::group`].
+///
+/// Namely, the length this group identifier must not exceed [`MAX_GROUP_SIZE`].
+///
+/// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
+/// [`Group`]: struct.Group.html
+/// [`Msg`]: struct.Msg.html#method.group
+#[derive(PartialEq, Eq, Hash)]
+pub struct GroupSlice {
+    inner: CStr,
+}
+
+impl GroupSlice {
+    pub(crate) fn from_c_str_unchecked(c_str: &CStr) -> &GroupSlice {
+        unsafe { &*(c_str as *const CStr as *const GroupSlice) }
+    }
+
+    pub fn as_c_str(&self) -> &CStr {
+        &self.inner
+    }
+
+    pub fn to_str(&self) -> Result<&str, str::Utf8Error> {
+        self.inner.to_str()
+    }
+
+    pub fn to_string_lossy(&self) -> Cow<str> {
+        self.inner.to_string_lossy()
+    }
+
+    pub fn to_bytes(&self) -> &[u8] {
+        self.inner.to_bytes()
+    }
+}
+
+impl fmt::Debug for GroupSlice {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, formatter)
+    }
+}
+
+impl<'a> From<&'a Group> for &'a GroupSlice {
+    fn from(s: &'a Group) -> Self {
+        s.borrow()
+    }
+}
+
+impl ToOwned for GroupSlice {
+    type Owned = Group;
+
+    fn to_owned(&self) -> Self::Owned {
+        Group {
+            inner: self.inner.to_owned(),
+        }
+    }
+}
+
+impl PartialEq<str> for GroupSlice {
+    fn eq(&self, other: &str) -> bool {
+        self.to_bytes() == other.as_bytes()
+    }
+}
+
+impl PartialEq<GroupSlice> for str {
+    fn eq(&self, other: &GroupSlice) -> bool {
+        self.as_bytes() == other.to_bytes()
+    }
+}
+
+impl PartialEq<Group> for GroupSlice {
+    fn eq(&self, other: &Group) -> bool {
+        self.as_c_str() == other.as_c_str()
+    }
+}
+
+impl PartialEq<Group> for &GroupSlice {
+    fn eq(&self, other: &Group) -> bool {
+        self.as_c_str() == other.as_c_str()
+    }
+}
+
+impl AsRef<CStr> for GroupSlice {
+    fn as_ref(&self) -> &CStr {
+        self.borrow()
+    }
+}
+
+impl ops::Deref for GroupSlice {
+    type Target = CStr;
+
+    #[inline]
+    fn deref(&self) -> &CStr {
+        self.as_c_str()
+    }
+}
+
+impl<'a> fmt::Display for &'a GroupSlice {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", &self.inner.to_string_lossy())
+    }
+}
+
+impl<'a> IntoIterator for &'a GroupSlice {
+    type Item = &'a GroupSlice;
+    type IntoIter = option::IntoIter<&'a GroupSlice>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
+    }
+}
+
+/// An `CString` that is a valid ØMQ group identifier.
 ///
 /// Namely, the length this group identifier must not exceed [`MAX_GROUP_SIZE`].
 ///
@@ -33,107 +155,180 @@ pub struct GroupParseError(());
 /// use libzmq::Group;
 /// use std::convert::TryInto;
 ///
-/// let group: &Group = "some group".try_into()?;
+/// let string = "abc".to_owned();
 ///
-/// let result: Result<&Group, _> = "group that exceed the char limit".try_into();
-/// assert!(result.is_err());
+/// let group: Group = string.try_into()?;
+/// assert_eq!(group, "abc");
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-///
 /// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Group {
-    inner: str,
+    inner: CString,
 }
 
 impl Group {
-    pub(crate) fn from_str_unchecked(s: &str) -> &Group {
-        unsafe { &*(s as *const str as *const Group) }
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.inner
-    }
-}
-
-impl fmt::Debug for Group {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner, formatter)
-    }
-}
-
-impl<'a> From<&'a GroupOwned> for &'a Group {
-    fn from(s: &'a GroupOwned) -> Self {
-        s.borrow()
-    }
-}
-
-impl ToOwned for Group {
-    type Owned = GroupOwned;
-
-    fn to_owned(&self) -> Self::Owned {
-        GroupOwned {
-            inner: self.inner.to_owned(),
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a str> for &'a Group {
-    type Error = GroupParseError;
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        if value.len() > MAX_GROUP_SIZE {
-            Err(GroupParseError(()))
+    /// Creates a new `Group` from a container of bytes.
+    ///
+    /// A valid `Group` should not exceed [`MAX_GROUP_SIZE`] char and
+    /// not contain any `nul` bytes.
+    ///
+    /// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
+    pub fn new<B>(bytes: B) -> Result<Self, GroupParseError>
+    where
+        B: Into<Vec<u8>>,
+    {
+        let bytes = bytes.into();
+        if bytes.len() > MAX_GROUP_SIZE {
+            Err(GroupParseError::new("cannot exceed MAX_GROUP_SIZE char"))
         } else {
-            Ok(Group::from_str_unchecked(value))
+            let inner = CString::new(bytes)
+                .map_err(|_| GroupParseError::new("cannot contain nul char"))?;
+            Ok(Self { inner })
         }
+    }
+
+    pub fn as_c_str(&self) -> &CStr {
+        self.inner.as_c_str()
+    }
+
+    pub fn to_str(&self) -> Result<&str, str::Utf8Error> {
+        self.inner.to_str()
+    }
+
+    pub fn to_string_lossy(&self) -> Cow<str> {
+        self.inner.to_string_lossy()
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.inner.as_bytes()
     }
 }
 
-impl<'a> TryFrom<&'a String> for &'a Group {
+impl<'a> From<&'a GroupSlice> for Group {
+    fn from(s: &'a GroupSlice) -> Self {
+        s.to_owned()
+    }
+}
+
+impl From<Group> for CString {
+    fn from(g: Group) -> CString {
+        g.inner
+    }
+}
+
+impl<'a> From<&'a Group> for Group {
+    fn from(g: &'a Group) -> Group {
+        g.to_owned()
+    }
+}
+
+impl TryFrom<String> for Group {
+    type Error = GroupParseError;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl<'a> TryFrom<&'a String> for Group {
     type Error = GroupParseError;
     fn try_from(value: &'a String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
+        Self::new(value.to_owned())
     }
 }
 
-impl PartialEq<str> for Group {
-    fn eq(&self, other: &str) -> bool {
-        *self == *Group::from_str_unchecked(other)
+impl<'a> TryFrom<&'a str> for Group {
+    type Error = GroupParseError;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Self::new(value.to_owned())
     }
 }
 
-impl PartialEq<Group> for str {
-    fn eq(&self, other: &Group) -> bool {
-        *other == *Group::from_str_unchecked(self)
+impl str::FromStr for Group {
+    type Err = GroupParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s.to_owned())
     }
 }
 
-impl<'a> PartialEq<GroupOwned> for Group {
-    fn eq(&self, other: &GroupOwned) -> bool {
-        self.as_str() == other.as_str()
+impl fmt::Display for Group {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.inner.to_string_lossy())
     }
 }
 
-impl AsRef<str> for Group {
-    fn as_ref(&self) -> &str {
+impl Borrow<GroupSlice> for Group {
+    fn borrow(&self) -> &GroupSlice {
+        GroupSlice::from_c_str_unchecked(self.inner.as_c_str())
+    }
+}
+
+impl AsRef<GroupSlice> for Group {
+    fn as_ref(&self) -> &GroupSlice {
         self.borrow()
     }
 }
 
 impl ops::Deref for Group {
-    type Target = str;
+    type Target = GroupSlice;
 
     #[inline]
-    fn deref(&self) -> &str {
-        self.as_str()
+    fn deref(&self) -> &GroupSlice {
+        self.borrow()
     }
 }
 
-impl<'a> fmt::Display for &'a Group {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", &self.inner)
+impl<'a> PartialEq<GroupSlice> for Group {
+    fn eq(&self, other: &GroupSlice) -> bool {
+        self.as_c_str() == other.as_c_str()
+    }
+}
+
+impl<'a> PartialEq<&GroupSlice> for Group {
+    fn eq(&self, other: &&GroupSlice) -> bool {
+        self.as_c_str() == other.as_c_str()
+    }
+}
+
+impl PartialEq<[u8]> for Group {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_bytes() == other
+    }
+}
+
+impl PartialEq<Group> for [u8] {
+    fn eq(&self, other: &Group) -> bool {
+        self == other.as_bytes()
+    }
+}
+
+impl PartialEq<str> for Group {
+    fn eq(&self, other: &str) -> bool {
+        self.as_bytes() == other.as_bytes()
+    }
+}
+
+impl PartialEq<&str> for Group {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_bytes() == other.as_bytes()
+    }
+}
+
+impl PartialEq<Group> for str {
+    fn eq(&self, other: &Group) -> bool {
+        other.as_bytes() == self.as_bytes()
+    }
+}
+
+impl IntoIterator for Group {
+    type Item = Group;
+    type IntoIter = option::IntoIter<Group>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self).into_iter()
     }
 }
 
@@ -146,171 +341,7 @@ impl<'a> IntoIterator for &'a Group {
     }
 }
 
-/// An owned `String` that is a valid ØMQ group identifier.
-///
-/// Namely, the length this group identifier must not exceed [`MAX_GROUP_SIZE`].
-///
-/// # Example
-/// ```
-/// #
-/// # use failure::Error;
-/// # fn main() -> Result<(), Error> {
-/// use libzmq::GroupOwned;
-/// use std::convert::TryInto;
-///
-/// let string = "abc".to_owned();
-///
-/// let group: GroupOwned = string.try_into()?;
-/// assert_eq!(group.as_str(), "abc");
-/// #
-/// #     Ok(())
-/// # }
-/// ```
-/// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GroupOwned {
-    inner: String,
-}
-
-impl<'a> From<&'a Group> for GroupOwned {
-    fn from(s: &'a Group) -> Self {
-        s.to_owned()
-    }
-}
-
-impl From<GroupOwned> for String {
-    fn from(g: GroupOwned) -> String {
-        g.inner
-    }
-}
-
-impl<'a> From<&'a GroupOwned> for GroupOwned {
-    fn from(g: &'a GroupOwned) -> GroupOwned {
-        g.to_owned()
-    }
-}
-
-impl TryFrom<String> for GroupOwned {
-    type Error = GroupParseError;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if value.len() > MAX_GROUP_SIZE {
-            Err(GroupParseError(()))
-        } else {
-            Ok(Self { inner: value })
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a String> for GroupOwned {
-    type Error = GroupParseError;
-    fn try_from(value: &'a String) -> Result<Self, Self::Error> {
-        if value.len() > MAX_GROUP_SIZE {
-            Err(GroupParseError(()))
-        } else {
-            Ok(Self {
-                inner: value.to_owned(),
-            })
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a str> for GroupOwned {
-    type Error = GroupParseError;
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        if value.len() > MAX_GROUP_SIZE {
-            Err(GroupParseError(()))
-        } else {
-            Ok(Self {
-                inner: value.to_owned(),
-            })
-        }
-    }
-}
-
-impl str::FromStr for GroupOwned {
-    type Err = GroupParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::try_from(s.to_owned())
-    }
-}
-
-impl fmt::Display for GroupOwned {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.inner)
-    }
-}
-
-impl Borrow<Group> for GroupOwned {
-    fn borrow(&self) -> &Group {
-        Group::from_str_unchecked(self.inner.as_str())
-    }
-}
-
-impl AsRef<Group> for GroupOwned {
-    fn as_ref(&self) -> &Group {
-        self.borrow()
-    }
-}
-
-impl ops::Deref for GroupOwned {
-    type Target = Group;
-
-    #[inline]
-    fn deref(&self) -> &Group {
-        self.borrow()
-    }
-}
-
-impl<'a> PartialEq<Group> for GroupOwned {
-    fn eq(&self, other: &Group) -> bool {
-        self.as_str() == other.as_str()
-    }
-}
-
-impl PartialEq<str> for GroupOwned {
-    fn eq(&self, other: &str) -> bool {
-        &**self == other
-    }
-}
-
-impl PartialEq<GroupOwned> for str {
-    fn eq(&self, other: &GroupOwned) -> bool {
-        &**other == self
-    }
-}
-
-impl<'a> PartialEq<&'a str> for GroupOwned {
-    fn eq(&self, other: &&'a str) -> bool {
-        **self == **other
-    }
-}
-
-impl<'a> PartialEq<GroupOwned> for &'a str {
-    fn eq(&self, other: &GroupOwned) -> bool {
-        **other == **self
-    }
-}
-
-impl IntoIterator for GroupOwned {
-    type Item = GroupOwned;
-    type IntoIter = option::IntoIter<GroupOwned>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Some(self).into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a GroupOwned {
-    type Item = &'a GroupOwned;
-    type IntoIter = option::IntoIter<&'a GroupOwned>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Some(self).into_iter()
-    }
-}
-
-impl Serialize for GroupOwned {
+impl Serialize for Group {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -319,7 +350,7 @@ impl Serialize for GroupOwned {
     }
 }
 
-impl<'de> Deserialize<'de> for GroupOwned {
+impl<'de> Deserialize<'de> for Group {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

@@ -1,4 +1,4 @@
-use crate::{error::msg_from_errno, Group, GroupOwned};
+use crate::{error::msg_from_errno, GroupSlice};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -7,7 +7,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 
 use std::{
-    ffi::{CStr, CString},
+    ffi::CStr,
     fmt,
     os::raw::c_void,
     ptr, slice,
@@ -216,7 +216,7 @@ impl Msg {
     }
 
     /// The group property on the message.
-    pub fn group(&self) -> Option<&Group> {
+    pub fn group(&self) -> Option<&GroupSlice> {
         // This is safe we don't actually mutate the msg.
         let mut_msg_ptr = self.as_ptr() as *mut _;
         let char_ptr = unsafe { sys::zmq_msg_group(mut_msg_ptr) };
@@ -224,8 +224,8 @@ impl Msg {
         if char_ptr.is_null() {
             None
         } else {
-            let c_str = unsafe { CStr::from_ptr(char_ptr).to_str().unwrap() };
-            Some(Group::from_str_unchecked(c_str))
+            let c_str = unsafe { CStr::from_ptr(char_ptr) };
+            Some(GroupSlice::from_c_str_unchecked(c_str))
         }
     }
 
@@ -238,10 +238,10 @@ impl Msg {
     /// use libzmq::{Msg, Group};
     /// use std::convert::TryInto;
     ///
-    /// let a: &Group = "A".try_into()?;
+    /// let a: Group = "A".try_into()?;
     ///
     /// let mut msg: Msg = "some msg".into();
-    /// msg.set_group(a);
+    /// msg.set_group(&a);
     /// assert_eq!(a, msg.group().unwrap());
     /// #
     /// #     Ok(())
@@ -257,13 +257,11 @@ impl Msg {
     /// [`InvalidInput`]: ../enum.Error.html#variant.InvalidInput
     pub fn set_group<G>(&mut self, group: G)
     where
-        G: Into<GroupOwned>,
+        G: AsRef<GroupSlice>,
     {
-        let group = group.into();
-        let string: String = group.into();
-        let c_string = CString::new(string).unwrap();
+        let group = group.as_ref();
         let rc = unsafe {
-            sys::zmq_msg_set_group(self.as_mut_ptr(), c_string.as_ptr())
+            sys::zmq_msg_set_group(self.as_mut_ptr(), group.as_c_str().as_ptr())
         };
 
         // Should never occur.

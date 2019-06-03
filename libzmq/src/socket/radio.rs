@@ -40,32 +40,32 @@ use std::sync::Arc;
 ///     .build()?;
 ///
 /// let bound = radio.last_endpoint().unwrap();
-/// let a: &Group = "A".try_into()?;
-/// let b: &Group = "B".try_into()?;
+/// let a: Group = "A".try_into()?;
+/// let b: Group = "B".try_into()?;
 ///
 /// let dish_a = DishBuilder::new()
 ///     .connect(&bound)
-///     .join(a)
+///     .join(&a)
 ///     .build()?;
 ///
 /// let dish_b = DishBuilder::new()
 ///     .connect(bound)
-///     .join(b)
+///     .join(&b)
 ///     .build()?;
 ///
 /// // Start the feed. It has no conceptual start nor end, thus we
 /// // don't synchronize with the subscribers.
 /// thread::spawn(move || {
-///     let a: &Group = "A".try_into().unwrap();
-///     let b: &Group = "B".try_into().unwrap();
+///     let a: Group = "A".try_into().unwrap();
+///     let b: Group = "B".try_into().unwrap();
 ///     let mut count = 0;
 ///     loop {
 ///         let mut msg = Msg::new();
 ///         // Alternate between the two groups.
 ///         let group = if count % 2 == 0 {
-///             a
+///             &a
 ///         } else {
-///             b
+///             &b
 ///         };
 ///
 ///         msg.set_group(group);
@@ -78,10 +78,10 @@ use std::sync::Arc;
 ///
 /// // Each dish will only receive the messages from their respective groups.
 /// let msg = dish_a.recv_msg()?;
-/// assert_eq!(msg.group().unwrap(), a);
+/// assert_eq!(msg.group().unwrap(), &a);
 ///
 /// let msg = dish_b.recv_msg()?;
-/// assert_eq!(msg.group().unwrap(), b);
+/// assert_eq!(msg.group().unwrap(), &b);
 /// #
 /// #     Ok(())
 /// # }

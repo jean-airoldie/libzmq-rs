@@ -14,7 +14,7 @@ const MSG_SIZE: usize = 50;
 
 lazy_static! {
     static ref ADDR: TcpAddr = "127.0.0.1:*".try_into().unwrap();
-    static ref GROUP: &'static Group = "group".try_into().unwrap();
+    static ref GROUP: Group = "group".try_into().unwrap();
 }
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
@@ -70,7 +70,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                 let dataset = gen_dataset(MSG_AMOUNT, MSG_SIZE);
                 for data in dataset {
                     let mut data: Msg = data.into();
-                    data.set_group(*GROUP);
+                    data.set_group(&*GROUP);
 
                     producer.send(data).unwrap();
                     let _ = consumer.try_recv(&mut msg);
