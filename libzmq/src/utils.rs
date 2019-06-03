@@ -72,7 +72,7 @@ pub fn has(capability: &str) -> bool {
 ///
 /// let radio_addr: InprocAddr = "frontend".try_into()?;
 /// let dish_addr: InprocAddr = "backend".try_into()?;
-/// let group: &Group = "some group".try_into()?;
+/// let group: Group = "some group".try_into()?;
 ///
 /// let radio = RadioBuilder::new()
 ///     .bind(&radio_addr)
@@ -80,7 +80,7 @@ pub fn has(capability: &str) -> bool {
 ///
 /// let frontend = DishBuilder::new()
 ///     .connect(&radio_addr)
-///     .join(group)
+///     .join(&group)
 ///     .build()?;
 ///
 /// let backend = RadioBuilder::new()
@@ -89,13 +89,13 @@ pub fn has(capability: &str) -> bool {
 ///
 /// let dish = DishBuilder::new()
 ///     .connect(&dish_addr)
-///     .join(group)
+///     .join(&group)
 ///     .build()?;
 ///
 /// let proxy_handle = thread::spawn(move || proxy(frontend, backend));
 ///
 /// let mut msg = Msg::new();
-/// msg.set_group(group);
+/// msg.set_group(&group);
 /// radio.send(msg)?;
 ///
 /// let msg = dish.recv_msg()?;

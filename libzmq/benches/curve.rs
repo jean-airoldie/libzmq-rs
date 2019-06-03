@@ -14,7 +14,6 @@ const MSG_SIZE: usize = 50;
 
 lazy_static! {
     static ref ADDR: TcpAddr = "127.0.0.1:*".try_into().unwrap();
-    static ref GROUP: &'static Group = "group".try_into().unwrap();
 }
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
