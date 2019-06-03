@@ -252,14 +252,12 @@ pub trait Socket: GetRawSocket {
     /// * The endpoint's protocol must be supported by the socket.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint)
-    /// * [`IncompatTransport`] (transport not supported)
+    /// * [`InvalidInput`] (transport incompatible or not supported)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_connect`]: http://api.zeromq.org/master:zmq-connect
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     fn connect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
@@ -297,13 +295,11 @@ pub trait Socket: GetRawSocket {
     /// * The endpoint must be already connected to.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint)
     /// * [`NotFound`] (endpoint not connected to)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_disconnect`]: http://api.zeromq.org/master:zmq-disconnect
-    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
@@ -345,16 +341,14 @@ pub trait Socket: GetRawSocket {
     /// * The endpoint must be local.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint)
-    /// * [`IncompatTransport`] (transport is not supported)
+    /// * [`InvalidInput`] (transport incompatible or not supported)
     /// * [`AddrInUse`] (addr already in use)
-    /// * [`AddrNotAvailable`] (not local)
+    /// * [`AddrNotAvailable`] (addr not local)
     /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_bind`]: http://api.zeromq.org/master:zmq-bind
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    /// [`IncompatTransport`]: ../enum.ErrorKind.html#variant.IncompatTransport
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
@@ -397,13 +391,11 @@ pub trait Socket: GetRawSocket {
     /// * The endpoint must be currently bound.
     ///
     /// # Returned Errors
-    /// * [`InvalidInput`] (invalid endpoint)
-    /// * [`CtxTerminated`]
     /// * [`NotFound`] (endpoint was not bound to)
+    /// * [`CtxTerminated`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
-    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     /// [`linger`]: #method.linger
