@@ -22,12 +22,20 @@ use crate::{
 use serde::{Deserialize, Serialize};
 
 /// An enum containing all the socket types.
+///
+/// # Note
+/// This error type is non-exhaustive and could have additional variants
+/// added in future. Therefore, when matching against variants of
+/// non-exhaustive enums, an extra wildcard arm must be added to account
+/// for any future variants.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SocketType {
     Client(Client),
     Server(Server),
     Radio(Radio),
     Dish(Dish),
+    Gather(Gather),
+    Scatter(Scatter),
 }
 
 impl GetRawSocket for SocketType {
@@ -37,11 +45,19 @@ impl GetRawSocket for SocketType {
             SocketType::Server(server) => server.raw_socket(),
             SocketType::Radio(radio) => radio.raw_socket(),
             SocketType::Dish(dish) => dish.raw_socket(),
+            SocketType::Gather(dish) => dish.raw_socket(),
+            SocketType::Scatter(dish) => dish.raw_socket(),
         }
     }
 }
 
 /// An enum containing all the socket config types.
+///
+/// # Note
+/// This error type is non-exhaustive and could have additional variants
+/// added in future. Therefore, when matching against variants of
+/// non-exhaustive enums, an extra wildcard arm must be added to account
+/// for any future variants.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConfigType {
@@ -49,6 +65,8 @@ pub enum ConfigType {
     Server(ServerConfig),
     Radio(RadioConfig),
     Dish(DishConfig),
+    Gather(GatherConfig),
+    Scatter(ScatterConfig),
 }
 
 impl ConfigType {
@@ -69,6 +87,14 @@ impl ConfigType {
             ConfigType::Dish(config) => {
                 let dish = config.build()?;
                 Ok(SocketType::Dish(dish))
+            }
+            ConfigType::Gather(config) => {
+                let dish = config.build()?;
+                Ok(SocketType::Gather(dish))
+            }
+            ConfigType::Scatter(config) => {
+                let dish = config.build()?;
+                Ok(SocketType::Scatter(dish))
             }
         }
     }
