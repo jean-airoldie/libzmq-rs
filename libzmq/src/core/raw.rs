@@ -310,20 +310,6 @@ impl RawSocket {
         )
     }
 
-    pub(crate) fn linger(&self) -> Result<Period, Error> {
-        getsockopt_option_duration(self.as_mut_ptr(), SocketOption::Linger, -1)
-            .map(Into::into)
-    }
-
-    pub(crate) fn set_linger(&self, period: Period) -> Result<(), Error> {
-        setsockopt_option_duration(
-            self.as_mut_ptr(),
-            SocketOption::Linger,
-            period.into(),
-            -1,
-        )
-    }
-
     pub(crate) fn set_username(
         &self,
         maybe: Option<&str>,

@@ -188,7 +188,6 @@ struct FlatServerConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    linger: Period,
     send_high_water_mark: Quantity,
     send_timeout: Period,
     recv_high_water_mark: Quantity,
@@ -205,7 +204,6 @@ impl From<ServerConfig> for FlatServerConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             heartbeat: socket_config.heartbeat,
-            linger: socket_config.linger,
             mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
@@ -221,7 +219,6 @@ impl From<FlatServerConfig> for ServerConfig {
             connect: flat.connect,
             bind: flat.bind,
             heartbeat: flat.heartbeat,
-            linger: flat.linger,
             mechanism: flat.mechanism,
         };
         let send_config = SendConfig {

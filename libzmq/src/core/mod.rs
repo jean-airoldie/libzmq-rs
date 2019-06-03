@@ -281,8 +281,7 @@ pub trait Socket: GetRawSocket {
     /// Disconnect the socket from one or more [`Endpoints`].
     ///
     /// Any outstanding messages physically received from the network but not
-    /// yet received by the application are discarded. The behaviour for
-    /// discarding messages depends on the value of [`linger`].
+    /// yet received by the application are discarded.
     ///
     /// When any of the connection attempt fail, the `Error` will contain the position
     /// of the iterator before the failure. This represents the number of
@@ -302,7 +301,6 @@ pub trait Socket: GetRawSocket {
     /// [`zmq_disconnect`]: http://api.zeromq.org/master:zmq-disconnect
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-    /// [`linger`]: #method.linger
     fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
@@ -374,8 +372,7 @@ pub trait Socket: GetRawSocket {
     /// Unbinds the socket from one or more [`Endpoints`].
     ///
     /// Any outstanding messages physically received from the network but not
-    /// yet received by the application are discarded. The behaviour for
-    /// discarding messages depends on the value of [`linger`].
+    /// yet received by the application are discarded.
     ///
     /// See [`zmq_unbind`].
     ///
@@ -398,7 +395,6 @@ pub trait Socket: GetRawSocket {
     /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-    /// [`linger`]: #method.linger
     fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
@@ -452,29 +448,6 @@ pub trait Socket: GetRawSocket {
     /// ```
     fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
         self.raw_socket().last_endpoint()
-    }
-
-    /// Returns the linger period for the socket shutdown.
-    fn linger(&self) -> Result<Period, Error> {
-        self.raw_socket().linger()
-    }
-
-    /// Sets the linger period for the socket shutdown.
-    ///
-    /// The linger period determines how long pending messages which have
-    /// yet to be sent to a peer shall linger in memory after a socket is
-    /// disconnected or dropped.
-    ///
-    /// A value of `None` means an infinite period.
-    ///
-    /// # Default Value
-    /// 30 secs
-    fn set_linger<P>(&self, period: P) -> Result<(), Error>
-    where
-        P: Into<Period>,
-    {
-        let period = period.into();
-        self.raw_socket().set_linger(period)
     }
 
     /// Returns the socket's [`Mechanism`].
@@ -711,7 +684,6 @@ pub struct SocketConfig {
     pub(crate) connect: Option<Vec<Endpoint>>,
     pub(crate) bind: Option<Vec<Endpoint>>,
     pub(crate) heartbeat: Option<Heartbeat>,
-    pub(crate) linger: Period,
     pub(crate) mechanism: Option<Mechanism>,
 }
 
@@ -723,7 +695,6 @@ impl SocketConfig {
         socket
             .set_heartbeat(self.heartbeat.clone())
             .map_err(Error::cast)?;
-        socket.set_linger(self.linger).map_err(Error::cast)?;
         if let Some(ref mechanism) = self.mechanism {
             socket.set_mechanism(mechanism).map_err(Error::cast)?;
         }
@@ -786,14 +757,6 @@ pub trait ConfigureSocket: GetSocketConfig {
         self.socket_config_mut().bind = maybe;
     }
 
-    fn linger(&self) -> Period {
-        self.socket_config().linger
-    }
-
-    fn set_linger(&mut self, period: Period) {
-        self.socket_config_mut().linger = period;
-    }
-
     fn mechanism(&self) -> Option<&Mechanism> {
         self.socket_config().mechanism.as_ref()
     }
@@ -830,11 +793,6 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         E: Into<Endpoint>,
     {
         self.socket_config_mut().set_bind(Some(endpoints));
-        self
-    }
-
-    fn linger(&mut self, period: Period) -> &mut Self {
-        self.socket_config_mut().set_linger(period);
         self
     }
 
