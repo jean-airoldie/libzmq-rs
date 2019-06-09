@@ -48,15 +48,3 @@ flatc-rust = "0.1"
 [[bench]]
 name = "bench_main"
 harness = false
-
-[[example]]
-name = "gen_curve_cert"
-
-[[example]]
-name = "basic_req_rep"
-
-[[example]]
-name = "reliable_req_rep"
-
-[[example]]
-name = "secure_req_rep"
