@@ -1,7 +1,7 @@
 //! Asynchronous polling mechanim.
 
 use crate::{
-    core::GetRawSocket,
+    core::{GetRawSocket, Period},
     error::{msg_from_errno, Error, ErrorKind},
 };
 
@@ -12,7 +12,6 @@ use bitflags::bitflags;
 
 use std::{
     os::raw::{c_short, c_void},
-    time::Duration,
 };
 
 bitflags! {
@@ -211,7 +210,7 @@ impl IntoIterator for Events {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, Client, Server, TcpAddr, poll::*};
+/// use libzmq::{prelude::*, *, poll::*};
 /// use std::convert::TryInto;
 ///
 /// // We initialize our sockets and connect them to each other.
@@ -237,8 +236,8 @@ impl IntoIterator for Events {
 ///
 /// // Now the client and each server will send messages back and forth.
 /// for _ in 0..100 {
-///     // This waits indefinitely until at least one event is detected.
-///     poller.block(&mut events, None)?;
+///     // Wait indefinitely until at least one event is detected.
+///     poller.block(&mut events, Period::Infinite)?;
 ///     // Iterate over the detected events.
 ///     for event in &events {
 ///         // Guard against spurious wakeups.
@@ -451,10 +450,10 @@ impl Poller {
     pub fn block(
         &mut self,
         events: &mut Events,
-        timeout: Option<Duration>,
+        timeout: Period,
     ) -> Result<(), Error> {
         match timeout {
-            Some(duration) => {
+            Period::Finite(duration) => {
                 let ms = duration.as_millis();
                 if ms > i64::max_value() as u128 {
                     return Err(Error::new(ErrorKind::InvalidInput {
@@ -463,7 +462,7 @@ impl Poller {
                 }
                 self.wait(events, ms as i64)
             }
-            None => self.wait(events, -1),
+            Period::Infinite => self.wait(events, -1),
         }
     }
 }

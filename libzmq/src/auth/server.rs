@@ -192,7 +192,7 @@ impl AuthServer {
         let mut events = Events::new();
 
         loop {
-            poller.block(&mut events, None)?;
+            poller.block(&mut events, Period::Infinite)?;
 
             for event in &events {
                 if event.flags().contains(READABLE) {
