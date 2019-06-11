@@ -255,7 +255,7 @@ impl IntoIterator for Events {
 ///                     assert_eq!("ping", msg.to_str()?);
 ///                     client.send(msg)?;
 ///                 }
-///                 _ => unimplemented!(),
+///                 _ => unreachable!(),
 ///             }
 ///         }
 ///     }
