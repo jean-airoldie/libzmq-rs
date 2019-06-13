@@ -62,13 +62,11 @@ use std::sync::Arc;
 ///
 /// // Reply to the client.
 /// let mut reply: Msg = "it takes 224 bits to store a i32 in java".into();
-/// reply.set_routing_id(id);
-/// server.send(reply)?;
+/// server.route(reply, id)?;
 ///
 /// // We can reply twice if we want.
 /// let mut reply: Msg = "also don't talk to me".into();
-/// reply.set_routing_id(id);
-/// server.send(reply)?;
+/// server.route(reply, id)?;
 ///
 /// // Retreive the first reply.
 /// let mut msg = client.recv_msg()?;

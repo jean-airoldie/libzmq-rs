@@ -45,15 +45,14 @@ pub(crate) fn bench(c: &mut Criterion) {
 
             consumer.send("").unwrap();
             let mut msg = producer.recv_msg().unwrap();
-            let routing_id = msg.routing_id().unwrap();
+            let id = msg.routing_id().unwrap();
 
             b.iter(|| {
                 let dataset = gen_dataset(MSG_AMOUNT, MSG_SIZE);
                 for data in dataset {
-                    let mut data: Msg = data.into();
-                    data.set_routing_id(routing_id);
+                    let data: Msg = data.into();
 
-                    producer.send(data).unwrap();
+                    producer.route(data, id).unwrap();
                     let _ = consumer.try_recv(&mut msg);
                 }
             });

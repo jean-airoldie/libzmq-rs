@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, *};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,8 +9,9 @@ use std::sync::Arc;
 /// A `Server` socket talks to a set of [`Client`] sockets. The [`Client`] must
 /// first initiate the conversation, which generates a [`routing_id`] associated
 /// with the connection. Each message received from a `Server` will have this
-/// [`routing_id`]. To send messages back to the server, you must
-/// [`set_routing_id`] on the messages. If the [`routing_id`] is not specified, or
+/// [`routing_id`]. To send messages back to the server, you must associate them
+/// to a `RoutingId` either manually using [`set_routing_id`] or via the [`route`]
+/// convenience method. If the [`routing_id`] is not specified, or
 /// does not refer to a connected server peer, the send call will fail with
 /// [`HostUnreachable`].
 ///
@@ -55,16 +56,14 @@ use std::sync::Arc;
 /// client.send("request")?;
 /// let msg = server.recv_msg()?;
 /// assert_eq!("request", msg.to_str()?);
-/// let routing_id = msg.routing_id().unwrap();
+/// let id = msg.routing_id().unwrap();
 ///
 /// // Using this `routing_id`, we can now route as many replies as we
 /// // want to the client.
-/// let mut msg: Msg = "reply 1".into();
-/// msg.set_routing_id(routing_id);
-/// server.send(msg)?;
-/// let mut msg: Msg = "reply 2".into();
-/// msg.set_routing_id(routing_id);
-/// server.send(msg)?;
+/// let msg: Msg = "reply 1".into();
+/// server.route(msg, id)?;
+/// let msg: Msg = "reply 2".into();
+/// server.route(msg, id)?;
 ///
 /// // The `routing_id` is discarted when the message is sent to the client.
 /// let mut msg = client.recv_msg()?;
@@ -78,7 +77,7 @@ use std::sync::Arc;
 /// # }
 /// ```
 ///
-/// [`MORE`]: constant.MORE.html
+/// [`route`]: #method.route
 /// [`Client`]: struct.Client.html
 /// [`routing_id`]: struct.Msg.html#method.routing_id
 /// [`set_routing_id`]: struct.Msg.html#method.set_routing_id
@@ -124,6 +123,42 @@ impl Server {
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> &crate::Ctx {
         self.inner.ctx()
+    }
+
+    /// Push a message into the outgoing socket queue with the specified
+    /// `RoutingId`.
+    ///
+    /// This is a convenience function that sets the `Msg`'s `RoutingId` then
+    /// sends it.
+    ///
+    /// See [`send`] for more information.
+    ///
+    /// [`send`]: prelude/trait.SendMsg.html#method.send
+    pub fn route<M>(&self, msg: M, id: RoutingId) -> Result<(), Error<Msg>>
+    where
+        M: Into<Msg>,
+    {
+        let mut msg = msg.into();
+        msg.set_routing_id(id);
+        self.send(msg)
+    }
+
+    /// Try to push a message into the outgoing socket queue with the specified
+    /// `RoutingId`.
+    ///
+    /// This is a convenience function that sets the `Msg`'s `RoutingId` then
+    /// tries sends it.
+    ///
+    /// See [`try_send`] for more information.
+    ///
+    /// [`try_send`]: prelude/trait.SendMsg.html#method.try_send
+    pub fn try_route<M>(&self, msg: M, id: RoutingId) -> Result<(), Error<Msg>>
+    where
+        M: Into<Msg>,
+    {
+        let mut msg = msg.into();
+        msg.set_routing_id(id);
+        self.try_send(msg)
     }
 }
 
