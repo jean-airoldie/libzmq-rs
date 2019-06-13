@@ -68,10 +68,9 @@ pub(crate) fn bench(c: &mut Criterion) {
             b.iter(|| {
                 let dataset = gen_dataset(MSG_AMOUNT, MSG_SIZE);
                 for data in dataset {
-                    let mut data: Msg = data.into();
-                    data.set_group(&*GROUP);
+                    let data: Msg = data.into();
 
-                    producer.send(data).unwrap();
+                    producer.transmit(data, &*GROUP).unwrap();
                     let _ = consumer.try_recv(&mut msg);
                 }
             });
