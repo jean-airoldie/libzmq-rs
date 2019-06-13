@@ -219,9 +219,8 @@ impl AuthServer {
                             let reply = self.on_request(request);
                             let ser = bincode::serialize(&reply).unwrap();
 
-                            let mut msg: Msg = ser.into();
-                            msg.set_routing_id(id);
-                            self.request.send(msg).map_err(Error::cast)?;
+                            let msg: Msg = ser.into();
+                            self.request.route(msg, id).map_err(Error::cast)?;
                         }
                         _ => unreachable!(),
                     }

@@ -40,6 +40,6 @@ pub(crate) fn bench(c: &mut Criterion) {
                 black_box(msg);
             });
         })
-        .measurement_time(Duration::from_secs(30))
+        .measurement_time(Duration::from_secs(30)),
     );
 }

@@ -10,9 +10,7 @@ use sys::errno;
 
 use bitflags::bitflags;
 
-use std::{
-    os::raw::{c_short, c_void},
-};
+use std::os::raw::{c_short, c_void};
 
 bitflags! {
     /// The event flags that can be specified to the poller.

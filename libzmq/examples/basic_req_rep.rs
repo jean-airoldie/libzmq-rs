@@ -15,10 +15,9 @@ fn main() -> Result<(), failure::Error> {
 
             // Retrieve the routing_id to route the reply to the client.
             let id = request.routing_id().unwrap();
-            let mut reply: Msg = "pong".into();
-            reply.set_routing_id(id);
+            let reply: Msg = "pong".into();
             // We cast the Error<Msg> to Error<()>. This drops the Msg.
-            server.send(reply).map_err(Error::cast)?;
+            server.route(reply, id).map_err(Error::cast)?;
         }
     });
 
