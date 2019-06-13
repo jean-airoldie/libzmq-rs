@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, *};
 
 use serde::{Deserialize, Serialize};
 
@@ -7,8 +7,9 @@ use std::sync::Arc;
 /// A `Radio` socket is used by a publisher to distribute data to [`Dish`]
 /// sockets.
 ///
-/// Each message belong to a group specified with [`set_group`].
-/// Messages are distributed to all members of a group.
+/// Each message sent belong to a group. By default, the group is "".
+/// This group can be specified by using [`set_group`] or using the convenience
+/// method [`transmit`]. Messages are distributed to all members of a group.
 ///
 /// # Mute State
 /// When a `Radio` socket enters the mute state due to having reached the
@@ -60,7 +61,7 @@ use std::sync::Arc;
 ///     let b: Group = "B".try_into().unwrap();
 ///     let mut count = 0;
 ///     loop {
-///         let mut msg = Msg::new();
+///         let msg = Msg::new();
 ///         // Alternate between the two groups.
 ///         let group = if count % 2 == 0 {
 ///             &a
@@ -68,8 +69,7 @@ use std::sync::Arc;
 ///             &b
 ///         };
 ///
-///         msg.set_group(group);
-///         radio.send(msg).unwrap();
+///         radio.transmit(msg, group).unwrap();
 ///
 ///         thread::sleep(Duration::from_millis(1));
 ///         count += 1;
@@ -89,6 +89,7 @@ use std::sync::Arc;
 ///
 /// [`Dish`]: struct.Dish.html
 /// [`set_group`]: struct.Msg.html#method.set_group
+/// [`transmit`]: #method.transmit
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Radio {
     inner: Arc<RawSocket>,
@@ -147,6 +148,43 @@ impl Radio {
     /// [`send_high_water_mark`]: #method.send_high_water_mark
     pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
         self.inner.set_no_drop(enabled)
+    }
+
+    /// Push a message into the outgoing socket queue with the specified group.
+    ///
+    /// This is a convenience function that sets the `Msg`'s group then
+    /// sends it.
+    ///
+    /// See [`send`] for more information.
+    ///
+    /// [`send`]: prelude/trait.SendMsg.html#method.send
+    pub fn transmit<M, G>(&self, msg: M, group: G) -> Result<(), Error<Msg>>
+    where
+        M: Into<Msg>,
+        G: AsRef<GroupSlice>,
+    {
+        let mut msg = msg.into();
+        msg.set_group(group);
+        self.send(msg)
+    }
+
+    /// Try to push a message into the outgoing socket queue with the specified
+    /// group.
+    ///
+    /// This is a convenience function that sets the `Msg`'s group then
+    /// tries sends it.
+    ///
+    /// See [`try_send`] for more information.
+    ///
+    /// [`try_send`]: prelude/trait.SendMsg.html#method.try_send
+    pub fn try_transmit<M, G>(&self, msg: M, group: G) -> Result<(), Error<Msg>>
+    where
+        M: Into<Msg>,
+        G: AsRef<GroupSlice>,
+    {
+        let mut msg = msg.into();
+        msg.set_group(group);
+        self.try_send(msg)
     }
 }
 

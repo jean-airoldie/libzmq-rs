@@ -114,8 +114,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
 ///             &b
 ///         };
 ///
-///         msg.set_group(group);
-///         radio.send(msg).unwrap();
+///         radio.transmit(msg, group).unwrap();
 ///
 ///         thread::sleep(Duration::from_millis(1));
 ///         count += 1;
