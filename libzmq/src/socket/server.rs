@@ -60,10 +60,8 @@ use std::sync::Arc;
 ///
 /// // Using this `routing_id`, we can now route as many replies as we
 /// // want to the client.
-/// let msg: Msg = "reply 1".into();
-/// server.route(msg, id)?;
-/// let msg: Msg = "reply 2".into();
-/// server.route(msg, id)?;
+/// server.route("reply 1", id)?;
+/// server.route("reply 2", id)?;
 ///
 /// // The `routing_id` is discarted when the message is sent to the client.
 /// let mut msg = client.recv_msg()?;
