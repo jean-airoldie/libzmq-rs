@@ -44,12 +44,10 @@ use std::{
 /// // ØMQ generates a `RoutingId` for the client upon reception of the
 /// // first message.
 /// let msg = server.recv_msg()?;
-/// let routing_id = msg.routing_id().unwrap();
+/// let id = msg.routing_id().unwrap();
 ///
 /// // This `RoutingId` is used to route messages back to the `Client`.
-/// let mut msg: Msg = "".into();
-/// msg.set_routing_id(routing_id);
-/// server.send(msg)?;
+/// server.route("", id)?;
 /// #
 /// #     Ok(())
 /// # }

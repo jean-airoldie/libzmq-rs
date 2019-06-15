@@ -30,9 +30,7 @@ fn main() -> Result<(), failure::Error> {
 
             // Retrieve the routing_id to route the reply to the client.
             let id = request.routing_id().unwrap();
-            let reply: Msg = "pong".into();
-
-            if let Err(err) = server.route(reply, id) {
+            if let Err(err) = server.route("pong", id) {
                 match err.kind() {
                     // Cannot route msg, drop it.
                     WouldBlock | HostUnreachable => (),
