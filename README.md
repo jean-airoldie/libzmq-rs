@@ -45,14 +45,10 @@ let msg = server.recv_msg()?;
 let id = msg.routing_id().unwrap();
 
 // Reply to the client.
-let mut reply: Msg = "it takes 224 bits to store a i32 in java".into();
-reply.set_routing_id(id);
-server.send(reply)?;
+server.route("it takes 224 bits to store a i32 in java", id)?;
 
 // We can reply twice if we want.
-let mut reply: Msg = "also don't talk to me".into();
-reply.set_routing_id(id);
-server.send(reply)?;
+server.route("also don't talk to me", id)?;
 
 // Retreive the first reply.
 let mut msg = client.recv_msg()?;
