@@ -318,9 +318,9 @@ impl Poller {
             let errno = unsafe { sys::zmq_errno() };
             let err = {
                 match errno {
-                    errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                        msg: "cannot add socket twice",
-                    }),
+                    errno::EINVAL => Error::new(ErrorKind::InvalidInput(
+                        "cannot add socket twice",
+                    )),
                     errno::ENOTSOCK => panic!("invalid socket"),
                     _ => panic!(msg_from_errno(errno)),
                 }
@@ -365,9 +365,9 @@ impl Poller {
             let err = {
                 match errno {
                     errno::ENOTSOCK => panic!("invalid socket"),
-                    errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                        msg: "cannot remove absent socket",
-                    }),
+                    errno::EINVAL => Error::new(ErrorKind::InvalidInput(
+                        "cannot remove absent socket",
+                    )),
                     _ => panic!(msg_from_errno(errno)),
                 }
             };
@@ -454,9 +454,9 @@ impl Poller {
             Period::Finite(duration) => {
                 let ms = duration.as_millis();
                 if ms > i64::max_value() as u128 {
-                    return Err(Error::new(ErrorKind::InvalidInput {
-                        msg: "ms in timeout must be less than i64::MAX",
-                    }));
+                    return Err(Error::new(ErrorKind::InvalidInput(
+                        "ms in timeout must be less than i64::MAX",
+                    )));
                 }
                 self.wait(events, ms as i64)
             }

@@ -66,12 +66,12 @@ fn connect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
                 errno::EINVAL => {
                     panic!("invalid endpoint : {}", c_string.to_string_lossy())
                 }
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
-                    msg: "transport not supported",
-                }),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
-                    msg: "transport incompatible",
-                }),
+                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput(
+                    "transport not supported",
+                )),
+                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput(
+                    "transport incompatible",
+                )),
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::ENOTSOCK => panic!("invalid socket"),
                 errno::EMTHREAD => panic!("no i/o thread available"),
@@ -95,12 +95,12 @@ fn bind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
                 errno::EINVAL => {
                     panic!("invalid endpoint : {}", c_string.to_string_lossy())
                 }
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput {
-                    msg: "transport not supported",
-                }),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput {
-                    msg: "transport incompatible",
-                }),
+                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput(
+                    "transport not supported",
+                )),
+                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput(
+                    "transport incompatible",
+                )),
                 errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
                 errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
                 errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
@@ -129,9 +129,9 @@ fn disconnect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
                 }
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => Error::new(ErrorKind::NotFound {
-                    msg: "endpoint was not connected to",
-                }),
+                errno::ENOENT => Error::new(ErrorKind::NotFound(
+                    "endpoint was not connected to",
+                )),
                 _ => panic!(msg_from_errno(errno)),
             }
         };
@@ -154,9 +154,9 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
                 }
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => Error::new(ErrorKind::NotFound {
-                    msg: "endpoint was not bound to",
-                }),
+                errno::ENOENT => {
+                    Error::new(ErrorKind::NotFound("endpoint was not bound to"))
+                }
                 _ => panic!(msg_from_errno(errno)),
             }
         };
@@ -299,9 +299,9 @@ impl RawSocket {
     ) -> Result<(), Error> {
         let ms = duration.as_millis();
         if ms > MAX_HB_TTL as u128 {
-            return Err(Error::new(ErrorKind::InvalidInput {
-                msg: "duration ms cannot exceed 6553599",
-            }));
+            return Err(Error::new(ErrorKind::InvalidInput(
+                "duration ms cannot exceed 6553599",
+            )));
         }
         setsockopt_duration(
             self.as_mut_ptr(),

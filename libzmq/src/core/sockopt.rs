@@ -351,9 +351,9 @@ pub(crate) fn setsockopt_duration(
 
 fn check_duration(duration: Duration) -> Result<(), Error> {
     if duration.as_millis() > i32::max_value() as u128 {
-        Err(Error::new(ErrorKind::InvalidInput {
-            msg: "ms in duration cannot be greater than i32::MAX",
-        }))
+        Err(Error::new(ErrorKind::InvalidInput(
+            "ms in duration cannot be greater than i32::MAX",
+        )))
     } else {
         Ok(())
     }
