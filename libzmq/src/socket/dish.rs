@@ -18,17 +18,15 @@ fn join(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput(
-                    "cannot join group twice",
-                )),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
+        let err = match errno {
+            errno::EINVAL => {
+                Error::new(ErrorKind::InvalidInput("cannot join group twice"))
             }
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::EINTR => Error::new(ErrorKind::Interrupted),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EMTHREAD => panic!("no i/o thread available"),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
@@ -43,17 +41,15 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput(
-                    "cannot leave a group that wasn't joined",
-                )),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
-            }
+        let err = match errno {
+            errno::EINVAL => Error::new(ErrorKind::InvalidInput(
+                "cannot leave a group that wasn't joined",
+            )),
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::EINTR => Error::new(ErrorKind::Interrupted),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EMTHREAD => panic!("no i/o thread available"),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
@@ -563,13 +559,7 @@ mod test {
             loop {
                 let mut msg = Msg::new();
                 // Alternate between the two groups.
-                let group = {
-                    if count % 2 == 0 {
-                        &a
-                    } else {
-                        &b
-                    }
-                };
+                let group = if count % 2 == 0 { &a } else { &b };
 
                 msg.set_group(group);
                 radio.send(msg).unwrap();

@@ -22,19 +22,17 @@ fn recv(
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
-                errno::ENOTSUP => panic!("recv not supported by socket type"),
-                errno::EFSM => panic!(
-                    "operation cannot be completed in current socket state"
-                ),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
-                errno::EFAULT => panic!("invalid message"),
-                _ => panic!(msg_from_errno(errno)),
+        let err = match errno {
+            errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
+            errno::ENOTSUP => panic!("recv not supported by socket type"),
+            errno::EFSM => {
+                panic!("operation cannot be completed in current socket state")
             }
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EINTR => Error::new(ErrorKind::Interrupted),
+            errno::EFAULT => panic!("invalid message"),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)

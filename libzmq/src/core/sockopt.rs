@@ -104,14 +104,12 @@ fn getsockopt(
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => panic!("invalid option"),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
-                _ => panic!(msg_from_errno(errno)),
-            }
+        let err = match errno {
+            errno::EINVAL => panic!("invalid option"),
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EINTR => Error::new(ErrorKind::Interrupted),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
@@ -233,14 +231,12 @@ fn setsockopt(
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => panic!("invalid option"),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
-                _ => panic!(msg_from_errno(errno)),
-            }
+        let err = match errno {
+            errno::EINVAL => panic!("invalid option"),
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EINTR => Error::new(ErrorKind::Interrupted),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)

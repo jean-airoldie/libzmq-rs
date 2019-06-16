@@ -61,22 +61,20 @@ fn connect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => {
-                    panic!("invalid endpoint : {}", c_string.to_string_lossy())
-                }
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput(
-                    "transport not supported",
-                )),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput(
-                    "transport incompatible",
-                )),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
+        let err = match errno {
+            errno::EINVAL => {
+                panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
+            errno::EPROTONOSUPPORT => {
+                Error::new(ErrorKind::InvalidInput("transport not supported"))
+            }
+            errno::ENOCOMPATPROTO => {
+                Error::new(ErrorKind::InvalidInput("transport incompatible"))
+            }
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EMTHREAD => panic!("no i/o thread available"),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
@@ -90,25 +88,23 @@ fn bind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => {
-                    panic!("invalid endpoint : {}", c_string.to_string_lossy())
-                }
-                errno::EPROTONOSUPPORT => Error::new(ErrorKind::InvalidInput(
-                    "transport not supported",
-                )),
-                errno::ENOCOMPATPROTO => Error::new(ErrorKind::InvalidInput(
-                    "transport incompatible",
-                )),
-                errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
-                errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
-                errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EMTHREAD => panic!("no i/o thread available"),
-                _ => panic!(msg_from_errno(errno)),
+        let err = match errno {
+            errno::EINVAL => {
+                panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
+            errno::EPROTONOSUPPORT => {
+                Error::new(ErrorKind::InvalidInput("transport not supported"))
+            }
+            errno::ENOCOMPATPROTO => {
+                Error::new(ErrorKind::InvalidInput("transport incompatible"))
+            }
+            errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
+            errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
+            errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EMTHREAD => panic!("no i/o thread available"),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
@@ -122,18 +118,16 @@ fn disconnect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => {
-                    panic!("invalid endpoint : {}", c_string.to_string_lossy())
-                }
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => Error::new(ErrorKind::NotFound(
-                    "endpoint was not connected to",
-                )),
-                _ => panic!(msg_from_errno(errno)),
+        let err = match errno {
+            errno::EINVAL => {
+                panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::ENOENT => {
+                Error::new(ErrorKind::NotFound("endpoint was not connected to"))
+            }
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
@@ -147,18 +141,16 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EINVAL => {
-                    panic!("invalid endpoint : {}", c_string.to_string_lossy())
-                }
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::ENOENT => {
-                    Error::new(ErrorKind::NotFound("endpoint was not bound to"))
-                }
-                _ => panic!(msg_from_errno(errno)),
+        let err = match errno {
+            errno::EINVAL => {
+                panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::ENOENT => {
+                Error::new(ErrorKind::NotFound("endpoint was not bound to"))
+            }
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)

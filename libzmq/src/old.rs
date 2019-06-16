@@ -16,26 +16,18 @@ fn send(
     mut msg: Msg,
     more: bool,
 ) -> Result<(), Error> {
-    let flags = {
-        if more {
-            sys::ZMQ_SNDMORE
-        } else {
-            0
-        }
-    };
+    let flags = if more { sys::ZMQ_SNDMORE } else { 0 };
     let rc = unsafe {
         sys::zmq_msg_send(msg.as_mut_ptr(), mut_sock_ptr, flags as c_int)
     };
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
-                errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
-                _ => panic!(msg_from_errno(errno)),
-            }
+        let err = match errno {
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::EINTR => Error::new(ErrorKind::Interrupted),
+            errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
@@ -49,13 +41,11 @@ fn recv(mut_sock_ptr: *mut c_void, msg: &mut Msg) -> Result<(), Error> {
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-                errno::EINTR => Error::new(ErrorKind::Interrupted),
-                errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
-                _ => panic!(msg_from_errno(errno)),
-            }
+        let err = match errno {
+            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::EINTR => Error::new(ErrorKind::Interrupted),
+            errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)

@@ -22,33 +22,23 @@ fn send(
 
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
-        let err = {
-            match errno {
-                errno::EAGAIN => {
-                    Error::with_content(ErrorKind::WouldBlock, msg)
-                }
-                errno::ENOTSUP => {
-                    panic!("send is not supported by socket type")
-                }
-                errno::EINVAL => panic!(
-                    "multipart messages are not supported by socket type"
-                ),
-                errno::EFSM => panic!(
-                    "operation cannot be completed in current socket state"
-                ),
-                errno::ETERM => {
-                    Error::with_content(ErrorKind::CtxTerminated, msg)
-                }
-                errno::ENOTSOCK => panic!("invalid socket"),
-                errno::EINTR => {
-                    Error::with_content(ErrorKind::Interrupted, msg)
-                }
-                errno::EFAULT => panic!("invalid message"),
-                errno::EHOSTUNREACH => {
-                    Error::with_content(ErrorKind::HostUnreachable, msg)
-                }
-                _ => panic!(msg_from_errno(errno)),
+        let err = match errno {
+            errno::EAGAIN => Error::with_content(ErrorKind::WouldBlock, msg),
+            errno::ENOTSUP => panic!("send is not supported by socket type"),
+            errno::EINVAL => {
+                panic!("multipart messages are not supported by socket type")
             }
+            errno::EFSM => {
+                panic!("operation cannot be completed in current socket state")
+            }
+            errno::ETERM => Error::with_content(ErrorKind::CtxTerminated, msg),
+            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::EINTR => Error::with_content(ErrorKind::Interrupted, msg),
+            errno::EFAULT => panic!("invalid message"),
+            errno::EHOSTUNREACH => {
+                Error::with_content(ErrorKind::HostUnreachable, msg)
+            }
+            _ => panic!(msg_from_errno(errno)),
         };
 
         Err(err)
