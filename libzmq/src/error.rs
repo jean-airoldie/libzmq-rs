@@ -123,15 +123,13 @@ impl<T> Display for Error<T> {
 
 impl<T> From<GroupParseError> for Error<T> {
     fn from(_error: GroupParseError) -> Self {
-        Error::new(ErrorKind::InvalidInput {
-            msg: "unable to parse group",
-        })
+        Error::new(ErrorKind::InvalidInput("unable to parse group"))
     }
 }
 
 impl<T> From<AddrParseError> for Error<T> {
     fn from(error: AddrParseError) -> Self {
-        Error::new(ErrorKind::InvalidInput { msg: error.msg() })
+        Error::new(ErrorKind::InvalidInput(error.msg()))
     }
 }
 
@@ -184,12 +182,9 @@ pub enum ErrorKind {
     AddrNotAvailable,
     /// An entity was not found.
     ///
-    /// The inner `msg` contains information on the specific entity.
-    #[fail(display = "not found: {}", msg)]
-    NotFound {
-        /// Additionnal information on the error.
-        msg: &'static str,
-    },
+    /// Contains information on the specific entity.
+    #[fail(display = "not found: {}", _0)]
+    NotFound(&'static str),
     /// The open socket limit was reached.
     #[fail(display = "open socket limit was reached")]
     SocketLimit,
@@ -199,12 +194,9 @@ pub enum ErrorKind {
     /// that can be known at compile time. Thus `panic` should be called on
     /// those types of error.
     ///
-    /// The inner `msg` contains information on the specific contract breach.
-    #[fail(display = "invalid input: {}", msg)]
-    InvalidInput {
-        /// Additionnal information on the error.
-        msg: &'static str,
-    },
+    /// Contains information on the specific contract breach.
+    #[fail(display = "invalid input: {}", _0)]
+    InvalidInput(&'static str),
 }
 
 pub(crate) fn msg_from_errno(x: i32) -> String {

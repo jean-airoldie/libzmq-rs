@@ -57,9 +57,9 @@ impl RawCtx {
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
             match errno {
-                errno::EINVAL => Err(Error::new(ErrorKind::InvalidInput {
-                    msg: "invalid value",
-                })),
+                errno::EINVAL => {
+                    Err(Error::new(ErrorKind::InvalidInput("invalid value")))
+                }
                 _ => panic!(msg_from_errno(errno)),
             }
         } else {

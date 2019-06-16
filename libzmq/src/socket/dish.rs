@@ -20,9 +20,9 @@ fn join(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
         let errno = unsafe { sys::zmq_errno() };
         let err = {
             match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "cannot join group twice",
-                }),
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput(
+                    "cannot join group twice",
+                )),
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
                 errno::ENOTSOCK => panic!("invalid socket"),
@@ -45,9 +45,9 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
         let errno = unsafe { sys::zmq_errno() };
         let err = {
             match errno {
-                errno::EINVAL => Error::new(ErrorKind::InvalidInput {
-                    msg: "cannot leave a group that wasn't joined",
-                }),
+                errno::EINVAL => Error::new(ErrorKind::InvalidInput(
+                    "cannot leave a group that wasn't joined",
+                )),
                 errno::ETERM => Error::new(ErrorKind::CtxTerminated),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
                 errno::ENOTSOCK => panic!("invalid socket"),
