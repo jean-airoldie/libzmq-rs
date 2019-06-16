@@ -1,4 +1,8 @@
 //! Asynchronous polling mechanim.
+//!
+//! See the [`Poller`] documentation to get started.
+//!
+//! [`Poller`]: struct.Poller.html
 
 use crate::{
     core::{GetRawSocket, Period, RawSocket},
