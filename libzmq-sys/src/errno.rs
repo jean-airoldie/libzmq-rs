@@ -7,6 +7,7 @@ use windows::errno;
 
 const ZMQ_HAUSNUMERO: i32 = 156_384_712;
 
+pub const EBADF: i32 = errno::EBADF;
 pub const EACCES: i32 = errno::EACCES;
 pub const EADDRINUSE: i32 = errno::EADDRINUSE;
 pub const EAGAIN: i32 = errno::EAGAIN;
