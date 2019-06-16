@@ -2,7 +2,7 @@ use crate::{core::GetRawSocket, error::*};
 use libzmq_sys as sys;
 use sys::errno;
 
-use std::{ffi, os::raw::*, ptr, str};
+use std::{os::raw::*, ptr};
 
 /// Reports the ØMQ library version.
 ///
@@ -31,22 +31,6 @@ pub fn version() -> (i32, i32, i32) {
         );
     }
     (major, minor, patch)
-}
-
-/// Check for a ZMQ capability.
-///
-/// See [`zmq_has`].
-///
-/// [`zmq_has`]: http://api.zeromq.org/4-2:zmq-has
-///
-/// ```
-/// use libzmq::has;
-///
-/// assert!(has("curve"));
-/// ```
-pub fn has(capability: &str) -> bool {
-    let c_str = ffi::CString::new(capability).unwrap();
-    unsafe { sys::zmq_has(c_str.as_ptr()) == 1 }
 }
 
 /// Start a built-in ØMQ proxy between a frontend and a backend socket.
