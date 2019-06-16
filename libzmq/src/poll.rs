@@ -16,7 +16,7 @@ bitflags! {
     /// The event flags that can be specified to the poller.
     pub struct Flags: c_short {
         /// Specifies no wakeup condition at all.
-        const NO_WAKEUP = 0b00_000_000;
+        const EMPTY = 0b00_000_000;
         /// Specifies wakeup on read readiness event.
         const READABLE = 0b00_000_001;
         /// Specifies wakeup on write readiness event.
@@ -25,7 +25,7 @@ bitflags! {
 }
 
 /// Specifies no wakeup condition at all.
-pub const NO_WAKEUP: Flags = Flags::NO_WAKEUP;
+pub const EMPTY: Flags = Flags::EMPTY;
 /// Specifies wakeup on read readiness.
 pub const READABLE: Flags = Flags::READABLE;
 /// Specifies wakeup on write readiness.
@@ -129,9 +129,9 @@ pub struct Event {
 impl Event {
     /// Specifies the kind of event that was triggered.
     ///
-    /// It will never be equal to [`NO_WAKEUP`].
+    /// It will never be equal to [`EMPTY`].
     ///
-    /// [`NO_WAKEUP`]: constant.NO_WAKEUP.html
+    /// [`EMPTY`]: constant.EMPTY.html
     pub fn flags(&self) -> Flags {
         self.flags
     }
@@ -239,7 +239,7 @@ impl IntoIterator for Events {
 ///     // Iterate over the detected events.
 ///     for event in &events {
 ///         // Guard against spurious wakeups.
-///         if event.flags() != NO_WAKEUP {
+///         if event.flags() != EMPTY {
 ///             match event.id() {
 ///                 // The server is ready to receive an incoming message.
 ///                 PollId(0) => {
@@ -273,6 +273,9 @@ impl Poller {
         Self::default()
     }
 
+    /// # Returned Errors
+    /// * [`InvalidInput`] (added socket twice)
+    ///
     /// ```
     /// # use failure::Error;
     /// #
@@ -283,8 +286,8 @@ impl Poller {
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, PollId(0), NO_WAKEUP)?;
-    /// let err = poller.add(&server, PollId(1), NO_WAKEUP).unwrap_err();
+    /// poller.add(&server, PollId(0), EMPTY)?;
+    /// let err = poller.add(&server, PollId(1), EMPTY).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -342,7 +345,7 @@ impl Poller {
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, PollId(0), NO_WAKEUP)?;
+    /// poller.add(&server, PollId(0), EMPTY)?;
     /// poller.remove(&server)?;
     ///
     /// let err = poller.remove(&server).unwrap_err();
