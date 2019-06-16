@@ -120,11 +120,9 @@ where
     assert_eq!(rc, -1);
 
     let errno = unsafe { sys::zmq_errno() };
-    let err = {
-        match errno {
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-            _ => panic!(msg_from_errno(errno)),
-        }
+    let err = match errno {
+        errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+        _ => panic!(msg_from_errno(errno)),
     };
 
     Err(err)

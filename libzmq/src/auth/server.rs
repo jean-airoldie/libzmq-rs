@@ -186,43 +186,40 @@ impl AuthServer {
 
     pub(crate) fn run(&mut self) -> Result<(), Error> {
         let mut poller = Poller::new();
-        poller.add(&self.handler, PollId(0), READABLE)?;
-        poller.add(&self.request, PollId(1), READABLE)?;
+        poller.add(&self.handler, Id(0), READABLE)?;
+        poller.add(&self.request, Id(1), READABLE)?;
 
         let mut events = Events::new();
 
         loop {
-            poller.block(&mut events, Period::Infinite)?;
+            poller.poll(&mut events, Period::Infinite)?;
 
             for event in &events {
-                if event.flags().contains(READABLE) {
-                    match event.id() {
-                        PollId(0) => {
-                            let mut parts =
-                                self.handler.recv_msg_multipart()?;
-                            let routing_id = parts.remove(0);
-                            assert!(parts.remove(0).is_empty());
+                match event.id() {
+                    Id(0) => {
+                        let mut parts = self.handler.recv_msg_multipart()?;
+                        let routing_id = parts.remove(0);
+                        assert!(parts.remove(0).is_empty());
 
-                            let request = ZapRequest::new(parts);
-                            let reply = self.on_zap(request)?;
+                        let request = ZapRequest::new(parts);
+                        let reply = self.on_zap(request)?;
 
-                            self.handler.send(routing_id, true)?;
-                            self.handler.send("", true)?;
-                            self.handler.send_multipart(reply)?;
-                        }
-                        PollId(1) => {
-                            let msg = self.request.recv_msg()?;
-                            let id = msg.routing_id().unwrap();
-                            let request: AuthRequest =
-                                bincode::deserialize(msg.as_bytes()).unwrap();
-
-                            let reply = self.on_request(request);
-                            let ser = bincode::serialize(&reply).unwrap();
-
-                            self.request.route(ser, id).map_err(Error::cast)?;
-                        }
-                        _ => unreachable!(),
+                        self.handler.send(routing_id, true)?;
+                        self.handler.send("", true)?;
+                        self.handler.send_multipart(reply)?;
                     }
+                    Id(1) => {
+                        let msg = self.request.recv_msg()?;
+                        let id = msg.routing_id().unwrap();
+                        let request: AuthRequest =
+                            bincode::deserialize(msg.as_bytes()).unwrap();
+
+                        let reply = self.on_request(request);
+                        let ser = bincode::serialize(&reply).unwrap();
+
+                        self.request.route(ser, id).map_err(Error::cast)?;
+                    }
+                    _ => unreachable!(),
                 }
             }
         }
