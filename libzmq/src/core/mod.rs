@@ -245,18 +245,32 @@ pub trait Socket: GetRawSocket {
     /// of the iterator before the failure. This represents the number of
     /// connections that succeeded before the failure.
     ///
-    /// See [`zmq_connect`].
-    ///
     /// # Usage Contract
-    /// * The endpoint(s) must be valid (Endpoint does not do any validation atm).
     /// * The endpoint's protocol must be supported by the socket.
     ///
     /// # Returned Errors
     /// * [`InvalidInput`] (transport incompatible or not supported)
     /// * [`CtxTerminated`]
     ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Client, TcpAddr};
+    /// use std::convert::TryInto;
+    ///
+    /// let addr1: TcpAddr = "127.0.0.1:420".try_into()?;
+    /// let addr2: TcpAddr = "127.0.0.1:69".try_into()?;
+    ///
+    /// let client = Client::new()?;
+    /// // Connect to multiple endpoints at once.
+    /// client.connect(&[addr1, addr2])?;
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
-    /// [`zmq_connect`]: http://api.zeromq.org/master:zmq-connect
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     fn connect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
@@ -278,48 +292,6 @@ pub trait Socket: GetRawSocket {
         Ok(())
     }
 
-    /// Disconnect the socket from one or more [`Endpoints`].
-    ///
-    /// Any outstanding messages physically received from the network but not
-    /// yet received by the application are discarded.
-    ///
-    /// When any of the connection attempt fail, the `Error` will contain the position
-    /// of the iterator before the failure. This represents the number of
-    /// disconnections that succeeded before the failure.
-    ///
-    /// See [`zmq_disconnect`].
-    ///
-    /// # Usage Contract
-    /// * The endpoint must be valid (Endpoint does not do any validation atm).
-    /// * The endpoint must be already connected to.
-    ///
-    /// # Returned Errors
-    /// * [`NotFound`] (endpoint not connected to)
-    /// * [`CtxTerminated`]
-    ///
-    /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
-    /// [`zmq_disconnect`]: http://api.zeromq.org/master:zmq-disconnect
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
-    /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-    fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
-    where
-        I: IntoIterator<Item = E>,
-        E: Into<Endpoint>,
-    {
-        let mut count = 0;
-        let raw_socket = self.raw_socket();
-
-        for endpoint in endpoints.into_iter().map(E::into) {
-            raw_socket
-                .disconnect(&endpoint)
-                .map_err(|err| Error::with_content(err.kind(), count))?;
-
-            count += 1;
-        }
-
-        Ok(())
-    }
-
     /// Schedules a bind to one or more [`Endpoints`] and then accepts
     /// incoming connections.
     ///
@@ -330,11 +302,8 @@ pub trait Socket: GetRawSocket {
     /// of the iterator before the failure. This represents the number of
     /// binds that succeeded before the failure.
     ///
-    /// See [`zmq_bind`].
-    ///
     /// # Usage Contract
-    /// * The endpoint must be valid (Endpoint does not do any validation atm).
-    /// * The transport must be supported by socket type.
+    /// * The transport must be supported by the socket type.
     /// * The endpoint must not be in use.
     /// * The endpoint must be local.
     ///
@@ -344,8 +313,24 @@ pub trait Socket: GetRawSocket {
     /// * [`AddrNotAvailable`] (addr not local)
     /// * [`CtxTerminated`]
     ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, Server, TcpAddr};
+    /// use std::convert::TryInto;
+    ///
+    /// // Use a system-assigned port.
+    /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
+    ///
+    /// let server = Server::new()?;
+    /// server.bind(addr)?;
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
-    /// [`zmq_bind`]: http://api.zeromq.org/master:zmq-bind
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
@@ -369,33 +354,39 @@ pub trait Socket: GetRawSocket {
         Ok(())
     }
 
-    /// Unbinds the socket from one or more [`Endpoints`].
+    /// Disconnect the socket from one or more [`Endpoints`].
     ///
-    /// Any outstanding messages physically received from the network but not
-    /// yet received by the application are discarded.
-    ///
-    /// See [`zmq_unbind`].
+    /// The behavior of `disconnect` varies depending whether the endpoint
+    /// was connected or bound to. Note that, in both cases, the disconnection
+    /// is not immediate.
     ///
     /// When any of the connection attempt fail, the `Error` will contain the position
     /// of the iterator before the failure. This represents the number of
-    /// unbinds that succeeded before the failure.
+    /// disconnections that succeeded before the failure.
     ///
-    /// When a socket is dropped, it is unbound from all its associated endpoints
-    /// so that they become available for binding immediately.
+    /// ## Disconnect from a connected endpoint
+    /// The socket stops receiving and sending messages to the remote.
+    /// The incoming and outgoing queue of the socket associated to the endpoint are discarded.
+    /// However, the remote server might still have outstanding messages from
+    /// the socket sent prior to the disconnection in its incoming queue.
+    ///
+    /// ## Disconnect from a bound endpoint
+    /// The socket stops receiving and sending messages to peers connected to the
+    /// now unbound endpoint. The outgoing queue of the socket associated to the
+    /// endpoint is discarded, but incoming queue is kept.
     ///
     /// # Usage Contract
-    /// * The endpoint must be valid (Endpoint does not do any validation atm).
-    /// * The endpoint must be currently bound.
+    /// * The endpoint must be currently connected or bound to.
     ///
     /// # Returned Errors
     /// * [`NotFound`] (endpoint was not bound to)
     /// * [`CtxTerminated`]
     ///
+    ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
-    /// [`zmq_unbind`]: http://api.zeromq.org/master:zmq-unbind
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
+    fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
@@ -405,7 +396,7 @@ pub trait Socket: GetRawSocket {
 
         for endpoint in endpoints.into_iter().map(E::into) {
             raw_socket
-                .unbind(&endpoint)
+                .disconnect(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
@@ -811,5 +802,99 @@ pub trait BuildSocket: GetSocketConfig + Sized {
         self.socket_config_mut()
             .set_heartbeat(Some(heartbeat.into()));
         self
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_disconnect_connection() {
+        use crate::{prelude::*, *};
+        use std::{convert::TryInto, thread, time::Duration};
+
+        // Use a system-assigned port.
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+
+        let server = ServerBuilder::new()
+            .bind(addr)
+            .recv_high_water_mark(1)
+            .build()
+            .unwrap();
+
+        let bound = server.last_endpoint().unwrap();
+
+        let client = ClientBuilder::new().connect(&bound).build().unwrap();
+
+        for _ in 0..3 {
+            client.send("").unwrap();
+        }
+
+        // Confirm that we can indeed recv messages.
+        let mut msg = server.recv_msg().unwrap();
+
+        let id = msg.routing_id().unwrap();
+        server.route("", id).unwrap();
+
+        // Since the server has a recv high water mark of 1,
+        // this means that is only one outstanding message.
+        client.disconnect(bound).unwrap();
+        // Let the client some time to disconnect.
+        thread::sleep(Duration::from_millis(50));
+
+        // The client's incoming message queue was discarded.
+        client.try_recv(&mut msg).unwrap_err();
+
+        // We received this message before the disconnection.
+        server.recv(&mut msg).unwrap();
+        // The client's outgoing message queue was discarded.
+        server.try_recv(&mut msg).unwrap_err();
+    }
+
+    #[test]
+    fn test_disconnect_bind() {
+        use crate::{prelude::*, *};
+        use std::{convert::TryInto, thread, time::Duration};
+
+        // Use a system-assigned port.
+        let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
+
+        let server = ServerBuilder::new().bind(addr).build().unwrap();
+
+        let bound = server.last_endpoint().unwrap();
+
+        let client = ClientBuilder::new().connect(&bound).build().unwrap();
+
+        for _ in 0..3 {
+            client.send("").unwrap();
+        }
+
+        // Confirm that we can indeed recv messages.
+        let mut msg = server.recv_msg().unwrap();
+
+        let id = msg.routing_id().unwrap();
+        server.route("", id).unwrap();
+
+        server.disconnect(bound).unwrap();
+        // Let the server some time to disconnect.
+        thread::sleep(Duration::from_millis(50));
+
+        // The client can recv messages sent before the disconnection.
+        client.recv(&mut msg).unwrap();
+
+        // The server's incoming queue was not discarded.
+        for _ in 0..2 {
+            server.recv(&mut msg).unwrap();
+        }
+
+        client.send("").unwrap();
+        // However the socket no longer accepts new messages.
+        server.try_recv(&mut msg).unwrap_err();
+
+        // And we can't reply to the client anymore.
+        let err = server.route("", id).unwrap_err();
+        match err.kind() {
+            ErrorKind::HostUnreachable => (),
+            _ => panic!(),
+        }
     }
 }

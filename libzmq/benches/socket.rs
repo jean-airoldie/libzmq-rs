@@ -7,8 +7,6 @@ use rand::{distributions::Standard, Rng};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 
-use std::convert::TryInto;
-
 const MSG_AMOUNT: usize = 1_000;
 const MSG_SIZE: usize = 50;
 
