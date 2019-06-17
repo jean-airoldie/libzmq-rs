@@ -8,7 +8,7 @@ use std::{
     ffi,
     fmt::Debug,
     fmt::{self, Display},
-    str,
+    io, str,
 };
 
 /// An error with a kind and a msg.
@@ -136,6 +136,33 @@ impl<T> From<AddrParseError> for Error<T> {
 impl<T> From<Infallible> for Error<T> {
     fn from(_error: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+impl<T> From<Error<T>> for io::Error {
+    fn from(err: Error<T>) -> io::Error {
+        use ErrorKind::*;
+        match err.kind() {
+            WouldBlock => io::Error::from(io::ErrorKind::WouldBlock),
+            HostUnreachable => {
+                io::Error::new(io::ErrorKind::BrokenPipe, "host unreachable")
+            }
+            CtxTerminated => {
+                io::Error::new(io::ErrorKind::Other, "context terminated")
+            }
+            Interrupted => io::Error::from(io::ErrorKind::Interrupted),
+            AddrInUse => io::Error::from(io::ErrorKind::AddrInUse),
+            AddrNotAvailable => {
+                io::Error::from(io::ErrorKind::AddrNotAvailable)
+            }
+            NotFound(msg) => io::Error::new(io::ErrorKind::NotFound, msg),
+            SocketLimit => {
+                io::Error::new(io::ErrorKind::Other, "socket limit reached")
+            }
+            InvalidInput(msg) => {
+                io::Error::new(io::ErrorKind::InvalidInput, msg)
+            }
+        }
     }
 }
 
