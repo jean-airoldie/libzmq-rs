@@ -424,7 +424,6 @@ pub trait Socket: GetRawSocket {
     /// #
     /// # fn main() -> Result<(), Error> {
     /// use libzmq::{prelude::*, Server, TcpAddr, addr::Endpoint};
-    /// use std::convert::TryInto;
     ///
     /// // We create a tcp addr with an unspecified port.
     /// // This port will be assigned by the OS upon connection.

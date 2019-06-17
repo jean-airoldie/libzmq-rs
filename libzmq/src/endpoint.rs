@@ -1,9 +1,9 @@
+use crate::prelude::TryFrom;
 use failure::Fail;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
 use std::{
-    convert::TryFrom,
     fmt,
     net::{self, IpAddr, Ipv4Addr, Ipv6Addr},
     option,
@@ -155,8 +155,7 @@ macro_rules! tryfrom_fromstr {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::Hostname;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, addr::Hostname};
 ///
 /// // This is a network interface.
 /// let net: Hostname = "eth0".try_into()?;
@@ -243,8 +242,7 @@ impl<'a> TryFrom<&'a str> for Hostname {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::Port;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, addr::Port};
 ///
 /// let port: Port = "*".try_into()?;
 /// assert!(port.is_unspecified());
@@ -315,8 +313,7 @@ serde_display_tryfrom!(Port);
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::Interface;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, addr::Interface};
 ///
 /// let interface: Interface = "0.0.0.0".try_into()?;
 /// #
@@ -367,8 +364,7 @@ serde_display_tryfrom!(Interface);
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::SocketAddr;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, addr::SocketAddr};
 ///
 /// let host: SocketAddr = "127.0.0.1:3000".try_into()?;
 /// #
@@ -463,8 +459,7 @@ impl<'a> From<&'a SocketAddr> for SocketAddr {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::addr::SrcAddr;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, addr::SrcAddr};
 ///
 /// // Specify an IPv4 addr with a unspecified port.
 /// let src: SrcAddr = "192.168.1.17:*".try_into()?;
@@ -536,8 +531,7 @@ impl<'a> From<&'a SrcAddr> for SrcAddr {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::TcpAddr;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, TcpAddr};
 ///
 /// // Connecting using a IPv4 address and bind to `eth0` interface.
 /// let ipv4: TcpAddr = "eth0;192.168.1.1:5555".try_into()?;
@@ -657,8 +651,7 @@ impl<'a> From<&'a TcpAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::UdpAddr;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, UdpAddr};
 ///
 /// // Multicast - UDP port 5555 on a Multicast address
 /// let addr: UdpAddr = "239.0.0.1:5555".try_into()?;
@@ -681,8 +674,7 @@ impl UdpAddr {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{UdpAddr, addr::SocketAddr};
-    /// use std::convert::TryInto;
+    /// use libzmq::{prelude::TryInto, UdpAddr, addr::SocketAddr};
     ///
     /// let host: SocketAddr = "localhost:5555".try_into()?;
     /// // We can use a reference here which will allocate.
@@ -706,8 +698,7 @@ impl UdpAddr {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{UdpAddr, addr::{SrcAddr, SocketAddr}};
-    /// use std::convert::TryInto;
+    /// use libzmq::{prelude::TryInto, UdpAddr, addr::{SrcAddr, SocketAddr}};
     ///
     /// let host: SocketAddr = "localhost:5555".try_into()?;
     /// let src: SrcAddr = "eth0".try_into()?;
@@ -814,8 +805,7 @@ impl<'a> From<&'a UdpAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::PgmAddr;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, PgmAddr};
 ///
 /// // Connecting to the multicast address 239.192.1.1, port 5555,
 /// // using the network interface with the address 192.168.1.1
@@ -935,8 +925,7 @@ impl<'a> From<&'a PgmAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::EpgmAddr;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, EpgmAddr};
 ///
 /// // Connecting to the multicast address 239.192.1.1, port 5555,
 /// // using the first Ethernet network interface on Linux
@@ -1063,8 +1052,7 @@ impl<'a> From<&'a EpgmAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::InprocAddr;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, InprocAddr};
 ///
 /// // Can be any arbitrary string.
 /// let addr: InprocAddr = "test".try_into()?;
@@ -1228,8 +1216,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{TcpAddr, addr::Endpoint};
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, TcpAddr, addr::Endpoint};
 ///
 /// // IPv4 addr with TCP transport.
 /// let addr: TcpAddr = "127.0.0.1:9090".try_into()?;
@@ -1394,8 +1381,7 @@ mod test {
     macro_rules! test_addr_ser_de {
         ($mod: ident, $name: ty, $string: expr) => {
             mod $mod {
-                use crate::{addr::*, *};
-                use std::convert::TryInto;
+                use crate::{addr::*, prelude::*, *};
 
                 #[test]
                 fn test_ser_de() {

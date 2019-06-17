@@ -45,7 +45,7 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, auth::*, *};
-/// use std::{time::Duration, convert::TryInto};
+/// use std::{time::Duration};
 ///
 /// let server_cert = CurveCert::new_unique();
 /// let client_cert = CurveCert::new_unique();
@@ -506,7 +506,7 @@ mod test {
     use super::*;
     use crate::Client;
 
-    use std::{convert::TryInto, time::Duration};
+    use std::time::Duration;
 
     #[test]
     fn test_blacklist() {

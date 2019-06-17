@@ -25,7 +25,6 @@ use std::{
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
-/// use std::convert::TryInto;
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
@@ -233,8 +232,7 @@ impl Msg {
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{Msg, Group};
-    /// use std::convert::TryInto;
+    /// use libzmq::{prelude::TryInto, Msg, Group};
     ///
     /// let a: Group = "A".try_into()?;
     ///

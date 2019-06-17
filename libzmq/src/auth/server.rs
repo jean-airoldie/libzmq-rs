@@ -8,12 +8,7 @@ use log::info;
 
 use libc::c_long;
 
-use std::{
-    convert::{TryFrom, TryInto},
-    fmt,
-    net::Ipv6Addr,
-    vec,
-};
+use std::{fmt, net::Ipv6Addr, vec};
 
 const ZAP_VERSION: &str = "1.0";
 lazy_static! {

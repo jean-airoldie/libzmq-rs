@@ -61,10 +61,12 @@ pub mod addr {
 ///
 /// The prelude may grow over time as additional items see ubiquitous use.
 pub mod prelude {
+    // These should be in the standard prelude anyway.
     pub use crate::core::{
         BuildRecv, BuildSend, BuildSocket, ConfigureRecv, ConfigureSend,
         ConfigureSocket, RecvMsg, SendMsg, Socket,
     };
+    pub use std::convert::{TryFrom, TryInto};
 }
 
 #[cfg(test)]

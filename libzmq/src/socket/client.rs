@@ -37,7 +37,6 @@ use std::sync::Arc;
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
-/// use std::convert::TryInto;
 ///
 /// // Use a system assigned port.
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
@@ -329,8 +328,7 @@ impl BuildRecv for ClientBuilder {}
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::InprocAddr;
-    use std::convert::TryInto;
+    use crate::{prelude::TryInto, InprocAddr};
 
     #[test]
     fn test_ser_de() {

@@ -79,7 +79,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
-/// use std::{convert::TryInto, thread, time::Duration};
+/// use std::{thread, time::Duration};
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
@@ -199,7 +199,6 @@ impl Dish {
     /// #
     /// # fn main() -> Result<(), Error> {
     /// use libzmq::{prelude::*, Dish, Group};
-    /// use std::convert::TryInto;
     ///
     /// let group: Group = "some group".try_into()?;
     /// let dish = Dish::new()?;
@@ -240,7 +239,6 @@ impl Dish {
     /// #
     /// # fn main() -> Result<(), Error> {
     /// use libzmq::{prelude::*, Dish, Group};
-    /// use std::convert::TryInto;
     ///
     /// let first: Group = "first group".try_into()?;
     /// let second: Group = "second group".try_into()?;
@@ -278,7 +276,6 @@ impl Dish {
     /// #
     /// # fn main() -> Result<(), Error> {
     /// use libzmq::{prelude::*, Dish, Group};
-    /// use std::convert::TryInto;
     ///
     /// let group: Group = "some group".to_owned().try_into()?;
     ///
@@ -539,7 +536,7 @@ mod test {
     #[test]
     fn test_dish() {
         use crate::{prelude::*, TcpAddr, *};
-        use std::{convert::TryInto, thread, time::Duration};
+        use std::{thread, time::Duration};
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
