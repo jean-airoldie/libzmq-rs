@@ -8,9 +8,10 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
+mod bindings;
 pub mod errno;
+
+pub use bindings::*;
 
 #[cfg(test)]
 mod test {
