@@ -9,7 +9,9 @@ Based on this [`guide`](https://kornel.ski/rust-sys-crate) as well as [`zmq-sys`
 
 # Dependencies
 * [CMake 2.8.12+ (or 3.0.2+ on Darwin)](https://github.com/zeromq/libzmq/blob/de4d69f59788fed86bcb0f610723c5acd486a7da/CMakeLists.txt#L7)
-* [Clang 6.0+](https://github.com/rust-lang/rust-bindgen/blob/master/Cargo.toml#L51)
+
+This crate uses pre-generated bindings to `libzmq`. To generate your own
+bindings, use the `renew-bindings` feature. This requires [`Clang 3.9+`].
 
 # Build and Linking.
 The lib is built and linked statically.
@@ -28,3 +30,4 @@ These are the output ENV variables of the cargo build script:
 [`zmq-sys`]: https://github.com/erickt/rust-zmq/tree/master/zmq-sys
 [crates-io]: https://crates.io/crates/libzmq-sys
 [api-docs]: https://docs.rs/libzmq-sys
+[`Clang 3.9+`]: https://rust-lang.github.io/rust-bindgen/requirements.html
