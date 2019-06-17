@@ -38,7 +38,6 @@ use std::sync::Arc;
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
-/// use std::convert::TryInto;
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///

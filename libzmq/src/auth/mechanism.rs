@@ -1,10 +1,10 @@
 use super::*;
-use crate::*;
+use crate::{prelude::TryFrom, *};
 
 use failure::Fail;
 use serde::{Deserialize, Serialize};
 
-use std::{convert::TryFrom, option};
+use std::option;
 
 /// Credentials for a `PLAIN` client.
 /// # Example

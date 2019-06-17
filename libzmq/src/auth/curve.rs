@@ -1,4 +1,5 @@
 // The z85 codec logic is largely based on https://github.com/decafbad/z85
+use crate::prelude::TryFrom;
 
 use libzmq_sys as sys;
 
@@ -6,7 +7,7 @@ use byteorder::{BigEndian, ByteOrder};
 use failure::Fail;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use std::{convert::TryFrom, ffi::CString, fmt, option, os::raw::c_char};
+use std::{ffi::CString, fmt, option, os::raw::c_char};
 
 static LETTERS: [u8; 85] = [
     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62,

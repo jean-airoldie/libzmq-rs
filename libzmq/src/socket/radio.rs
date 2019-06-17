@@ -32,7 +32,7 @@ use std::sync::Arc;
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
-/// use std::{convert::TryInto, thread, time::Duration};
+/// use std::{thread, time::Duration};
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///

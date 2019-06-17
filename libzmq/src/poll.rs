@@ -335,7 +335,6 @@ impl IntoIterator for Events {
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *, poll::*};
-/// use std::convert::TryInto;
 ///
 /// // We initialize our sockets and connect them to each other.
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;

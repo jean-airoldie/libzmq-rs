@@ -1,11 +1,12 @@
 //! Message groups used by the `Radio` and `Dish` sockets.
 
+use crate::prelude::TryFrom;
+
 use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use std::{
     borrow::{Borrow, Cow, ToOwned},
-    convert::TryFrom,
     ffi::{CStr, CString},
     fmt, ops, option, str,
 };
@@ -152,8 +153,7 @@ impl<'a> IntoIterator for &'a GroupSlice {
 /// #
 /// # use failure::Error;
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::Group;
-/// use std::convert::TryInto;
+/// use libzmq::{prelude::TryInto, Group};
 ///
 /// let string = "abc".to_owned();
 ///

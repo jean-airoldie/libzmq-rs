@@ -52,7 +52,7 @@ pub fn version() -> (i32, i32, i32) {
 /// # use failure::Error;
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{prelude::*, *};
-/// use std::{thread, convert::TryInto};
+/// use std::thread;
 ///
 /// let radio_addr: InprocAddr = "frontend".try_into()?;
 /// let dish_addr: InprocAddr = "backend".try_into()?;
