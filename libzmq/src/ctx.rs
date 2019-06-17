@@ -332,7 +332,7 @@ impl Ctx {
         // Enable ipv6 by default.
         raw.set_bool(RawCtxOption::IPV6, true).unwrap();
         // Set linger period for all sockets to zero.
-        raw.set_bool(RawCtxOption::Blocky, false).unwrap();
+        raw.set_bool(RawCtxOption::Blocky, true).unwrap();
 
         let ctx = Self { raw };
 

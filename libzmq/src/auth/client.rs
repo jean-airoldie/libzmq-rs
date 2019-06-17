@@ -529,7 +529,7 @@ mod test {
             ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
 
         client.try_send("").unwrap();
-        assert!(server.recv_msg().is_err());
+        server.recv_msg().unwrap_err();
     }
 
     #[test]
@@ -594,7 +594,7 @@ mod test {
         client.connect(bound).unwrap();
 
         client.try_send("").unwrap();
-        assert!(server.recv_msg().is_err());
+        server.recv_msg().unwrap_err();
     }
 
     #[test]
@@ -693,7 +693,7 @@ mod test {
             .unwrap();
 
         client.try_send("").unwrap();
-        assert!(server.recv_msg().is_err());
+        server.recv_msg().unwrap_err();
     }
 
     #[test]

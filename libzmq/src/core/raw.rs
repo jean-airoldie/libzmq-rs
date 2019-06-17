@@ -125,30 +125,7 @@ fn disconnect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::ETERM => Error::new(ErrorKind::CtxTerminated),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::ENOENT => {
-                Error::new(ErrorKind::NotFound("endpoint was not connected to"))
-            }
-            _ => panic!(msg_from_errno(errno)),
-        };
-
-        Err(err)
-    } else {
-        Ok(())
-    }
-}
-
-fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
-    let rc = unsafe { sys::zmq_unbind(socket_ptr, c_string.as_ptr()) };
-
-    if rc == -1 {
-        let errno = unsafe { sys::zmq_errno() };
-        let err = match errno {
-            errno::EINVAL => {
-                panic!("invalid endpoint : {}", c_string.to_string_lossy())
-            }
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
-            errno::ENOTSOCK => panic!("invalid socket"),
-            errno::ENOENT => {
-                Error::new(ErrorKind::NotFound("endpoint was not bound to"))
+                Error::new(ErrorKind::NotFound("endpoint was not in use"))
             }
             _ => panic!(msg_from_errno(errno)),
         };
@@ -224,19 +201,14 @@ impl RawSocket {
         connect(self.as_mut_ptr(), c_string)
     }
 
-    pub(crate) fn disconnect(&self, endpoint: &Endpoint) -> Result<(), Error> {
-        let c_string = CString::new(endpoint.to_zmq()).unwrap();
-        disconnect(self.as_mut_ptr(), c_string)
-    }
-
     pub(crate) fn bind(&self, endpoint: &Endpoint) -> Result<(), Error> {
         let c_string = CString::new(endpoint.to_zmq()).unwrap();
         bind(self.as_mut_ptr(), c_string)
     }
 
-    pub(crate) fn unbind(&self, endpoint: &Endpoint) -> Result<(), Error> {
+    pub(crate) fn disconnect(&self, endpoint: &Endpoint) -> Result<(), Error> {
         let c_string = CString::new(endpoint.to_zmq()).unwrap();
-        unbind(self.as_mut_ptr(), c_string)
+        disconnect(self.as_mut_ptr(), c_string)
     }
 
     pub(crate) fn ctx(&self) -> &Ctx {
