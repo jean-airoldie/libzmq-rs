@@ -409,6 +409,7 @@ impl IntoIterator for Events {
 ///     // guaranteed to be non-empty, we don't need to protect against spurious
 ///     // wakeups.
 ///     for event in &events {
+///         assert!(event.is_readable());
 ///         match event.id() {
 ///             // The server is ready to receive an incoming message.
 ///             Id(0) => {
