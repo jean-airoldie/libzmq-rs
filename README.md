@@ -76,7 +76,7 @@ port, check out [`rust-zmq`].
 # Frequently Asked Questions
 See the [`FAQ`](./FAQ.md).
 
-# Aknowledgements
+# Acknowledgements
 * Based on [`rust-zmq`] and [`czmq`].
 
 # License
