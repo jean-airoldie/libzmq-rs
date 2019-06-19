@@ -10,7 +10,6 @@ use crate::{
     old::OldSocket,
     socket::*,
 };
-
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -22,35 +21,65 @@ use std::os::{
 };
 
 bitflags! {
-    /// A bitflag used to specifies the condition for triggering an event in the
+    /// A bitflag used to specifies the condition for triggering an [`Event`] in the
     /// [`Poller`].
     ///
     /// # Example
     /// ```
     /// use libzmq::poll::*;
     ///
-    /// // This specifies to the poller to trigger an event if `Pollable`
-    /// // is readable, writable, or both.
+    /// // This specifies to the poller to trigger an event if `Pollable` is
+    /// // readable and/or writable.
     /// let either = READABLE | WRITABLE;
     /// ```
     ///
+    /// [`Event`]: struct.Event.html
     /// [`Poller`]: struct.Poller.html
     pub struct Trigger: c_short {
         /// Never trigger.
-        const EMPTY = 0b00_000_000;
+        const EMPTY = 0i16;
         /// Trigger an `Event` on read readiness.
-        const READABLE = 0b00_000_001;
+        ///
+        /// For a `libzmq` socket this means that at least one message can be
+        /// received without blocking. For a standard socket, this means
+        /// that at least one byte of data may be read from the fd without
+        /// blocking
+        const READABLE = sys::ZMQ_POLLIN as c_short;
         /// Trigger an `Event` on write readiness.
-        const WRITABLE = 0b00_000_010;
+        ///
+        /// For a `libzmq` socket this means that at least one message can
+        /// be sent without blocking. For a standard socket, this means
+        /// that at lesat one bye of data may be written to the fd without
+        /// blocking.
+        const WRITABLE = sys::ZMQ_POLLOUT as c_short;
     }
 }
 
-/// Never trigger.
+/// Never trigger an `Event` while polling.
 pub const EMPTY: Trigger = Trigger::EMPTY;
 /// Trigger an `Event` on read readiness.
+///
+/// For a `libzmq` socket this means that at least one message can be
+/// received without blocking. For a standard socket, this means
+/// that at least one byte of data may be read from the fd without
+/// blocking
 pub const READABLE: Trigger = Trigger::READABLE;
 /// Trigger an `Event` on write readiness.
+///
+/// For a `libzmq` socket this means that at least one message can
+/// be sent without blocking. For a standard socket, this means
+/// that at lesat one bye of data may be written to the fd without
+/// blocking.
 pub const WRITABLE: Trigger = Trigger::WRITABLE;
+
+bitflags! {
+    struct Cause: c_short {
+        const READABLE = sys::ZMQ_POLLIN as c_short;
+        const WRITABLE = sys::ZMQ_POLLOUT as c_short;
+        const ERROR = sys::ZMQ_POLLERR as c_short;
+        const PRIORITY = sys::ZMQ_POLLPRI as c_short;
+    }
+}
 
 /// An alias to a [`Pollable`] element.
 ///
@@ -182,7 +211,7 @@ impl<'a> Iterator for Iter<'a> {
                 let user_data = event.user_data as *mut usize as usize;
                 Some(Event {
                     id: Id(user_data),
-                    trigger: Trigger::from_bits(event.events).unwrap(),
+                    cause: Cause::from_bits(event.events).unwrap(),
                 })
             }
         } else {
@@ -221,7 +250,7 @@ impl Iterator for IntoIter {
             let user_data = raw.user_data as *mut usize as usize;
             Event {
                 id: Id(user_data),
-                trigger: Trigger::from_bits(raw.events).unwrap(),
+                cause: Cause::from_bits(raw.events).unwrap(),
             }
         })
     }
@@ -235,18 +264,33 @@ impl Iterator for IntoIter {
 /// An event detected by a poller.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event {
-    trigger: Trigger,
+    cause: Cause,
     id: Id,
 }
 
 impl Event {
-    /// Returns the condition that triggered the event.
+    /// Indicates read readiness.
+    pub fn is_readable(&self) -> bool {
+        self.cause.contains(Cause::READABLE)
+    }
+
+    /// Indicates write readiness.
+    pub fn is_writable(&self) -> bool {
+        self.cause.contains(Cause::WRITABLE)
+    }
+
+    /// Indicates that an error was received.
     ///
-    /// This is guarantee to never be [`EMPTY`].
+    /// This event can only occur if a `RawFd` is polled.
+    pub fn is_error(&self) -> bool {
+        self.cause.contains(Cause::ERROR)
+    }
+
+    /// Indicates that there is urgent data to be read.
     ///
-    /// [`EMPTY`]: constant.EMPTY.html
-    pub fn trigger(&self) -> Trigger {
-        self.trigger
+    /// This event can only occur if a `RawFd` is polled.
+    pub fn is_priority(&self) -> bool {
+        self.cause.contains(Cause::PRIORITY)
     }
 
     /// Returns the [`Id`] associated with the event.
