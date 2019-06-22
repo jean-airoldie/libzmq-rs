@@ -1,0 +1,10 @@
+[package]
+name = "libzmq-timer"
+version = "0.1.0"
+authors = ["jean-airoldie <25088801+jean-airoldie@users.noreply.github.com>"]
+edition = "2018"
+
+[dependencies]
+libzmq = { path = "../libzmq", version = "0.1" }
+smallvec = "0.6"
+quanta = "0.3"
