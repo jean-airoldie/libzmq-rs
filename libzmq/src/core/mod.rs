@@ -407,7 +407,8 @@ pub trait Socket: GetRawSocket {
 
     /// Retrieve the last endpoint connected or bound to.
     ///
-    /// This is the only way to retreive the value of a bound `Dynamic` port.
+    /// This is the only way to retrieve the assigned value of an
+    /// [`Unspecified`] port.
     ///
     /// # Example
     /// ```
@@ -417,7 +418,7 @@ pub trait Socket: GetRawSocket {
     /// use libzmq::{prelude::*, Server, TcpAddr, addr::Endpoint};
     ///
     /// // We create a tcp addr with an unspecified port.
-    /// // This port will be assigned by the OS upon connection.
+    /// // This port will be assigned by the OS when binding.
     /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
     /// assert!(addr.host().port().is_unspecified());
     ///
@@ -436,6 +437,8 @@ pub trait Socket: GetRawSocket {
     /// #     Ok(())
     /// # }
     /// ```
+    ///
+    /// [`Unspecified`]: ../addr/enum.Port.html#variant.Unspecified
     fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
         self.raw_socket().last_endpoint()
     }
