@@ -53,10 +53,10 @@ client.send(msg)?;
 When [send] is called on a socket, it will attempt to queue the message
 to its outgoing buffer. If the buffer is full, meaning it has reached the
 high water mark, the operation will block. If the [send_timeout] is set
-to `None`, the operation will block until the buffer can accomodate for
-the message. Otherwise if a duration is specified, it attempt to queue
-the message for that duration and if it fails, return [WouldBlock].
-the timeout.
+to `Period::Infinite`, the operation will block until the buffer can accomodate for
+the message. Otherwise if the timeout is set to `Period::Finite(Duration)`, it
+will attempt to queue the message for that duration and if it fails,
+return [WouldBlock].
 
 There is also the [try_send] method which will return with [WouldBlock] immediately
 if it cannot queue the message.
