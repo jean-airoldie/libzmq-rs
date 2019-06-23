@@ -6,7 +6,7 @@ differs from a traditional `TCP` socket in the following ways (but not limited t
 * A socket sends and receives atomic messages; messages are guaranteed to
     either be transmitted in their entirety, or not transmitted at all.
 * A socket send and receive messages asynchronously.
-* A socket socket can transmit messages over many supported transports, including `TCP`.
+* A socket can transmit messages over many supported transports, including `TCP`.
 * Incoming and outgoing messages can be queued and transmitted asynchronously
     by a background I/O thread.
 * A socket can be connected to zero or more peers at any time.
