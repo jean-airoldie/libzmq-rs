@@ -165,6 +165,7 @@ impl GetRawSocket for Server {
     }
 }
 
+impl Heartbeating for Server {}
 impl Socket for Server {}
 impl SendMsg for Server {}
 impl RecvMsg for Server {}
@@ -182,6 +183,7 @@ pub struct ServerConfig {
     socket_config: SocketConfig,
     send_config: SendConfig,
     recv_config: RecvConfig,
+    heartbeat_config: HeartbeatingConfig,
 }
 
 impl ServerConfig {
@@ -206,6 +208,7 @@ impl ServerConfig {
     pub fn apply(&self, server: &Server) -> Result<(), Error<usize>> {
         self.send_config.apply(server).map_err(Error::cast)?;
         self.recv_config.apply(server).map_err(Error::cast)?;
+        self.heartbeat_config.apply(server).map_err(Error::cast)?;
         self.socket_config.apply(server)?;
 
         Ok(())
@@ -232,10 +235,11 @@ impl From<ServerConfig> for FlatServerConfig {
         let socket_config = config.socket_config;
         let send_config = config.send_config;
         let recv_config = config.recv_config;
+        let heartbeat_config = config.heartbeat_config;
         Self {
             connect: socket_config.connect,
             bind: socket_config.bind,
-            heartbeat: socket_config.heartbeat,
+            heartbeat: heartbeat_config.heartbeat,
             mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
@@ -250,7 +254,6 @@ impl From<FlatServerConfig> for ServerConfig {
         let socket_config = SocketConfig {
             connect: flat.connect,
             bind: flat.bind,
-            heartbeat: flat.heartbeat,
             mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
@@ -261,10 +264,14 @@ impl From<FlatServerConfig> for ServerConfig {
             recv_high_water_mark: flat.recv_high_water_mark,
             recv_timeout: flat.recv_timeout,
         };
+        let heartbeat_config = HeartbeatingConfig {
+            heartbeat: flat.heartbeat,
+        };
         Self {
             socket_config,
             send_config,
             recv_config,
+            heartbeat_config,
         }
     }
 }
@@ -304,6 +311,18 @@ impl GetSendConfig for ServerConfig {
 }
 
 impl ConfigureSend for ServerConfig {}
+
+impl GetHeartbeatingConfig for ServerConfig {
+    fn heartbeat_config(&self) -> &HeartbeatingConfig {
+        &self.heartbeat_config
+    }
+
+    fn heartbeat_config_mut(&mut self) -> &mut HeartbeatingConfig {
+        &mut self.heartbeat_config
+    }
+}
+
+impl ConfigureHeartbeating for ServerConfig {}
 
 /// A builder for a `Server`.
 ///
@@ -365,6 +384,18 @@ impl GetRecvConfig for ServerBuilder {
 }
 
 impl BuildRecv for ServerBuilder {}
+
+impl GetHeartbeatingConfig for ServerBuilder {
+    fn heartbeat_config(&self) -> &HeartbeatingConfig {
+        self.inner.heartbeat_config()
+    }
+
+    fn heartbeat_config_mut(&mut self) -> &mut HeartbeatingConfig {
+        self.inner.heartbeat_config_mut()
+    }
+}
+
+impl BuildHeartbeating for ServerBuilder {}
 
 #[cfg(test)]
 mod test {

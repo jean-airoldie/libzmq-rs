@@ -52,7 +52,7 @@ use std::{
 /// # }
 /// ```
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct RoutingId(u32);
+pub struct RoutingId(pub u32);
 
 /// A handle to a message owned by ØMQ.
 ///

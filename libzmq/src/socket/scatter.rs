@@ -115,6 +115,7 @@ impl GetRawSocket for Scatter {
     }
 }
 
+impl Heartbeating for Scatter {}
 impl Socket for Scatter {}
 impl SendMsg for Scatter {}
 
@@ -132,6 +133,7 @@ unsafe impl Sync for Scatter {}
 pub struct ScatterConfig {
     socket_config: SocketConfig,
     send_config: SendConfig,
+    heartbeat_config: HeartbeatingConfig,
 }
 
 impl ScatterConfig {
@@ -175,10 +177,11 @@ impl From<ScatterConfig> for FlatScatterConfig {
     fn from(config: ScatterConfig) -> Self {
         let socket_config = config.socket_config;
         let send_config = config.send_config;
+        let heartbeat_config = config.heartbeat_config;
         Self {
             connect: socket_config.connect,
             bind: socket_config.bind,
-            heartbeat: socket_config.heartbeat,
+            heartbeat: heartbeat_config.heartbeat,
             mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
@@ -191,16 +194,19 @@ impl From<FlatScatterConfig> for ScatterConfig {
         let socket_config = SocketConfig {
             connect: flat.connect,
             bind: flat.bind,
-            heartbeat: flat.heartbeat,
             mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,
             send_timeout: flat.send_timeout,
         };
+        let heartbeat_config = HeartbeatingConfig {
+            heartbeat: flat.heartbeat,
+        };
         Self {
             socket_config,
             send_config,
+            heartbeat_config,
         }
     }
 }
@@ -227,6 +233,18 @@ impl GetSendConfig for ScatterConfig {
 }
 
 impl ConfigureSend for ScatterConfig {}
+
+impl GetHeartbeatingConfig for ScatterConfig {
+    fn heartbeat_config(&self) -> &HeartbeatingConfig {
+        &self.heartbeat_config
+    }
+
+    fn heartbeat_config_mut(&mut self) -> &mut HeartbeatingConfig {
+        &mut self.heartbeat_config
+    }
+}
+
+impl ConfigureHeartbeating for ScatterConfig {}
 
 /// A builder for a `Scatter`.
 ///
@@ -276,6 +294,18 @@ impl GetSendConfig for ScatterBuilder {
 }
 
 impl BuildSend for ScatterBuilder {}
+
+impl GetHeartbeatingConfig for ScatterBuilder {
+    fn heartbeat_config(&self) -> &HeartbeatingConfig {
+        self.inner.heartbeat_config()
+    }
+
+    fn heartbeat_config_mut(&mut self) -> &mut HeartbeatingConfig {
+        self.inner.heartbeat_config_mut()
+    }
+}
+
+impl BuildHeartbeating for ScatterBuilder {}
 
 #[cfg(test)]
 mod test {
