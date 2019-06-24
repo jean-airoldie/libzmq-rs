@@ -124,6 +124,7 @@ impl GetRawSocket for Gather {
     }
 }
 
+impl Heartbeating for Gather {}
 impl Socket for Gather {}
 impl RecvMsg for Gather {}
 
@@ -141,6 +142,7 @@ unsafe impl Sync for Gather {}
 pub struct GatherConfig {
     socket_config: SocketConfig,
     recv_config: RecvConfig,
+    heartbeat_config: HeartbeatingConfig,
 }
 
 impl GatherConfig {
@@ -184,10 +186,11 @@ impl From<GatherConfig> for FlatGatherConfig {
     fn from(config: GatherConfig) -> Self {
         let socket_config = config.socket_config;
         let recv_config = config.recv_config;
+        let heartbeat_config = config.heartbeat_config;
         Self {
             connect: socket_config.connect,
             bind: socket_config.bind,
-            heartbeat: socket_config.heartbeat,
+            heartbeat: heartbeat_config.heartbeat,
             mechanism: socket_config.mechanism,
             recv_high_water_mark: recv_config.recv_high_water_mark,
             recv_timeout: recv_config.recv_timeout,
@@ -200,16 +203,19 @@ impl From<FlatGatherConfig> for GatherConfig {
         let socket_config = SocketConfig {
             connect: flat.connect,
             bind: flat.bind,
-            heartbeat: flat.heartbeat,
             mechanism: flat.mechanism,
         };
         let recv_config = RecvConfig {
             recv_high_water_mark: flat.recv_high_water_mark,
             recv_timeout: flat.recv_timeout,
         };
+        let heartbeat_config = HeartbeatingConfig {
+            heartbeat: flat.heartbeat,
+        };
         Self {
             socket_config,
             recv_config,
+            heartbeat_config,
         }
     }
 }
@@ -236,6 +242,18 @@ impl GetRecvConfig for GatherConfig {
 }
 
 impl ConfigureRecv for GatherConfig {}
+
+impl GetHeartbeatingConfig for GatherConfig {
+    fn heartbeat_config(&self) -> &HeartbeatingConfig {
+        &self.heartbeat_config
+    }
+
+    fn heartbeat_config_mut(&mut self) -> &mut HeartbeatingConfig {
+        &mut self.heartbeat_config
+    }
+}
+
+impl ConfigureHeartbeating for GatherConfig {}
 
 /// A builder for a `Gather`.
 ///
@@ -285,6 +303,18 @@ impl GetRecvConfig for GatherBuilder {
 }
 
 impl BuildRecv for GatherBuilder {}
+
+impl GetHeartbeatingConfig for GatherBuilder {
+    fn heartbeat_config(&self) -> &HeartbeatingConfig {
+        self.inner.heartbeat_config()
+    }
+
+    fn heartbeat_config_mut(&mut self) -> &mut HeartbeatingConfig {
+        self.inner.heartbeat_config_mut()
+    }
+}
+
+impl BuildHeartbeating for GatherBuilder {}
 
 #[cfg(test)]
 mod test {

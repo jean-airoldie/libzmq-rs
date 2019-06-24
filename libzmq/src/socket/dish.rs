@@ -395,7 +395,6 @@ impl DishConfig {
 struct FlatDishConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
-    heartbeat: Option<Heartbeat>,
     recv_high_water_mark: Quantity,
     recv_timeout: Period,
     groups: Option<Vec<Group>>,
@@ -409,7 +408,6 @@ impl From<DishConfig> for FlatDishConfig {
         Self {
             connect: socket_config.connect,
             bind: socket_config.bind,
-            heartbeat: socket_config.heartbeat,
             mechanism: socket_config.mechanism,
             recv_high_water_mark: recv_config.recv_high_water_mark,
             recv_timeout: recv_config.recv_timeout,
@@ -423,7 +421,6 @@ impl From<FlatDishConfig> for DishConfig {
         let socket_config = SocketConfig {
             connect: flat.connect,
             bind: flat.bind,
-            heartbeat: flat.heartbeat,
             mechanism: flat.mechanism,
         };
         let recv_config = RecvConfig {

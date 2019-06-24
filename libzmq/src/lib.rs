@@ -63,8 +63,9 @@ pub mod addr {
 pub mod prelude {
     // These should be in the standard prelude anyway.
     pub use crate::core::{
-        BuildRecv, BuildSend, BuildSocket, ConfigureRecv, ConfigureSend,
-        ConfigureSocket, RecvMsg, SendMsg, Socket,
+        BuildHeartbeating, BuildRecv, BuildSend, BuildSocket,
+        ConfigureHeartbeating, ConfigureRecv, ConfigureSend, ConfigureSocket,
+        Heartbeating, RecvMsg, SendMsg, Socket,
     };
     pub use std::convert::{TryFrom, TryInto};
 }
