@@ -64,6 +64,18 @@ pub struct Msg {
     msg: sys::zmq_msg_t,
 }
 
+impl From<RoutingId> for u32 {
+    fn from(id: RoutingId) -> u32 {
+        id.0
+    }
+}
+
+impl From<u32> for RoutingId {
+    fn from(u: u32) -> Self {
+        Self(u)
+    }
+}
+
 impl Msg {
     /// Create an empty `Msg`.
     ///
