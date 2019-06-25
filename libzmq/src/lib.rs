@@ -30,7 +30,6 @@ pub use socket::{
     RadioBuilder, Scatter, ScatterBuilder, Server, ServerBuilder, SocketType,
 };
 pub use utils::*;
-
 /// Configurations for *libzmq* types.
 pub mod config {
     pub use crate::auth::client::AuthConfig;
