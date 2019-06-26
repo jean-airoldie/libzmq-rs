@@ -116,6 +116,24 @@ pub trait RecvMsg: GetRawSocket {
     /// incoming messages ØMQ shall queue in memory.
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
+    ///
+    /// # Default
+    /// `Quantity::Limited(1000)`
+    ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, *};
+    ///
+    /// let client = ClientBuilder::new().build()?;
+    /// assert_eq!(client.recv_high_water_mark()?, Quantity::Limited(1000));
+    ///
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     fn recv_high_water_mark(&self) -> Result<Quantity, Error> {
         self.raw_socket().recv_high_water_mark()
     }
@@ -127,8 +145,8 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
-    /// # Default value
-    /// 1000
+    /// # Default
+    /// `Quantity::Limited(1000)`
     fn set_recv_high_water_mark<Q>(&self, qty: Q) -> Result<(), Error>
     where
         Q: Into<Quantity>,
@@ -161,7 +179,7 @@ pub trait RecvMsg: GetRawSocket {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct RecvConfig {
     pub(crate) recv_high_water_mark: Quantity,
@@ -174,6 +192,15 @@ impl RecvConfig {
         socket.set_recv_timeout(self.recv_timeout)?;
 
         Ok(())
+    }
+}
+
+impl Default for RecvConfig {
+    fn default() -> Self {
+        Self {
+            recv_high_water_mark: Quantity::Limited(1000),
+            recv_timeout: Period::Infinite,
+        }
     }
 }
 

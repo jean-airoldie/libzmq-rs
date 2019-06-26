@@ -60,12 +60,12 @@ pub mod addr {
 ///
 /// The prelude may grow over time as additional items see ubiquitous use.
 pub mod prelude {
-    // These should be in the standard prelude anyway.
     pub use crate::core::{
         BuildHeartbeating, BuildRecv, BuildSend, BuildSocket,
         ConfigureHeartbeating, ConfigureRecv, ConfigureSend, ConfigureSocket,
         Heartbeating, RecvMsg, SendMsg, Socket,
     };
+    // These should be in the standard prelude anyway.
     pub use std::convert::{TryFrom, TryInto};
 }
 

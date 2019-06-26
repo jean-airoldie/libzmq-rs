@@ -123,6 +123,24 @@ pub trait SendMsg: GetRawSocket {
     /// outstanding messages ØMQ shall queue in memory.
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
+    ///
+    /// # Default
+    /// `Quantity::Limited(1000)`
+    ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, *};
+    ///
+    /// let client = ClientBuilder::new().build()?;
+    /// assert_eq!(client.send_high_water_mark()?, Quantity::Limited(1000));
+    ///
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
     fn send_high_water_mark(&self) -> Result<Quantity, Error> {
         self.raw_socket().send_high_water_mark()
     }
@@ -189,7 +207,7 @@ pub trait SendMsg: GetRawSocket {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct SendConfig {
     pub(crate) send_high_water_mark: Quantity,
@@ -202,6 +220,15 @@ impl SendConfig {
         socket.set_send_timeout(self.send_timeout)?;
 
         Ok(())
+    }
+}
+
+impl Default for SendConfig {
+    fn default() -> Self {
+        Self {
+            send_high_water_mark: Quantity::Limited(1000),
+            send_timeout: Period::Infinite,
+        }
     }
 }
 
