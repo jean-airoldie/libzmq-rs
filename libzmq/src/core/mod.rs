@@ -128,6 +128,12 @@ pub enum Quantity {
 
 pub use Quantity::*;
 
+impl Quantity {
+    pub(crate) fn default_high_water_mark() -> Self {
+        Quantity::Limited(1000)
+    }
+}
+
 impl Default for Quantity {
     fn default() -> Self {
         Unlimited

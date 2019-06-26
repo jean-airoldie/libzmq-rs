@@ -198,7 +198,7 @@ impl RecvConfig {
 impl Default for RecvConfig {
     fn default() -> Self {
         Self {
-            recv_high_water_mark: Quantity::Limited(1000),
+            recv_high_water_mark: Quantity::default_high_water_mark(),
             recv_timeout: Period::Infinite,
         }
     }

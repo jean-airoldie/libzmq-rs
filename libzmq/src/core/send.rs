@@ -226,7 +226,7 @@ impl SendConfig {
 impl Default for SendConfig {
     fn default() -> Self {
         Self {
-            send_high_water_mark: Quantity::Limited(1000),
+            send_high_water_mark: Quantity::default_high_water_mark(),
             send_timeout: Period::Infinite,
         }
     }
