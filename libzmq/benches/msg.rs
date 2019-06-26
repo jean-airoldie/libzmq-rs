@@ -1,8 +1,7 @@
+use super::*;
+
 use criterion::{black_box, Benchmark, Criterion};
-
 use libzmq::Msg;
-
-use std::time::Duration;
 
 pub(crate) fn bench(c: &mut Criterion) {
     c.bench(
@@ -40,6 +39,6 @@ pub(crate) fn bench(c: &mut Criterion) {
                 black_box(msg);
             });
         })
-        .measurement_time(Duration::from_secs(30)),
+        .measurement_time(MEASUREMENT_TIME),
     );
 }

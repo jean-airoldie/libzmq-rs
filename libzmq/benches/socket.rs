@@ -1,14 +1,11 @@
+use super::*;
+
 use criterion::{black_box, Benchmark, Criterion, Throughput};
-
-use libzmq::{prelude::*, *};
-
 use lazy_static::lazy_static;
+use libzmq::{prelude::*, *};
 use rand::{distributions::Standard, Rng};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
-
-const MSG_AMOUNT: usize = 1_000;
-const MSG_SIZE: usize = 50;
 
 lazy_static! {
     static ref ADDR: TcpAddr = "127.0.0.1:*".try_into().unwrap();
@@ -36,10 +33,18 @@ pub(crate) fn bench(c: &mut Criterion) {
             });
         })
         .with_function("server-client", move |b| {
-            let producer = ServerBuilder::new().bind(&*ADDR).build().unwrap();
+            let producer = ServerBuilder::new()
+                .bind(&*ADDR)
+                .send_high_water_mark(HWM)
+                .build()
+                .unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
-            let consumer = ClientBuilder::new().connect(bound).build().unwrap();
+            let consumer = ClientBuilder::new()
+                .connect(bound)
+                .recv_high_water_mark(HWM)
+                .build()
+                .unwrap();
 
             consumer.send("").unwrap();
             let mut msg = producer.recv_msg().unwrap();
@@ -55,11 +60,19 @@ pub(crate) fn bench(c: &mut Criterion) {
                 }
             });
         })
-        .with_function("radio", move |b| {
-            let producer = RadioBuilder::new().bind(&*ADDR).build().unwrap();
+        .with_function("radio-dish", move |b| {
+            let producer = RadioBuilder::new()
+                .bind(&*ADDR)
+                .send_high_water_mark(HWM)
+                .build()
+                .unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
-            let consumer = DishBuilder::new().connect(bound).build().unwrap();
+            let consumer = DishBuilder::new()
+                .connect(bound)
+                .recv_high_water_mark(HWM)
+                .build()
+                .unwrap();
 
             let mut msg = Msg::new();
 
@@ -73,7 +86,34 @@ pub(crate) fn bench(c: &mut Criterion) {
                 }
             });
         })
+        .with_function("scatter-gather", move |b| {
+            let producer = ScatterBuilder::new()
+                .bind(&*ADDR)
+                .send_high_water_mark(HWM)
+                .build()
+                .unwrap();
+
+            let bound = producer.last_endpoint().unwrap().unwrap();
+            let consumer = GatherBuilder::new()
+                .connect(bound)
+                .recv_high_water_mark(HWM)
+                .build()
+                .unwrap();
+
+            let mut msg = Msg::new();
+
+            b.iter(|| {
+                let dataset = gen_dataset(MSG_AMOUNT, MSG_SIZE);
+                for data in dataset {
+                    let data: Msg = data.into();
+
+                    producer.send(data).unwrap();
+                    let _ = consumer.try_recv(&mut msg);
+                }
+            });
+        })
         .throughput(Throughput::Bytes((MSG_AMOUNT * MSG_SIZE) as u32))
-        .sample_size(30),
+        .sample_size(SAMPLE_SIZE)
+        .measurement_time(Duration::from_secs(30)),
     );
 }
