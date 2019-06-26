@@ -1,14 +1,11 @@
+use super::*;
+
 use criterion::{black_box, Benchmark, Criterion, Throughput};
-
-use libzmq::{auth::*, prelude::*, *};
-
 use lazy_static::lazy_static;
+use libzmq::{auth::*, prelude::*, *};
 use rand::{distributions::Standard, Rng};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
-
-const MSG_AMOUNT: usize = 1_000;
-const MSG_SIZE: usize = 50;
 
 lazy_static! {
     static ref ADDR: TcpAddr = "127.0.0.1:*".try_into().unwrap();
@@ -35,10 +32,18 @@ pub(crate) fn bench(c: &mut Criterion) {
             });
         })
         .with_function("without CURVE encryption", move |b| {
-            let producer = ServerBuilder::new().bind(&*ADDR).build().unwrap();
+            let producer = ServerBuilder::new()
+                .bind(&*ADDR)
+                .send_high_water_mark(HWM)
+                .build()
+                .unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
-            let consumer = ClientBuilder::new().connect(bound).build().unwrap();
+            let consumer = ClientBuilder::new()
+                .connect(bound)
+                .recv_high_water_mark(HWM)
+                .build()
+                .unwrap();
 
             consumer.send("").unwrap();
             let mut msg = producer.recv_msg().unwrap();
@@ -63,6 +68,7 @@ pub(crate) fn bench(c: &mut Criterion) {
 
             let producer = ServerBuilder::new()
                 .bind(&*ADDR)
+                .send_high_water_mark(HWM)
                 .mechanism(creds)
                 .build()
                 .unwrap();
@@ -73,6 +79,7 @@ pub(crate) fn bench(c: &mut Criterion) {
 
             let consumer = ClientBuilder::new()
                 .connect(bound)
+                .recv_high_water_mark(HWM)
                 .mechanism(creds)
                 .build()
                 .unwrap();
@@ -92,6 +99,7 @@ pub(crate) fn bench(c: &mut Criterion) {
             });
         })
         .throughput(Throughput::Bytes((MSG_AMOUNT * MSG_SIZE) as u32))
-        .sample_size(30),
+        .sample_size(SAMPLE_SIZE)
+        .measurement_time(MEASUREMENT_TIME),
     );
 }
