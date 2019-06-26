@@ -259,6 +259,7 @@ impl RadioConfig {
 struct FlatRadioConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
+    #[serde(default = "Quantity::default_high_water_mark")]
     send_high_water_mark: Quantity,
     send_timeout: Period,
     no_drop: Option<bool>,
