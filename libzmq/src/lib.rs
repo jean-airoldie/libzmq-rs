@@ -17,7 +17,7 @@ pub mod poll;
 mod socket;
 mod utils;
 
-pub use crate::core::{Heartbeat, Period, Quantity};
+pub use crate::core::{Heartbeat, Period};
 pub use ctx::{Ctx, CtxBuilder};
 pub use endpoint::{
     EpgmAddr, InprocAddr, PgmAddr, TcpAddr, UdpAddr, INPROC_MAX_SIZE,

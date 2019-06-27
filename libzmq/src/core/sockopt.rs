@@ -147,27 +147,6 @@ where
     Ok(value)
 }
 
-pub(crate) fn getsockopt_option_scalar<T>(
-    mut_sock_ptr: *mut c_void,
-    option: SocketOption,
-    none_value: T,
-) -> Result<Option<T>, Error>
-where
-    T: Default + Eq,
-{
-    let mut value = T::default();
-    let mut size = mem::size_of::<T>();
-    let value_ptr = &mut value as *mut T as *mut c_void;
-
-    getsockopt(mut_sock_ptr, option, value_ptr, &mut size)?;
-
-    if value == none_value {
-        Ok(None)
-    } else {
-        Ok(Some(value))
-    }
-}
-
 pub(crate) fn getsockopt_bytes(
     mut_sock_ptr: *mut c_void,
     option: SocketOption,

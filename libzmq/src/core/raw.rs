@@ -2,7 +2,7 @@ use crate::{
     addr::Endpoint,
     auth::*,
     core::sockopt::*,
-    core::{Heartbeat, Period, Quantity},
+    core::{Heartbeat, Period},
     error::*,
     Ctx,
 };
@@ -292,28 +292,23 @@ impl RawSocket {
         setsockopt_bool(self.as_mut_ptr(), SocketOption::PlainServer, cond)
     }
 
-    pub(crate) fn recv_high_water_mark(&self) -> Result<Quantity, Error> {
-        getsockopt_option_scalar(
-            self.as_mut_ptr(),
-            SocketOption::RecvHighWaterMark,
-            0,
-        )
-        .map(Into::into)
+    pub(crate) fn recv_high_water_mark(&self) -> Result<i32, Error> {
+        getsockopt_scalar(self.as_mut_ptr(), SocketOption::RecvHighWaterMark)
     }
 
     pub(crate) fn set_recv_high_water_mark(
         &self,
-        qty: Quantity,
+        hwm: i32,
     ) -> Result<(), Error> {
-        if let Quantity::Limited(hwm) = qty {
-            assert!(hwm != 0, "high water mark cannot be zero");
+        if hwm == 0 {
+            return Err(Error::new(ErrorKind::InvalidInput(
+                "high water mark cannot be zero",
+            )));
         }
-
-        setsockopt_option_scalar(
+        setsockopt_scalar(
             self.as_mut_ptr(),
             SocketOption::RecvHighWaterMark,
-            qty.into(),
-            0,
+            hwm,
         )
     }
 
@@ -335,28 +330,23 @@ impl RawSocket {
         )
     }
 
-    pub(crate) fn send_high_water_mark(&self) -> Result<Quantity, Error> {
-        getsockopt_option_scalar(
-            self.as_mut_ptr(),
-            SocketOption::SendHighWaterMark,
-            0,
-        )
-        .map(Into::into)
+    pub(crate) fn send_high_water_mark(&self) -> Result<i32, Error> {
+        getsockopt_scalar(self.as_mut_ptr(), SocketOption::SendHighWaterMark)
     }
 
     pub(crate) fn set_send_high_water_mark(
         &self,
-        qty: Quantity,
+        hwm: i32,
     ) -> Result<(), Error> {
-        if let Quantity::Limited(hwm) = qty {
-            assert!(hwm != 0, "high water mark cannot be zero");
+        if hwm == 0 {
+            return Err(Error::new(ErrorKind::InvalidInput(
+                "high water mark cannot be zero",
+            )));
         }
-
-        setsockopt_option_scalar(
+        setsockopt_scalar(
             self.as_mut_ptr(),
             SocketOption::SendHighWaterMark,
-            qty.into(),
-            0,
+            hwm,
         )
     }
 
