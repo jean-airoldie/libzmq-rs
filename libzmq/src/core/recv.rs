@@ -118,7 +118,7 @@ pub trait RecvMsg: GetRawSocket {
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
     /// # Default
-    /// `Quantity::Limited(1000)`
+    /// `1000`
     ///
     /// # Example
     /// ```
@@ -128,13 +128,13 @@ pub trait RecvMsg: GetRawSocket {
     /// use libzmq::{prelude::*, *};
     ///
     /// let client = ClientBuilder::new().build()?;
-    /// assert_eq!(client.recv_high_water_mark()?, Quantity::Limited(1000));
+    /// assert_eq!(client.recv_high_water_mark()?, 1000);
     ///
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    fn recv_high_water_mark(&self) -> Result<Quantity, Error> {
+    fn recv_high_water_mark(&self) -> Result<i32, Error> {
         self.raw_socket().recv_high_water_mark()
     }
 
@@ -145,13 +145,16 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
+    /// # Usage Contract
+    /// * The high water mark cannot be zero.
+    ///
+    /// # Returned Error
+    /// * [`InvalidInput`]
+    ///
     /// # Default
-    /// `Quantity::Limited(1000)`
-    fn set_recv_high_water_mark<Q>(&self, qty: Q) -> Result<(), Error>
-    where
-        Q: Into<Quantity>,
-    {
-        self.raw_socket().set_recv_high_water_mark(qty.into())
+    /// 1000
+    fn set_recv_high_water_mark(&self, hwm: i32) -> Result<(), Error> {
+        self.raw_socket().set_recv_high_water_mark(hwm)
     }
 
     /// The timeout for [`recv`] on the socket.
@@ -179,28 +182,19 @@ pub trait RecvMsg: GetRawSocket {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct RecvConfig {
-    pub(crate) recv_high_water_mark: Quantity,
+    pub(crate) recv_high_water_mark: HighWaterMark,
     pub(crate) recv_timeout: Period,
 }
 
 impl RecvConfig {
     pub(crate) fn apply<S: RecvMsg>(&self, socket: &S) -> Result<(), Error> {
-        socket.set_recv_high_water_mark(self.recv_high_water_mark)?;
+        socket.set_recv_high_water_mark(self.recv_high_water_mark.into())?;
         socket.set_recv_timeout(self.recv_timeout)?;
 
         Ok(())
-    }
-}
-
-impl Default for RecvConfig {
-    fn default() -> Self {
-        Self {
-            recv_high_water_mark: Quantity::default_high_water_mark(),
-            recv_timeout: Period::Infinite,
-        }
     }
 }
 
@@ -213,12 +207,12 @@ pub trait GetRecvConfig: private::Sealed {
 
 /// A set of provided methods for the configuration of a socket that implements `RecvMsg`.
 pub trait ConfigureRecv: GetRecvConfig {
-    fn recv_high_water_mark(&self) -> Quantity {
-        self.recv_config().recv_high_water_mark
+    fn recv_high_water_mark(&self) -> i32 {
+        self.recv_config().recv_high_water_mark.into()
     }
 
-    fn set_recv_high_water_mark(&mut self, qty: Quantity) {
-        self.recv_config_mut().recv_high_water_mark = qty;
+    fn set_recv_high_water_mark(&mut self, hwm: i32) {
+        self.recv_config_mut().recv_high_water_mark = hwm.into();
     }
 
     fn recv_timeout(&self) -> Period {
@@ -233,7 +227,7 @@ pub trait ConfigureRecv: GetRecvConfig {
 /// A set of provided methods for the builder of a socket that implements `RecvMsg`.
 pub trait BuildRecv: GetRecvConfig {
     fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        self.recv_config_mut().recv_high_water_mark = Limited(hwm);
+        self.recv_config_mut().recv_high_water_mark = hwm.into();
         self
     }
 

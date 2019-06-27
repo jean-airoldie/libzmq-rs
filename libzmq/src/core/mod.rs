@@ -54,6 +54,30 @@ use serde::{Deserialize, Serialize};
 
 use std::{sync::MutexGuard, time::Duration};
 
+const DEFAULT_HWM: i32 = 1000;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct HighWaterMark(i32);
+
+impl Default for HighWaterMark {
+    fn default() -> Self {
+        HighWaterMark(DEFAULT_HWM)
+    }
+}
+
+impl From<i32> for HighWaterMark {
+    fn from(i: i32) -> Self {
+        HighWaterMark(i)
+    }
+}
+
+impl From<HighWaterMark> for i32 {
+    fn from(hwm: HighWaterMark) -> i32 {
+        hwm.0
+    }
+}
+
 /// Represents a period of time.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(from = "Serde<Option<Duration>>")]
@@ -112,51 +136,6 @@ impl From<Period> for Serde<Option<Duration>> {
         };
 
         Serde::from(inner)
-    }
-}
-
-/// Represents a quantity.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(from = "Option<i32>")]
-#[serde(into = "Option<i32>")]
-pub enum Quantity {
-    /// A fixed quantity.
-    Limited(i32),
-    /// A unlimited quantity.
-    Unlimited,
-}
-
-pub use Quantity::*;
-
-impl Quantity {
-    pub(crate) fn default_high_water_mark() -> Self {
-        Quantity::Limited(1000)
-    }
-}
-
-impl Default for Quantity {
-    fn default() -> Self {
-        Unlimited
-    }
-}
-
-#[doc(hidden)]
-impl From<Quantity> for Option<i32> {
-    fn from(qty: Quantity) -> Self {
-        match qty {
-            Limited(qty) => Some(qty),
-            Unlimited => None,
-        }
-    }
-}
-
-#[doc(hidden)]
-impl From<Option<i32>> for Quantity {
-    fn from(option: Option<i32>) -> Self {
-        match option {
-            None => Unlimited,
-            Some(qty) => Limited(qty),
-        }
     }
 }
 

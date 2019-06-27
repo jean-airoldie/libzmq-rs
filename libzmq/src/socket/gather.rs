@@ -177,8 +177,7 @@ struct FlatGatherConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    #[serde(default = "Quantity::default_high_water_mark")]
-    recv_high_water_mark: Quantity,
+    recv_high_water_mark: HighWaterMark,
     recv_timeout: Period,
     mechanism: Option<Mechanism>,
 }

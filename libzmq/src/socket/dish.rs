@@ -395,8 +395,7 @@ impl DishConfig {
 struct FlatDishConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
-    #[serde(default = "Quantity::default_high_water_mark")]
-    recv_high_water_mark: Quantity,
+    recv_high_water_mark: HighWaterMark,
     recv_timeout: Period,
     groups: Option<Vec<Group>>,
     mechanism: Option<Mechanism>,

@@ -125,7 +125,7 @@ pub trait SendMsg: GetRawSocket {
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
     /// # Default
-    /// `Quantity::Limited(1000)`
+    /// `1000`
     ///
     /// # Example
     /// ```
@@ -135,13 +135,13 @@ pub trait SendMsg: GetRawSocket {
     /// use libzmq::{prelude::*, *};
     ///
     /// let client = ClientBuilder::new().build()?;
-    /// assert_eq!(client.send_high_water_mark()?, Quantity::Limited(1000));
+    /// assert_eq!(client.send_high_water_mark()?, 1000);
     ///
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    fn send_high_water_mark(&self) -> Result<Quantity, Error> {
+    fn send_high_water_mark(&self) -> Result<i32, Error> {
         self.raw_socket().send_high_water_mark()
     }
 
@@ -152,14 +152,18 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// If this limit has been reached the socket shall enter the `mute state`.
     ///
+    /// # Usage Contract
+    /// * The high water mark cannot be zero.
+    ///
+    /// # Returned Error
+    /// * [`InvalidInput`]
+    ///
     /// # Default value
     /// 1000
-    fn set_send_high_water_mark<Q>(&self, qty: Q) -> Result<(), Error>
-    where
-        Q: Into<Quantity>,
-    {
-        let qty = qty.into();
-        self.raw_socket().set_send_high_water_mark(qty)
+    ///
+    /// [`InvalidInput`]: ../enum.ErrorKind.html#InvalidInput
+    fn set_send_high_water_mark(&self, hwm: i32) -> Result<(), Error> {
+        self.raw_socket().set_send_high_water_mark(hwm)
     }
 
     /// Sets the timeout for [`send`] on the socket.
@@ -207,28 +211,19 @@ pub trait SendMsg: GetRawSocket {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct SendConfig {
-    pub(crate) send_high_water_mark: Quantity,
+    pub(crate) send_high_water_mark: HighWaterMark,
     pub(crate) send_timeout: Period,
 }
 
 impl SendConfig {
     pub(crate) fn apply<S: SendMsg>(&self, socket: &S) -> Result<(), Error> {
-        socket.set_send_high_water_mark(self.send_high_water_mark)?;
+        socket.set_send_high_water_mark(self.send_high_water_mark.into())?;
         socket.set_send_timeout(self.send_timeout)?;
 
         Ok(())
-    }
-}
-
-impl Default for SendConfig {
-    fn default() -> Self {
-        Self {
-            send_high_water_mark: Quantity::default_high_water_mark(),
-            send_timeout: Period::Infinite,
-        }
     }
 }
 
@@ -241,12 +236,12 @@ pub trait GetSendConfig: private::Sealed {
 
 /// A set of provided methods for the configuration of socket that implements `SendMsg`.
 pub trait ConfigureSend: GetSendConfig {
-    fn send_high_water_mark(&self) -> Quantity {
-        self.send_config().send_high_water_mark
+    fn send_high_water_mark(&self) -> i32 {
+        self.send_config().send_high_water_mark.into()
     }
 
-    fn set_send_high_water_mark(&mut self, qty: Quantity) {
-        self.send_config_mut().send_high_water_mark = qty;
+    fn set_send_high_water_mark(&mut self, hwm: i32) {
+        self.send_config_mut().send_high_water_mark = hwm.into();
     }
 
     fn send_timeout(&self) -> Period {
@@ -261,7 +256,7 @@ pub trait ConfigureSend: GetSendConfig {
 /// A set of provided methods for the builder of a socket that implements `SendMsg`.
 pub trait BuildSend: GetSendConfig {
     fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        self.send_config_mut().send_high_water_mark = Limited(hwm);
+        self.send_config_mut().send_high_water_mark = hwm.into();
         self
     }
 
