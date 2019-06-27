@@ -397,6 +397,7 @@ struct FlatDishConfig {
     bind: Option<Vec<Endpoint>>,
     recv_high_water_mark: HighWaterMark,
     recv_timeout: Period,
+    recv_batch_size: BatchSize,
     groups: Option<Vec<Group>>,
     mechanism: Option<Mechanism>,
 }
@@ -411,6 +412,7 @@ impl From<DishConfig> for FlatDishConfig {
             mechanism: socket_config.mechanism,
             recv_high_water_mark: recv_config.recv_high_water_mark,
             recv_timeout: recv_config.recv_timeout,
+            recv_batch_size: recv_config.recv_batch_size,
             groups: config.groups,
         }
     }
@@ -426,6 +428,7 @@ impl From<FlatDishConfig> for DishConfig {
         let recv_config = RecvConfig {
             recv_high_water_mark: flat.recv_high_water_mark,
             recv_timeout: flat.recv_timeout,
+            recv_batch_size: flat.recv_batch_size,
         };
         Self {
             socket_config,

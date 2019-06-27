@@ -156,14 +156,61 @@ pub trait SendMsg: GetRawSocket {
     /// * The high water mark cannot be zero.
     ///
     /// # Returned Error
-    /// * [`InvalidInput`]
+    /// * [`InvalidInput`](on contract violation)
     ///
     /// # Default value
     /// 1000
     ///
-    /// [`InvalidInput`]: ../enum.ErrorKind.html#InvalidInput
+    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     fn set_send_high_water_mark(&self, hwm: i32) -> Result<(), Error> {
         self.raw_socket().set_send_high_water_mark(hwm)
+    }
+
+    /// Maximal amount of messages that can be sent in a single
+    /// 'send' system call.
+    ///
+    /// This can be used to improve throughtput at the expense of
+    /// latency and vice-versa.
+    ///
+    /// # Default value
+    /// 8192
+    ///
+    /// # Example
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{prelude::*, *};
+    ///
+    /// let client = ClientBuilder::new().build()?;
+    /// assert_eq!(client.send_batch_size()?, 8192);
+    ///
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    fn send_batch_size(&self) -> Result<i32, Error> {
+        self.raw_socket().send_batch_size()
+    }
+
+    /// Sets the maximal amount of messages that can be sent in a single
+    /// 'send' system call.
+    ///
+    /// This can be used to improve throughtput at the expense of
+    /// latency and vice-versa.
+    ///
+    /// # Usage Contract
+    /// * The batch size cannot be zero.
+    ///
+    /// # Returned Error
+    /// * [`InvalidInput`](on contract violation)
+    ///
+    /// # Default value
+    /// 8192
+    ///
+    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
+    fn set_send_batch_size(&self, size: i32) -> Result<(), Error> {
+        self.raw_socket().set_send_batch_size(size)
     }
 
     /// Sets the timeout for [`send`] on the socket.
@@ -216,12 +263,14 @@ pub trait SendMsg: GetRawSocket {
 pub struct SendConfig {
     pub(crate) send_high_water_mark: HighWaterMark,
     pub(crate) send_timeout: Period,
+    pub(crate) send_batch_size: BatchSize,
 }
 
 impl SendConfig {
     pub(crate) fn apply<S: SendMsg>(&self, socket: &S) -> Result<(), Error> {
         socket.set_send_high_water_mark(self.send_high_water_mark.into())?;
         socket.set_send_timeout(self.send_timeout)?;
+        socket.set_send_batch_size(self.send_batch_size.into())?;
 
         Ok(())
     }
@@ -241,7 +290,15 @@ pub trait ConfigureSend: GetSendConfig {
     }
 
     fn set_send_high_water_mark(&mut self, hwm: i32) {
-        self.send_config_mut().send_high_water_mark = hwm.into();
+        self.send_config_mut().send_high_water_mark = HighWaterMark(hwm);
+    }
+
+    fn send_batch_size(&self) -> i32 {
+        self.send_config().send_batch_size.into()
+    }
+
+    fn set_send_batch_size(&mut self, size: i32) {
+        self.send_config_mut().send_batch_size = BatchSize(size);
     }
 
     fn send_timeout(&self) -> Period {
@@ -256,7 +313,12 @@ pub trait ConfigureSend: GetSendConfig {
 /// A set of provided methods for the builder of a socket that implements `SendMsg`.
 pub trait BuildSend: GetSendConfig {
     fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        self.send_config_mut().send_high_water_mark = hwm.into();
+        self.send_config_mut().send_high_water_mark = HighWaterMark(hwm);
+        self
+    }
+
+    fn send_batch_size(&mut self, size: i32) -> &mut Self {
+        self.send_config_mut().send_batch_size = BatchSize(size);
         self
     }
 

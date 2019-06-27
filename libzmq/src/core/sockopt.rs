@@ -41,6 +41,8 @@ pub(crate) enum SocketOption {
     CurveSecretKey = sys::ZMQ_CURVE_SECRETKEY as isize,
     CurveServer = sys::ZMQ_CURVE_SERVER as isize,
     CurveServerKey = sys::ZMQ_CURVE_SERVERKEY as isize,
+    InBatchSize = sys::ZMQ_IN_BATCH_SIZE as isize,
+    OutBatchSize = sys::ZMQ_OUT_BATCH_SIZE as isize,
 }
 
 impl From<SocketOption> for c_int {
@@ -88,6 +90,8 @@ impl From<SocketOption> for c_int {
             SocketOption::CurveServerKey => {
                 SocketOption::CurveServerKey as c_int
             }
+            SocketOption::InBatchSize => SocketOption::InBatchSize as c_int,
+            SocketOption::OutBatchSize => SocketOption::OutBatchSize as c_int,
         }
     }
 }

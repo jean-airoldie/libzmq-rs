@@ -179,6 +179,7 @@ struct FlatGatherConfig {
     heartbeat: Option<Heartbeat>,
     recv_high_water_mark: HighWaterMark,
     recv_timeout: Period,
+    recv_batch_size: BatchSize,
     mechanism: Option<Mechanism>,
 }
 
@@ -194,6 +195,7 @@ impl From<GatherConfig> for FlatGatherConfig {
             mechanism: socket_config.mechanism,
             recv_high_water_mark: recv_config.recv_high_water_mark,
             recv_timeout: recv_config.recv_timeout,
+            recv_batch_size: recv_config.recv_batch_size,
         }
     }
 }
@@ -208,6 +210,7 @@ impl From<FlatGatherConfig> for GatherConfig {
         let recv_config = RecvConfig {
             recv_high_water_mark: flat.recv_high_water_mark,
             recv_timeout: flat.recv_timeout,
+            recv_batch_size: flat.recv_batch_size,
         };
         let heartbeat_config = HeartbeatingConfig {
             heartbeat: flat.heartbeat,

@@ -300,9 +300,9 @@ impl RawSocket {
         &self,
         hwm: i32,
     ) -> Result<(), Error> {
-        if hwm == 0 {
+        if hwm <= 0 {
             return Err(Error::new(ErrorKind::InvalidInput(
-                "high water mark cannot be zero",
+                "high water mark must be greater than zero",
             )));
         }
         setsockopt_scalar(
@@ -310,6 +310,19 @@ impl RawSocket {
             SocketOption::RecvHighWaterMark,
             hwm,
         )
+    }
+
+    pub(crate) fn recv_batch_size(&self) -> Result<i32, Error> {
+        getsockopt_scalar(self.as_mut_ptr(), SocketOption::InBatchSize)
+    }
+
+    pub(crate) fn set_recv_batch_size(&self, size: i32) -> Result<(), Error> {
+        if size <= 0 {
+            return Err(Error::new(ErrorKind::InvalidInput(
+                "batch size must be greater than zero",
+            )));
+        }
+        setsockopt_scalar(self.as_mut_ptr(), SocketOption::InBatchSize, size)
     }
 
     pub(crate) fn recv_timeout(&self) -> Result<Period, Error> {
@@ -338,9 +351,9 @@ impl RawSocket {
         &self,
         hwm: i32,
     ) -> Result<(), Error> {
-        if hwm == 0 {
+        if hwm <= 0 {
             return Err(Error::new(ErrorKind::InvalidInput(
-                "high water mark cannot be zero",
+                "high water mark must be greater than zero",
             )));
         }
         setsockopt_scalar(
@@ -348,6 +361,19 @@ impl RawSocket {
             SocketOption::SendHighWaterMark,
             hwm,
         )
+    }
+
+    pub(crate) fn send_batch_size(&self) -> Result<i32, Error> {
+        getsockopt_scalar(self.as_mut_ptr(), SocketOption::OutBatchSize)
+    }
+
+    pub(crate) fn set_send_batch_size(&self, size: i32) -> Result<(), Error> {
+        if size <= 0 {
+            return Err(Error::new(ErrorKind::InvalidInput(
+                "batch size must be greater than zero",
+            )));
+        }
+        setsockopt_scalar(self.as_mut_ptr(), SocketOption::OutBatchSize, size)
     }
 
     pub(crate) fn send_timeout(&self) -> Result<Period, Error> {

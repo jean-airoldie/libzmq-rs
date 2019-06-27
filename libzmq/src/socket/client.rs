@@ -184,8 +184,10 @@ struct FlatClientConfig {
     heartbeat: Option<Heartbeat>,
     send_high_water_mark: HighWaterMark,
     send_timeout: Period,
+    send_batch_size: BatchSize,
     recv_high_water_mark: HighWaterMark,
     recv_timeout: Period,
+    recv_batch_size: BatchSize,
     mechanism: Option<Mechanism>,
 }
 
@@ -202,8 +204,10 @@ impl From<ClientConfig> for FlatClientConfig {
             mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
+            send_batch_size: send_config.send_batch_size,
             recv_high_water_mark: recv_config.recv_high_water_mark,
             recv_timeout: recv_config.recv_timeout,
+            recv_batch_size: recv_config.recv_batch_size,
         }
     }
 }
@@ -218,10 +222,12 @@ impl From<FlatClientConfig> for ClientConfig {
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,
             send_timeout: flat.send_timeout,
+            send_batch_size: flat.send_batch_size,
         };
         let recv_config = RecvConfig {
             recv_high_water_mark: flat.recv_high_water_mark,
             recv_timeout: flat.recv_timeout,
+            recv_batch_size: flat.recv_batch_size,
         };
         let heartbeat_config = HeartbeatingConfig {
             heartbeat: flat.heartbeat,

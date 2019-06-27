@@ -47,7 +47,7 @@ mod private {
     impl Sealed for OldSocket {}
 }
 
-use crate::{addr::Endpoint, auth::*, error::Error};
+use crate::{addr::Endpoint, auth::*, Error};
 
 use humantime_serde::Serde;
 use serde::{Deserialize, Serialize};
@@ -55,10 +55,12 @@ use serde::{Deserialize, Serialize};
 use std::{sync::MutexGuard, time::Duration};
 
 const DEFAULT_HWM: i32 = 1000;
+const DEFAULT_BATCH_SIZE: i32 = 8192;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct HighWaterMark(i32);
+#[serde(from = "Option<i32>")]
+#[serde(into = "Option<i32>")]
+pub(crate) struct HighWaterMark(i32);
 
 impl Default for HighWaterMark {
     fn default() -> Self {
@@ -68,13 +70,66 @@ impl Default for HighWaterMark {
 
 impl From<i32> for HighWaterMark {
     fn from(i: i32) -> Self {
-        HighWaterMark(i)
+        Self(i)
     }
 }
 
 impl From<HighWaterMark> for i32 {
     fn from(hwm: HighWaterMark) -> i32 {
         hwm.0
+    }
+}
+
+impl From<Option<i32>> for HighWaterMark {
+    fn from(v: Option<i32>) -> Self {
+        match v {
+            Some(v) => Self(v),
+            None => Self::default(),
+        }
+    }
+}
+
+impl From<HighWaterMark> for Option<i32> {
+    fn from(hwm: HighWaterMark) -> Self {
+        Some(hwm.0)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(from = "Option<i32>")]
+#[serde(into = "Option<i32>")]
+pub(crate) struct BatchSize(i32);
+
+impl Default for BatchSize {
+    fn default() -> Self {
+        BatchSize(DEFAULT_BATCH_SIZE)
+    }
+}
+
+impl From<i32> for BatchSize {
+    fn from(v: i32) -> Self {
+        BatchSize(v)
+    }
+}
+
+impl From<BatchSize> for i32 {
+    fn from(size: BatchSize) -> i32 {
+        size.0
+    }
+}
+
+impl From<Option<i32>> for BatchSize {
+    fn from(v: Option<i32>) -> Self {
+        match v {
+            Some(v) => Self(v),
+            None => Self::default(),
+        }
+    }
+}
+
+impl From<BatchSize> for Option<i32> {
+    fn from(size: BatchSize) -> Self {
+        Some(size.0)
     }
 }
 
