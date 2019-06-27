@@ -261,6 +261,7 @@ struct FlatRadioConfig {
     bind: Option<Vec<Endpoint>>,
     send_high_water_mark: HighWaterMark,
     send_timeout: Period,
+    send_batch_size: BatchSize,
     no_drop: Option<bool>,
     mechanism: Option<Mechanism>,
 }
@@ -274,6 +275,7 @@ impl From<RadioConfig> for FlatRadioConfig {
             bind: socket_config.bind,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
+            send_batch_size: send_config.send_batch_size,
             no_drop: config.no_drop,
             mechanism: socket_config.mechanism,
         }
@@ -290,6 +292,7 @@ impl From<FlatRadioConfig> for RadioConfig {
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,
             send_timeout: flat.send_timeout,
+            send_batch_size: flat.send_batch_size,
         };
         Self {
             socket_config,

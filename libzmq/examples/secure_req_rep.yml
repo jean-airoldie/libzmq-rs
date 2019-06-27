@@ -36,10 +36,6 @@ server:
       interval: 1s
       timeout: 3s
       ttl: 3s
-  send_high_water_mark: 10
-  send_timeout: 300ms
-  recv_high_water_mark: 100
-  recv_timeout: 300ms
   mechanism:
     curve_server:
       secret: "iaoRiIVA^VgV:f4a<@{8K{cP62cE:dh=4:oY+^l("
