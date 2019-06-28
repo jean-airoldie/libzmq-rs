@@ -318,32 +318,23 @@ pub trait Socket: GetRawSocket {
 
     /// Disconnect the socket from one or more [`Endpoints`].
     ///
-    /// The behavior of `disconnect` varies depending whether the endpoint
-    /// was connected or bound to. Note that, in both cases, the disconnection
-    /// is not immediate.
-    ///
-    /// When any of the connection attempt fail, the `Error` will contain the position
-    /// of the iterator before the failure. This represents the number of
-    /// disconnections that succeeded before the failure.
+    /// When any of the disconnection attempt fail, the `Error` will contain the
+    /// position of the iterator before the failure. This represents the number
+    /// of disconnections that succeeded before the failure.
     ///
     /// ## Disconnect from a connected endpoint
     /// The socket stops receiving and sending messages to the remote.
-    /// The incoming and outgoing queue of the socket associated to the endpoint are discarded.
-    /// However, the remote server might still have outstanding messages from
-    /// the socket sent prior to the disconnection in its incoming queue.
-    ///
-    /// ## Disconnect from a bound endpoint
-    /// The socket stops receiving and sending messages to peers connected to the
-    /// now unbound endpoint. The outgoing queue of the socket associated to the
-    /// endpoint is discarded, but incoming queue is kept.
+    /// The incoming and outgoing queue of the socket associated to the endpoint
+    /// are discarded. However, the remote server might still have outstanding
+    /// messages from the socket sent prior to the disconnection in its
+    /// incoming queue.
     ///
     /// # Usage Contract
-    /// * The endpoint must be currently connected or bound to.
+    /// * The endpoint must be currently connected to.
     ///
     /// # Returned Errors
-    /// * [`NotFound`] (endpoint was not bound to)
+    /// * [`NotFound`] (endpoint was not connected to)
     /// * [`CtxTerminated`]
-    ///
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
@@ -359,6 +350,46 @@ pub trait Socket: GetRawSocket {
         for endpoint in endpoints.into_iter().map(E::into) {
             raw_socket
                 .disconnect(&endpoint)
+                .map_err(|err| Error::with_content(err.kind(), count))?;
+
+            count += 1;
+        }
+
+        Ok(())
+    }
+
+    /// Unbind the socket from one or more [`Endpoints`].
+    ///
+    /// When any of the unbind attempt fail, the `Error` will contain
+    /// the position of the iterator before the failure. This represents the
+    /// number of unbind that succeeded before the failure.
+    ///
+    /// ## Disconnect from a bound endpoint
+    /// The socket stops receiving and sending messages to peers connected to
+    /// the now unbound endpoint. The outgoing queue of the socket associated
+    /// to the endpoint is discarded, but the incoming queue is kept.
+    ///
+    /// # Usage Contract
+    /// * The endpoint must be currently bound to.
+    ///
+    /// # Returned Errors
+    /// * [`NotFound`] (endpoint was not bound to)
+    /// * [`CtxTerminated`]
+    ///
+    /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
+    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
+    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
+    where
+        I: IntoIterator<Item = E>,
+        E: Into<Endpoint>,
+    {
+        let mut count = 0;
+        let raw_socket = self.raw_socket();
+
+        for endpoint in endpoints.into_iter().map(E::into) {
+            raw_socket
+                .unbind(&endpoint)
                 .map_err(|err| Error::with_content(err.kind(), count))?;
 
             count += 1;
