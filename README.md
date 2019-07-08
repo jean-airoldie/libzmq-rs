@@ -9,13 +9,13 @@
 A strict subset of ØMQ with an ergonomic API.
 
 # Versioning & Stability Guarantees
-**Expect breaking changes with each release until `0.2`**. After that, expect breaking changes only on minor
+**Expect breaking changes with each minor release until `0.2`**. After that, expect breaking changes only on minor
 version until `1.0`. Furthermore, since a large part of the library relies on ØMQ's DRAFT API,
 they will have to be stabilized before the 1.0 version is released.
 
 ```toml
 [dependencies]
-libzmq = "0.1.22"
+libzmq = "0.1.23"
 ```
 
 # Dead Simple Sample
