@@ -181,8 +181,8 @@ impl AuthServer {
 
     pub(crate) fn run(&mut self) -> Result<(), Error> {
         let mut poller = Poller::new();
-        poller.add(&self.handler, Id(0), READABLE)?;
-        poller.add(&self.request, Id(1), READABLE)?;
+        poller.add(&self.handler, PollId(0), READABLE)?;
+        poller.add(&self.request, PollId(1), READABLE)?;
 
         let mut events = Events::new();
 
@@ -191,7 +191,7 @@ impl AuthServer {
 
             for event in &events {
                 match event.id() {
-                    Id(0) => {
+                    PollId(0) => {
                         let mut parts = self.handler.recv_msg_multipart()?;
                         let routing_id = parts.remove(0);
                         assert!(parts.remove(0).is_empty());
@@ -203,7 +203,7 @@ impl AuthServer {
                         self.handler.send("", true)?;
                         self.handler.send_multipart(reply)?;
                     }
-                    Id(1) => {
+                    PollId(1) => {
                         let msg = self.request.recv_msg()?;
                         let id = msg.routing_id().unwrap();
                         let request: AuthRequest =
