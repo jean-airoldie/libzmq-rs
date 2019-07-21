@@ -85,16 +85,16 @@ bitflags! {
 ///
 /// [`Pollable`]: enum.Pollable.html
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Id(pub usize);
+pub struct PollId(pub usize);
 
-impl From<usize> for Id {
-    fn from(val: usize) -> Id {
-        Id(val)
+impl From<usize> for PollId {
+    fn from(val: usize) -> PollId {
+        PollId(val)
     }
 }
 
-impl From<Id> for usize {
-    fn from(val: Id) -> usize {
+impl From<PollId> for usize {
+    fn from(val: PollId) -> usize {
         val.0
     }
 }
@@ -113,11 +113,11 @@ impl From<Id> for usize {
 ///
 /// // The poller can poll sockets...
 /// let server = Server::new()?;
-/// poller.add(&server, Id(0), READABLE)?;
+/// poller.add(&server, PollId(0), READABLE)?;
 ///
 /// // ...as well as any type that implements `AsRawFd`.
 /// let tcp_listener = TcpListener::bind("127.0.0.1:0")?;
-/// poller.add(&tcp_listener, Id(1), READABLE | WRITABLE)?;
+/// poller.add(&tcp_listener, PollId(1), READABLE | WRITABLE)?;
 /// #
 /// #     Ok(())
 /// # }
@@ -210,7 +210,7 @@ impl<'a> Iterator for Iter<'a> {
             } else {
                 let user_data = event.user_data as *mut usize as usize;
                 Some(Event {
-                    id: Id(user_data),
+                    id: PollId(user_data),
                     cause: Cause::from_bits(event.events).unwrap(),
                 })
             }
@@ -249,7 +249,7 @@ impl Iterator for IntoIter {
         raw.map(|raw| {
             let user_data = raw.user_data as *mut usize as usize;
             Event {
-                id: Id(user_data),
+                id: PollId(user_data),
                 cause: Cause::from_bits(raw.events).unwrap(),
             }
         })
@@ -265,7 +265,7 @@ impl Iterator for IntoIter {
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Event {
     cause: Cause,
-    id: Id,
+    id: PollId,
 }
 
 impl Event {
@@ -293,10 +293,10 @@ impl Event {
         self.cause.contains(Cause::PRIORITY)
     }
 
-    /// Returns the [`Id`] associated with the event.
+    /// Returns the [`PollId`] associated with the event.
     ///
-    /// [`Id`]: struct.Id.html
-    pub fn id(&self) -> Id {
+    /// [`PollId`]: struct.PollId.html
+    pub fn id(&self) -> PollId {
         self.id
     }
 }
@@ -393,8 +393,8 @@ impl IntoIterator for Events {
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
-/// poller.add(&server, Id(0), READABLE)?;
-/// poller.add(&client, Id(1), READABLE)?;
+/// poller.add(&server, PollId(0), READABLE)?;
+/// poller.add(&client, PollId(1), READABLE)?;
 ///
 /// // Initialize the client.
 /// client.send("ping")?;
@@ -412,13 +412,13 @@ impl IntoIterator for Events {
 ///         assert!(event.is_readable());
 ///         match event.id() {
 ///             // The server is ready to receive an incoming message.
-///             Id(0) => {
+///             PollId(0) => {
 ///                 let msg = server.recv_msg()?;
 ///                 assert_eq!("ping", msg.to_str()?);
 ///                 server.send(msg)?;
 ///             }
 ///             // One of the clients is ready to receive an incoming message.
-///             Id(1) => {
+///             PollId(1) => {
 ///                 let msg = client.recv_msg()?;
 ///                 assert_eq!("ping", msg.to_str()?);
 ///                 client.send(msg)?;
@@ -463,8 +463,8 @@ impl Poller {
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, Id(0), EMPTY)?;
-    /// let err = poller.add(&server, Id(1), EMPTY).unwrap_err();
+    /// poller.add(&server, PollId(0), EMPTY)?;
+    /// let err = poller.add(&server, PollId(1), EMPTY).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -481,7 +481,7 @@ impl Poller {
     pub fn add<'a, P>(
         &mut self,
         pollable: P,
-        id: Id,
+        id: PollId,
         trigger: Trigger,
     ) -> Result<(), Error>
     where
@@ -498,7 +498,7 @@ impl Poller {
     fn add_fd(
         &mut self,
         fd: RawFd,
-        id: Id,
+        id: PollId,
         trigger: Trigger,
     ) -> Result<(), Error> {
         let user_data: usize = id.into();
@@ -530,7 +530,7 @@ impl Poller {
     fn add_raw_socket(
         &mut self,
         raw_socket: &RawSocket,
-        id: Id,
+        id: PollId,
         trigger: Trigger,
     ) -> Result<(), Error> {
         let socket_mut_ptr = raw_socket.as_mut_ptr();
@@ -579,7 +579,7 @@ impl Poller {
     /// let server = Server::new()?;
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, Id(0), EMPTY)?;
+    /// poller.add(&server, PollId(0), EMPTY)?;
     /// poller.remove(&server)?;
     ///
     /// let err = poller.remove(&server).unwrap_err();
