@@ -51,7 +51,7 @@ fn send(
 ///
 /// Does not support multipart messages.
 pub trait SendMsg: GetRawSocket {
-    /// Push a message into the outgoing socket queue.
+    /// Push a message into the outgoing message queue.
     ///
     /// This operation might block until the mute state end or,
     /// if it set, `send_timeout` expires.
@@ -84,7 +84,7 @@ pub trait SendMsg: GetRawSocket {
         send(self.raw_socket().as_mut_ptr(), msg.into(), false)
     }
 
-    /// Try to push a message into the outgoing socket queue without blocking.
+    /// Try to push a message into the outgoing message queue without blocking.
     ///
     /// If the action would block, it returns a [`WouldBlock`] error, otherwise
     /// the message is pushed into the outgoing queue.

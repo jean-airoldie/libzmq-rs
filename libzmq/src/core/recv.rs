@@ -45,7 +45,7 @@ fn recv(
 ///
 /// Does not support multipart messages.
 pub trait RecvMsg: GetRawSocket {
-    /// Retreive a message from the inbound socket queue.
+    /// Retreive a message from the incoming message queue.
     ///
     /// This operation might block until the socket receives a message or,
     /// if it is set, until `recv_timeout` expires.
@@ -65,10 +65,10 @@ pub trait RecvMsg: GetRawSocket {
         recv(self.raw_socket().as_mut_ptr(), msg, false)
     }
 
-    /// Try to retrieve a message from the inbound socket queue without blocking.
+    /// Try to retrieve a message from the incoming message queue without blocking.
     ///
-    /// This polls the socket to determine there is at least on inbound message in
-    /// the socket queue. If there is, it retuns it, otherwise it errors with
+    /// This polls the socket to determine if there is at least on inbound message
+    /// in the socket queue. If there is, it retuns it, otherwise it errors with
     /// [`WouldBlock`].
     ///
     /// # Error

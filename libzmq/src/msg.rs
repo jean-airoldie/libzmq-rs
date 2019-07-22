@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use std::{
     ffi::CStr,
-    fmt,
+    fmt, mem,
     os::raw::c_void,
     ptr, slice,
     str::{self, Utf8Error},
@@ -114,6 +114,49 @@ impl Msg {
                 sys::zmq_msg_init_size(msg, size as size_t)
             })
         }
+    }
+
+    /// Cast a `T` into a `Msg` by allocating a `Box`, converting it into
+    /// a raw pointer and sending it.
+    ///
+    /// This should only be used to communicate across thread boundaries.
+    ///
+    /// # Safety
+    /// * If the message is never received and `cast_into`, it will eventually
+    ///     be deallocated by libzmq.
+    /// * If the message is received and `cast_into` is used on this message,
+    ///     it won't be deallocated by `libzmq` as it is now owned by the receiver.
+    /// * The lifetime of `T` must be valid upon receiving.
+    ///
+    pub(crate) unsafe fn cast_from<T: 'static>(item: T) -> Self {
+        // We use an `Option` here so that we can take safely take ownership of
+        // the item if the message is received as `cast_from` is called on it.
+        let boxed = Box::new(Some(item));
+        let data = Box::into_raw(boxed) as *mut c_void;
+        let size = mem::size_of::<Option<T>>();
+
+        unsafe extern "C" fn drop_zmq_msg_t<T>(
+            data: *mut c_void,
+            _hint: *mut c_void,
+        ) {
+            // Convert the pointer back and drop it.
+            Box::from_raw(data as *mut Option<T>);
+        }
+
+        Self::deferred_alloc(|msg| {
+            sys::zmq_msg_init_data(
+                msg,
+                data,
+                size,
+                Some(drop_zmq_msg_t::<T>),
+                ptr::null_mut(),
+            )
+        })
+    }
+
+    pub(crate) unsafe fn cast_into<T: 'static>(mut self) -> T {
+        let ptr = sys::zmq_msg_data(self.as_mut_ptr()) as *mut Option<T>;
+        (*ptr).take().expect("unable to cast into")
     }
 
     /// Returns the message content size in bytes.
@@ -487,7 +530,12 @@ where
 mod tests {
     use super::*;
 
-    use std::mem;
+    use crate::{prelude::*, *};
+
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
 
     #[test]
     fn test_cast_routing_id_slice() {
@@ -505,5 +553,76 @@ mod tests {
         for (&i, &j) in routing_stack.iter().zip(cast_stack.iter()) {
             assert_eq!(i, j.0);
         }
+    }
+
+    struct TestDrop {
+        counter: Arc<AtomicUsize>,
+    }
+
+    impl TestDrop {
+        fn new(counter: Arc<AtomicUsize>) -> Self {
+            Self { counter }
+        }
+    }
+
+    impl Drop for TestDrop {
+        fn drop(&mut self) {
+            self.counter.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn test_cast_received() {
+        let drop_count = Arc::new(AtomicUsize::new(0));
+
+        let test: TestDrop = {
+            let ctx = Ctx::new();
+            let handle = ctx.handle();
+            let addr = InprocAddr::new_unique();
+            let gather =
+                GatherBuilder::new().bind(&addr).with_ctx(handle).unwrap();
+            let scatter = ScatterBuilder::new()
+                .connect(&addr)
+                .with_ctx(handle)
+                .unwrap();
+
+            let test = TestDrop::new(drop_count.clone());
+            let msg = unsafe { Msg::cast_from(test) };
+
+            // We send the message but also receive it, so it should
+            // not get deallocated.
+            scatter.send(msg).unwrap();
+            let msg = gather.recv_msg().unwrap();
+            assert_eq!(drop_count.load(Ordering::Relaxed), 0);
+            unsafe { msg.cast_into() }
+        };
+        // The message was not freed by libzmq.
+        assert_eq!(drop_count.load(Ordering::Relaxed), 0);
+        mem::drop(test);
+        assert_eq!(drop_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn test_cast_never_received() {
+        let drop_count = Arc::new(AtomicUsize::new(0));
+
+        {
+            let ctx = Ctx::new();
+            let addr = InprocAddr::new_unique();
+            let scatter = ScatterBuilder::new()
+                .connect(&addr)
+                .with_ctx(ctx.handle())
+                .unwrap();
+
+            let test = TestDrop::new(drop_count.clone());
+            let msg = unsafe { Msg::cast_from(test) };
+
+            // We send the message but never received it, so libzmq should
+            // deallocate it properly.
+            scatter.send(msg).unwrap();
+            assert_eq!(drop_count.load(Ordering::Relaxed), 0);
+        }
+        // The message was freed by libzmq.
+        assert_eq!(drop_count.load(Ordering::Relaxed), 1);
     }
 }

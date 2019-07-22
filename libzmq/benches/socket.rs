@@ -2,7 +2,7 @@ use super::*;
 
 use criterion::{black_box, Benchmark, Criterion, Throughput};
 use lazy_static::lazy_static;
-use libzmq::{prelude::*, *};
+use libzmq::{channel::*, prelude::*, *};
 use rand::{distributions::Standard, Rng};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
@@ -26,7 +26,7 @@ fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
 
 pub(crate) fn bench(c: &mut Criterion) {
     c.bench(
-        &"50u8 msg on TCP".to_owned(),
+        &"50u8 msg one way on TCP loopback".to_owned(),
         Benchmark::new("dataset alloc (control)", move |b| {
             b.iter(|| {
                 black_box(gen_dataset(MSG_AMOUNT, MSG_SIZE));
@@ -71,6 +71,7 @@ pub(crate) fn bench(c: &mut Criterion) {
             let consumer = DishBuilder::new()
                 .connect(bound)
                 .recv_hwm(HWM)
+                .join(&*GROUP)
                 .build()
                 .unwrap();
 
@@ -109,6 +110,40 @@ pub(crate) fn bench(c: &mut Criterion) {
 
                     producer.send(data).unwrap();
                     let _ = consumer.try_recv(&mut msg);
+                }
+            });
+        })
+        .with_function("simplex", move |b| {
+            let simplex = Simplex::new().unwrap();
+
+            let sender = simplex.sender();
+            sender.set_send_hwm(HWM).unwrap();
+
+            let receiver = simplex.receiver();
+            receiver.set_recv_hwm(HWM).unwrap();
+
+            b.iter(|| {
+                let dataset = gen_dataset(MSG_AMOUNT, MSG_SIZE);
+                for data in dataset {
+                    sender.send(data).unwrap();
+                    let _ = receiver.try_recv();
+                }
+            });
+        })
+        .with_function("duplex", move |b| {
+            let duplex = Duplex::<_, ()>::new().unwrap();
+
+            let front = duplex.front();
+            front.set_send_hwm(HWM).unwrap();
+
+            let back = duplex.back();
+            back.set_recv_hwm(HWM).unwrap();
+
+            b.iter(|| {
+                let dataset = gen_dataset(MSG_AMOUNT, MSG_SIZE);
+                for data in dataset {
+                    front.send(data).unwrap();
+                    let _ = back.recv().unwrap();
                 }
             });
         })
