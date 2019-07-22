@@ -135,14 +135,14 @@ pub trait SendMsg: GetRawSocket {
     /// use libzmq::{prelude::*, *};
     ///
     /// let client = ClientBuilder::new().build()?;
-    /// assert_eq!(client.send_high_water_mark()?, 1000);
+    /// assert_eq!(client.send_hwm()?, 1000);
     ///
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    fn send_high_water_mark(&self) -> Result<i32, Error> {
-        self.raw_socket().send_high_water_mark()
+    fn send_hwm(&self) -> Result<i32, Error> {
+        self.raw_socket().send_hwm()
     }
 
     /// Set the high water mark for outbound messages on the specified socket.
@@ -162,8 +162,8 @@ pub trait SendMsg: GetRawSocket {
     /// 1000
     ///
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    fn set_send_high_water_mark(&self, hwm: i32) -> Result<(), Error> {
-        self.raw_socket().set_send_high_water_mark(hwm)
+    fn set_send_hwm(&self, hwm: i32) -> Result<(), Error> {
+        self.raw_socket().set_send_hwm(hwm)
     }
 
     /// Sets the timeout for [`send`] on the socket.
@@ -214,13 +214,13 @@ pub trait SendMsg: GetRawSocket {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct SendConfig {
-    pub(crate) send_high_water_mark: HighWaterMark,
+    pub(crate) send_hwm: HighWaterMark,
     pub(crate) send_timeout: Period,
 }
 
 impl SendConfig {
     pub(crate) fn apply<S: SendMsg>(&self, socket: &S) -> Result<(), Error> {
-        socket.set_send_high_water_mark(self.send_high_water_mark.into())?;
+        socket.set_send_hwm(self.send_hwm.into())?;
         socket.set_send_timeout(self.send_timeout)?;
 
         Ok(())
@@ -236,12 +236,12 @@ pub trait GetSendConfig: private::Sealed {
 
 /// A set of provided methods for the configuration of socket that implements `SendMsg`.
 pub trait ConfigureSend: GetSendConfig {
-    fn send_high_water_mark(&self) -> i32 {
-        self.send_config().send_high_water_mark.into()
+    fn send_hwm(&self) -> i32 {
+        self.send_config().send_hwm.into()
     }
 
-    fn set_send_high_water_mark(&mut self, hwm: i32) {
-        self.send_config_mut().send_high_water_mark = HighWaterMark(hwm);
+    fn set_send_hwm(&mut self, hwm: i32) {
+        self.send_config_mut().send_hwm = HighWaterMark(hwm);
     }
 
     fn send_timeout(&self) -> Period {
@@ -255,8 +255,8 @@ pub trait ConfigureSend: GetSendConfig {
 
 /// A set of provided methods for the builder of a socket that implements `SendMsg`.
 pub trait BuildSend: GetSendConfig {
-    fn send_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        self.send_config_mut().send_high_water_mark = HighWaterMark(hwm);
+    fn send_hwm(&mut self, hwm: i32) -> &mut Self {
+        self.send_config_mut().send_hwm = HighWaterMark(hwm);
         self
     }
 

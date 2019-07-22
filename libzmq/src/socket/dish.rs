@@ -395,7 +395,7 @@ impl DishConfig {
 struct FlatDishConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
-    recv_high_water_mark: HighWaterMark,
+    recv_hwm: HighWaterMark,
     recv_timeout: Period,
     groups: Option<Vec<Group>>,
     mechanism: Option<Mechanism>,
@@ -409,7 +409,7 @@ impl From<DishConfig> for FlatDishConfig {
             connect: socket_config.connect,
             bind: socket_config.bind,
             mechanism: socket_config.mechanism,
-            recv_high_water_mark: recv_config.recv_high_water_mark,
+            recv_hwm: recv_config.recv_hwm,
             recv_timeout: recv_config.recv_timeout,
             groups: config.groups,
         }
@@ -424,7 +424,7 @@ impl From<FlatDishConfig> for DishConfig {
             mechanism: flat.mechanism,
         };
         let recv_config = RecvConfig {
-            recv_high_water_mark: flat.recv_high_water_mark,
+            recv_hwm: flat.recv_hwm,
             recv_timeout: flat.recv_timeout,
         };
         Self {

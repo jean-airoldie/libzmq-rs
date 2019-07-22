@@ -35,14 +35,14 @@ pub(crate) fn bench(c: &mut Criterion) {
         .with_function("server-client", move |b| {
             let producer = ServerBuilder::new()
                 .bind(&*ADDR)
-                .send_high_water_mark(HWM)
+                .send_hwm(HWM)
                 .build()
                 .unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
             let consumer = ClientBuilder::new()
                 .connect(bound)
-                .recv_high_water_mark(HWM)
+                .recv_hwm(HWM)
                 .build()
                 .unwrap();
 
@@ -63,14 +63,14 @@ pub(crate) fn bench(c: &mut Criterion) {
         .with_function("radio-dish", move |b| {
             let producer = RadioBuilder::new()
                 .bind(&*ADDR)
-                .send_high_water_mark(HWM)
+                .send_hwm(HWM)
                 .build()
                 .unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
             let consumer = DishBuilder::new()
                 .connect(bound)
-                .recv_high_water_mark(HWM)
+                .recv_hwm(HWM)
                 .build()
                 .unwrap();
 
@@ -89,14 +89,14 @@ pub(crate) fn bench(c: &mut Criterion) {
         .with_function("scatter-gather", move |b| {
             let producer = ScatterBuilder::new()
                 .bind(&*ADDR)
-                .send_high_water_mark(HWM)
+                .send_hwm(HWM)
                 .build()
                 .unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
             let consumer = GatherBuilder::new()
                 .connect(bound)
-                .recv_high_water_mark(HWM)
+                .recv_hwm(HWM)
                 .build()
                 .unwrap();
 

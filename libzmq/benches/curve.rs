@@ -34,14 +34,14 @@ pub(crate) fn bench(c: &mut Criterion) {
         .with_function("without CURVE encryption", move |b| {
             let producer = ServerBuilder::new()
                 .bind(&*ADDR)
-                .send_high_water_mark(HWM)
+                .send_hwm(HWM)
                 .build()
                 .unwrap();
 
             let bound = producer.last_endpoint().unwrap().unwrap();
             let consumer = ClientBuilder::new()
                 .connect(bound)
-                .recv_high_water_mark(HWM)
+                .recv_hwm(HWM)
                 .build()
                 .unwrap();
 
@@ -68,7 +68,7 @@ pub(crate) fn bench(c: &mut Criterion) {
 
             let producer = ServerBuilder::new()
                 .bind(&*ADDR)
-                .send_high_water_mark(HWM)
+                .send_hwm(HWM)
                 .mechanism(creds)
                 .build()
                 .unwrap();
@@ -79,7 +79,7 @@ pub(crate) fn bench(c: &mut Criterion) {
 
             let consumer = ClientBuilder::new()
                 .connect(bound)
-                .recv_high_water_mark(HWM)
+                .recv_hwm(HWM)
                 .mechanism(creds)
                 .build()
                 .unwrap();
