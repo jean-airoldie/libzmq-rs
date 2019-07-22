@@ -67,12 +67,12 @@ fn main() -> Result<(), failure::Error> {
     let msg = client.recv_msg()?;
     assert_eq!(msg.to_str(), Ok("pong"));
 
-    // This will cause the server to fail with `CtxTerminated`.
+    // This will cause the server to fail with `CtxInvalid`.
     Ctx::global().shutdown();
 
     // Join with the thread.
     let err = handle.join().unwrap().unwrap_err();
-    assert_eq!(err.kind(), ErrorKind::CtxTerminated);
+    assert_eq!(err.kind(), ErrorKind::CtxInvalid);
 
     Ok(())
 }

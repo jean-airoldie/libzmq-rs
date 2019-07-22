@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx, CtxHandle};
 
 use serde::{Deserialize, Serialize};
 
@@ -84,10 +84,10 @@ impl Client {
     /// Create a `Client` socket from the [`global context`]
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
@@ -96,25 +96,24 @@ impl Client {
         Ok(Self { inner })
     }
 
-    /// Create a `Client` socket from a specific context.
+    /// Create a `Client` socket associated with a specific context
+    /// from a `CtxHandle`.
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Client, ctx)?);
+    pub fn with_ctx(handle: CtxHandle) -> Result<Self, Error> {
+        let inner =
+            Arc::new(RawSocket::with_ctx(RawSocketType::Client, handle)?);
 
         Ok(Self { inner })
     }
 
-    /// Returns a reference to the context of the socket.
-    pub fn ctx(&self) -> &crate::Ctx {
+    /// Returns the handle to the `Ctx` of the socket.
+    pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
     }
 }
@@ -157,11 +156,8 @@ impl ClientConfig {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        let client = Client::with_ctx(ctx).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Client, Error<usize>> {
+        let client = Client::with_ctx(handle).map_err(Error::cast)?;
         self.apply(&client)?;
 
         Ok(client)
@@ -300,11 +296,8 @@ impl ClientBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Client, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        self.inner.with_ctx(ctx)
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Client, Error<usize>> {
+        self.inner.with_ctx(handle)
     }
 }
 

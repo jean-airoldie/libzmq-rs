@@ -88,10 +88,10 @@ impl Server {
     /// Create a `Server` socket from the [`global context`]
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     /// [`global context`]: ctx/struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
@@ -100,25 +100,24 @@ impl Server {
         Ok(Self { inner })
     }
 
-    /// Create a `Server` socket from a specific context.
+    /// Create a `Server` socket associated with a specific context
+    /// from a `CtxHandle`.
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Server, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Server, ctx)?);
+    pub fn with_ctx(handle: CtxHandle) -> Result<Server, Error> {
+        let inner =
+            Arc::new(RawSocket::with_ctx(RawSocketType::Server, handle)?);
 
         Ok(Self { inner })
     }
 
     /// Returns a reference to the context of the socket.
-    pub fn ctx(&self) -> &crate::Ctx {
+    pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
     }
 
@@ -195,11 +194,8 @@ impl ServerConfig {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        let server = Server::with_ctx(ctx.into()).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Server, Error<usize>> {
+        let server = Server::with_ctx(handle).map_err(Error::cast)?;
         self.apply(&server)?;
 
         Ok(server)
@@ -341,11 +337,8 @@ impl ServerBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Server, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        self.inner.with_ctx(ctx)
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Server, Error<usize>> {
+        self.inner.with_ctx(handle)
     }
 }
 
