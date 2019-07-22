@@ -159,53 +159,6 @@ pub trait RecvMsg: GetRawSocket {
         self.raw_socket().set_recv_high_water_mark(hwm)
     }
 
-    /// Maximal amount of messages that can be sent in a single
-    /// 'recv' system call.
-    ///
-    /// This can be used to improve throughtput at the expense of
-    /// latency and vice-versa.
-    ///
-    /// # Default value
-    /// 8192
-    ///
-    /// # Example
-    /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, *};
-    ///
-    /// let client = ClientBuilder::new().build()?;
-    /// assert_eq!(client.recv_batch_size()?, 8192);
-    ///
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    fn recv_batch_size(&self) -> Result<i32, Error> {
-        self.raw_socket().recv_batch_size()
-    }
-
-    /// Sets the maximal amount of messages that can be sent in a single
-    /// 'recv' system call.
-    ///
-    /// This can be used to improve throughtput at the expense of
-    /// latency and vice-versa.
-    ///
-    /// # Usage Contract
-    /// * The batch size cannot be zero.
-    ///
-    /// # Returned Error
-    /// * [`InvalidInput`](on contract violation)
-    ///
-    /// # Default value
-    /// 8192
-    ///
-    /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    fn set_recv_batch_size(&self, size: i32) -> Result<(), Error> {
-        self.raw_socket().set_recv_batch_size(size)
-    }
-
     /// The timeout for [`recv`] on the socket.
     ///
     /// If some timeout is specified, [`recv`] will return
@@ -236,14 +189,12 @@ pub trait RecvMsg: GetRawSocket {
 pub struct RecvConfig {
     pub(crate) recv_high_water_mark: HighWaterMark,
     pub(crate) recv_timeout: Period,
-    pub(crate) recv_batch_size: BatchSize,
 }
 
 impl RecvConfig {
     pub(crate) fn apply<S: RecvMsg>(&self, socket: &S) -> Result<(), Error> {
         socket.set_recv_high_water_mark(self.recv_high_water_mark.into())?;
         socket.set_recv_timeout(self.recv_timeout)?;
-        socket.set_recv_batch_size(self.recv_batch_size.into())?;
 
         Ok(())
     }
@@ -266,14 +217,6 @@ pub trait ConfigureRecv: GetRecvConfig {
         self.recv_config_mut().recv_high_water_mark = HighWaterMark(hwm);
     }
 
-    fn recv_batch_size(&self) -> i32 {
-        self.recv_config().recv_batch_size.into()
-    }
-
-    fn set_recv_batch_size(&mut self, size: i32) {
-        self.recv_config_mut().recv_batch_size = BatchSize(size);
-    }
-
     fn recv_timeout(&self) -> Period {
         self.recv_config().recv_timeout
     }
@@ -287,11 +230,6 @@ pub trait ConfigureRecv: GetRecvConfig {
 pub trait BuildRecv: GetRecvConfig {
     fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
         self.recv_config_mut().recv_high_water_mark = HighWaterMark(hwm);
-        self
-    }
-
-    fn recv_batch_size(&mut self, size: i32) -> &mut Self {
-        self.recv_config_mut().recv_batch_size = BatchSize(size);
         self
     }
 
