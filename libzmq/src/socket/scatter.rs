@@ -170,7 +170,6 @@ struct FlatScatterConfig {
     heartbeat: Option<Heartbeat>,
     send_high_water_mark: HighWaterMark,
     send_timeout: Period,
-    send_batch_size: BatchSize,
     mechanism: Option<Mechanism>,
 }
 
@@ -186,7 +185,6 @@ impl From<ScatterConfig> for FlatScatterConfig {
             mechanism: socket_config.mechanism,
             send_high_water_mark: send_config.send_high_water_mark,
             send_timeout: send_config.send_timeout,
-            send_batch_size: send_config.send_batch_size,
         }
     }
 }
@@ -201,7 +199,6 @@ impl From<FlatScatterConfig> for ScatterConfig {
         let send_config = SendConfig {
             send_high_water_mark: flat.send_high_water_mark,
             send_timeout: flat.send_timeout,
-            send_batch_size: flat.send_batch_size,
         };
         let heartbeat_config = HeartbeatingConfig {
             heartbeat: flat.heartbeat,
