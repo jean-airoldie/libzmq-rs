@@ -145,7 +145,7 @@ impl Radio {
     /// `false`
     ///
     /// [`WouldBlock`]: enum.ErrorKind.html#variant.WouldBlock
-    /// [`send_high_water_mark`]: #method.send_high_water_mark
+    /// [`send_hwm`]: #method.send_hwm
     pub fn set_no_drop(&self, enabled: bool) -> Result<(), Error> {
         self.inner.set_no_drop(enabled)
     }
@@ -259,7 +259,7 @@ impl RadioConfig {
 struct FlatRadioConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
-    send_high_water_mark: HighWaterMark,
+    send_hwm: HighWaterMark,
     send_timeout: Period,
     no_drop: Option<bool>,
     mechanism: Option<Mechanism>,
@@ -272,7 +272,7 @@ impl From<RadioConfig> for FlatRadioConfig {
         Self {
             connect: socket_config.connect,
             bind: socket_config.bind,
-            send_high_water_mark: send_config.send_high_water_mark,
+            send_hwm: send_config.send_hwm,
             send_timeout: send_config.send_timeout,
             no_drop: config.no_drop,
             mechanism: socket_config.mechanism,
@@ -288,7 +288,7 @@ impl From<FlatRadioConfig> for RadioConfig {
             mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
-            send_high_water_mark: flat.send_high_water_mark,
+            send_hwm: flat.send_hwm,
             send_timeout: flat.send_timeout,
         };
         Self {

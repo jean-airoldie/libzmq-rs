@@ -39,7 +39,7 @@ use std::{str, sync::Arc};
 /// // Connect the worker to both load balancers.
 /// let worker = GatherBuilder::new()
 ///     .connect(&[addr_a, addr_b])
-///     .recv_high_water_mark(1)
+///     .recv_hwm(1)
 ///     .build()?;
 ///
 /// for _ in 0..100 {
@@ -177,7 +177,7 @@ struct FlatGatherConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    recv_high_water_mark: HighWaterMark,
+    recv_hwm: HighWaterMark,
     recv_timeout: Period,
     mechanism: Option<Mechanism>,
 }
@@ -192,7 +192,7 @@ impl From<GatherConfig> for FlatGatherConfig {
             bind: socket_config.bind,
             heartbeat: heartbeat_config.heartbeat,
             mechanism: socket_config.mechanism,
-            recv_high_water_mark: recv_config.recv_high_water_mark,
+            recv_hwm: recv_config.recv_hwm,
             recv_timeout: recv_config.recv_timeout,
         }
     }
@@ -206,7 +206,7 @@ impl From<FlatGatherConfig> for GatherConfig {
             mechanism: flat.mechanism,
         };
         let recv_config = RecvConfig {
-            recv_high_water_mark: flat.recv_high_water_mark,
+            recv_hwm: flat.recv_hwm,
             recv_timeout: flat.recv_timeout,
         };
         let heartbeat_config = HeartbeatingConfig {
@@ -342,7 +342,7 @@ mod test {
         // Connected the worker to both load balancers.
         let worker = GatherBuilder::new()
             .connect(&[addr_a, addr_b])
-            .recv_high_water_mark(1)
+            .recv_hwm(1)
             .build()
             .unwrap();
 

@@ -128,14 +128,14 @@ pub trait RecvMsg: GetRawSocket {
     /// use libzmq::{prelude::*, *};
     ///
     /// let client = ClientBuilder::new().build()?;
-    /// assert_eq!(client.recv_high_water_mark()?, 1000);
+    /// assert_eq!(client.recv_hwm()?, 1000);
     ///
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    fn recv_high_water_mark(&self) -> Result<i32, Error> {
-        self.raw_socket().recv_high_water_mark()
+    fn recv_hwm(&self) -> Result<i32, Error> {
+        self.raw_socket().recv_hwm()
     }
 
     /// Set the high water mark for inbound messages on the specified socket.
@@ -155,8 +155,8 @@ pub trait RecvMsg: GetRawSocket {
     /// 1000
     ///
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    fn set_recv_high_water_mark(&self, hwm: i32) -> Result<(), Error> {
-        self.raw_socket().set_recv_high_water_mark(hwm)
+    fn set_recv_hwm(&self, hwm: i32) -> Result<(), Error> {
+        self.raw_socket().set_recv_hwm(hwm)
     }
 
     /// The timeout for [`recv`] on the socket.
@@ -187,13 +187,13 @@ pub trait RecvMsg: GetRawSocket {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[doc(hidden)]
 pub struct RecvConfig {
-    pub(crate) recv_high_water_mark: HighWaterMark,
+    pub(crate) recv_hwm: HighWaterMark,
     pub(crate) recv_timeout: Period,
 }
 
 impl RecvConfig {
     pub(crate) fn apply<S: RecvMsg>(&self, socket: &S) -> Result<(), Error> {
-        socket.set_recv_high_water_mark(self.recv_high_water_mark.into())?;
+        socket.set_recv_hwm(self.recv_hwm.into())?;
         socket.set_recv_timeout(self.recv_timeout)?;
 
         Ok(())
@@ -209,12 +209,12 @@ pub trait GetRecvConfig: private::Sealed {
 
 /// A set of provided methods for the configuration of a socket that implements `RecvMsg`.
 pub trait ConfigureRecv: GetRecvConfig {
-    fn recv_high_water_mark(&self) -> i32 {
-        self.recv_config().recv_high_water_mark.into()
+    fn recv_hwm(&self) -> i32 {
+        self.recv_config().recv_hwm.into()
     }
 
-    fn set_recv_high_water_mark(&mut self, hwm: i32) {
-        self.recv_config_mut().recv_high_water_mark = HighWaterMark(hwm);
+    fn set_recv_hwm(&mut self, hwm: i32) {
+        self.recv_config_mut().recv_hwm = HighWaterMark(hwm);
     }
 
     fn recv_timeout(&self) -> Period {
@@ -228,8 +228,8 @@ pub trait ConfigureRecv: GetRecvConfig {
 
 /// A set of provided methods for the builder of a socket that implements `RecvMsg`.
 pub trait BuildRecv: GetRecvConfig {
-    fn recv_high_water_mark(&mut self, hwm: i32) -> &mut Self {
-        self.recv_config_mut().recv_high_water_mark = HighWaterMark(hwm);
+    fn recv_hwm(&mut self, hwm: i32) -> &mut Self {
+        self.recv_config_mut().recv_hwm = HighWaterMark(hwm);
         self
     }
 

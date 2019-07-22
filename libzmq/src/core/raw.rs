@@ -320,14 +320,11 @@ impl RawSocket {
         setsockopt_bool(self.as_mut_ptr(), SocketOption::PlainServer, cond)
     }
 
-    pub(crate) fn recv_high_water_mark(&self) -> Result<i32, Error> {
+    pub(crate) fn recv_hwm(&self) -> Result<i32, Error> {
         getsockopt_scalar(self.as_mut_ptr(), SocketOption::RecvHighWaterMark)
     }
 
-    pub(crate) fn set_recv_high_water_mark(
-        &self,
-        hwm: i32,
-    ) -> Result<(), Error> {
+    pub(crate) fn set_recv_hwm(&self, hwm: i32) -> Result<(), Error> {
         if hwm <= 0 {
             return Err(Error::new(ErrorKind::InvalidInput(
                 "high water mark must be greater than zero",
@@ -358,14 +355,11 @@ impl RawSocket {
         )
     }
 
-    pub(crate) fn send_high_water_mark(&self) -> Result<i32, Error> {
+    pub(crate) fn send_hwm(&self) -> Result<i32, Error> {
         getsockopt_scalar(self.as_mut_ptr(), SocketOption::SendHighWaterMark)
     }
 
-    pub(crate) fn set_send_high_water_mark(
-        &self,
-        hwm: i32,
-    ) -> Result<(), Error> {
+    pub(crate) fn set_send_hwm(&self, hwm: i32) -> Result<(), Error> {
         if hwm <= 0 {
             return Err(Error::new(ErrorKind::InvalidInput(
                 "high water mark must be greater than zero",

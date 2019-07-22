@@ -35,13 +35,13 @@ use std::{str, sync::Arc};
 ///
 /// let worker_a = GatherBuilder::new()
 ///     .connect(&addr)
-///     .recv_high_water_mark(1)
+///     .recv_hwm(1)
 ///     .recv_timeout(Duration::from_millis(100))
 ///     .build()?;
 ///
 /// let worker_b = GatherBuilder::new()
 ///     .connect(&addr)
-///     .recv_high_water_mark(1)
+///     .recv_hwm(1)
 ///     .recv_timeout(Duration::from_millis(100))
 ///     .build()?;
 ///
@@ -168,7 +168,7 @@ struct FlatScatterConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    send_high_water_mark: HighWaterMark,
+    send_hwm: HighWaterMark,
     send_timeout: Period,
     mechanism: Option<Mechanism>,
 }
@@ -183,7 +183,7 @@ impl From<ScatterConfig> for FlatScatterConfig {
             bind: socket_config.bind,
             heartbeat: heartbeat_config.heartbeat,
             mechanism: socket_config.mechanism,
-            send_high_water_mark: send_config.send_high_water_mark,
+            send_hwm: send_config.send_hwm,
             send_timeout: send_config.send_timeout,
         }
     }
@@ -197,7 +197,7 @@ impl From<FlatScatterConfig> for ScatterConfig {
             mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
-            send_high_water_mark: flat.send_high_water_mark,
+            send_hwm: flat.send_hwm,
             send_timeout: flat.send_timeout,
         };
         let heartbeat_config = HeartbeatingConfig {
@@ -331,14 +331,14 @@ mod test {
 
         let worker_a = GatherBuilder::new()
             .connect(&addr)
-            .recv_high_water_mark(1)
+            .recv_hwm(1)
             .recv_timeout(Duration::from_millis(300))
             .build()
             .unwrap();
 
         let worker_b = GatherBuilder::new()
             .connect(&addr)
-            .recv_high_water_mark(1)
+            .recv_hwm(1)
             .recv_timeout(Duration::from_millis(300))
             .build()
             .unwrap();

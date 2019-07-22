@@ -182,9 +182,9 @@ struct FlatClientConfig {
     connect: Option<Vec<Endpoint>>,
     bind: Option<Vec<Endpoint>>,
     heartbeat: Option<Heartbeat>,
-    send_high_water_mark: HighWaterMark,
+    send_hwm: HighWaterMark,
     send_timeout: Period,
-    recv_high_water_mark: HighWaterMark,
+    recv_hwm: HighWaterMark,
     recv_timeout: Period,
     mechanism: Option<Mechanism>,
 }
@@ -200,9 +200,9 @@ impl From<ClientConfig> for FlatClientConfig {
             bind: socket_config.bind,
             heartbeat: heartbeat_config.heartbeat,
             mechanism: socket_config.mechanism,
-            send_high_water_mark: send_config.send_high_water_mark,
+            send_hwm: send_config.send_hwm,
             send_timeout: send_config.send_timeout,
-            recv_high_water_mark: recv_config.recv_high_water_mark,
+            recv_hwm: recv_config.recv_hwm,
             recv_timeout: recv_config.recv_timeout,
         }
     }
@@ -216,11 +216,11 @@ impl From<FlatClientConfig> for ClientConfig {
             mechanism: flat.mechanism,
         };
         let send_config = SendConfig {
-            send_high_water_mark: flat.send_high_water_mark,
+            send_hwm: flat.send_hwm,
             send_timeout: flat.send_timeout,
         };
         let recv_config = RecvConfig {
-            recv_high_water_mark: flat.recv_high_water_mark,
+            recv_hwm: flat.recv_hwm,
             recv_timeout: flat.recv_timeout,
         };
         let heartbeat_config = HeartbeatingConfig {

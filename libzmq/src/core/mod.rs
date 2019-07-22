@@ -712,11 +712,8 @@ mod test {
         // Use a system-assigned port.
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
-        let server = ServerBuilder::new()
-            .bind(addr)
-            .recv_high_water_mark(1)
-            .build()
-            .unwrap();
+        let server =
+            ServerBuilder::new().bind(addr).recv_hwm(1).build().unwrap();
 
         let bound = server.last_endpoint().unwrap();
 
