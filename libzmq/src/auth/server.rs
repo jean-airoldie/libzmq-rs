@@ -157,15 +157,11 @@ pub(crate) struct AuthServer {
 }
 
 impl AuthServer {
-    pub(crate) fn with_ctx<C>(ctx: C) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let ctx = ctx.into();
-        let mut handler = OldSocket::with_ctx(OldSocketType::Router, &ctx)?;
+    pub(crate) fn with_ctx(handle: CtxHandle) -> Result<Self, Error> {
+        let mut handler = OldSocket::with_ctx(OldSocketType::Router, handle)?;
         handler.bind(&*ZAP_ENDPOINT)?;
 
-        let request = Server::with_ctx(ctx)?;
+        let request = Server::with_ctx(handle)?;
         request.bind(&*COMMAND_ENDPOINT).map_err(Error::cast)?;
 
         Ok(AuthServer {

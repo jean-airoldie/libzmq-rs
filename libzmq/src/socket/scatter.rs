@@ -1,4 +1,4 @@
-use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx};
+use crate::{addr::Endpoint, auth::*, core::*, error::*, Ctx, CtxHandle};
 
 use serde::{Deserialize, Serialize};
 
@@ -66,10 +66,10 @@ impl Scatter {
     /// Create a `Scatter` socket from the [`global context`]
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
@@ -78,25 +78,24 @@ impl Scatter {
         Ok(Self { inner })
     }
 
-    /// Create a `Scatter` socket from a specific context.
+    /// Create a `Scatter` socket associated with a specific context
+    /// from a `CtxHandle`.
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Scatter, ctx)?);
+    pub fn with_ctx(handle: CtxHandle) -> Result<Self, Error> {
+        let inner =
+            Arc::new(RawSocket::with_ctx(RawSocketType::Scatter, handle)?);
 
         Ok(Self { inner })
     }
 
-    /// Returns a reference to the context of the socket.
-    pub fn ctx(&self) -> &crate::Ctx {
+    /// Returns a handle to the context of the socket.
+    pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
     }
 }
@@ -145,11 +144,8 @@ impl ScatterConfig {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Scatter, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        let scatter = Scatter::with_ctx(ctx).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Scatter, Error<usize>> {
+        let scatter = Scatter::with_ctx(handle).map_err(Error::cast)?;
         self.apply(&scatter)?;
 
         Ok(scatter)
@@ -263,11 +259,8 @@ impl ScatterBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Scatter, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        self.inner.with_ctx(ctx)
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Scatter, Error<usize>> {
+        self.inner.with_ctx(handle)
     }
 }
 

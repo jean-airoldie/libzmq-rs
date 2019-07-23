@@ -99,10 +99,10 @@ impl Radio {
     /// Create a `Radio` socket from the [`global context`]
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
@@ -111,25 +111,24 @@ impl Radio {
         Ok(Self { inner })
     }
 
-    /// Create a `Radio` socket from a specific context.
+    /// Create a `Radio` socket associated with a specific context
+    /// from a `CtxHandle`.
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Radio, ctx)?);
+    pub fn with_ctx(handle: CtxHandle) -> Result<Self, Error> {
+        let inner =
+            Arc::new(RawSocket::with_ctx(RawSocketType::Radio, handle)?);
 
         Ok(Self { inner })
     }
 
     /// Returns a reference to the context of the socket.
-    pub fn ctx(&self) -> &crate::Ctx {
+    pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
     }
 
@@ -221,11 +220,8 @@ impl RadioConfig {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        let radio = Radio::with_ctx(ctx).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Radio, Error<usize>> {
+        let radio = Radio::with_ctx(handle).map_err(Error::cast)?;
         self.apply(&radio)?;
 
         Ok(radio)
@@ -345,11 +341,8 @@ impl RadioBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Radio, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        self.inner.with_ctx(ctx)
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Radio, Error<usize>> {
+        self.inner.with_ctx(handle)
     }
 }
 

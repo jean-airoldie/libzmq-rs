@@ -28,7 +28,7 @@ fn recv(
             errno::EFSM => {
                 panic!("operation cannot be completed in current socket state")
             }
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::EFAULT => panic!("invalid message"),
@@ -55,11 +55,11 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// ## Possible Error Variants
     /// * [`WouldBlock`] (if `recv_timeout` expires)
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`Interrupted`]
     ///
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     fn recv(&self, msg: &mut Msg) -> Result<(), Error> {
         recv(self.raw_socket().as_mut_ptr(), msg, false)
@@ -76,11 +76,11 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// ## Possible Error Variants
     /// * [`WouldBlock`]
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`Interrupted`]
     ///
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     fn try_recv(&self, msg: &mut Msg) -> Result<(), Error> {
         recv(self.raw_socket().as_mut_ptr(), msg, true)

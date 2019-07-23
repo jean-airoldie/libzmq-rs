@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use std::{
     os::raw::{c_int, c_void},
-    ptr, str,
-    sync::Arc,
-    thread,
+    str, thread,
 };
 
 lazy_static! {
@@ -19,7 +17,7 @@ lazy_static! {
 }
 
 #[derive(Copy, Clone, Debug)]
-enum RawCtxOption {
+enum CtxOption {
     IOThreads,
     MaxSockets,
     MaxMsgSize,
@@ -28,30 +26,40 @@ enum RawCtxOption {
     Blocky,
 }
 
-impl From<RawCtxOption> for c_int {
-    fn from(r: RawCtxOption) -> c_int {
+impl From<CtxOption> for c_int {
+    fn from(r: CtxOption) -> c_int {
         match r {
-            RawCtxOption::IOThreads => sys::ZMQ_IO_THREADS as c_int,
-            RawCtxOption::MaxSockets => sys::ZMQ_MAX_SOCKETS as c_int,
-            RawCtxOption::MaxMsgSize => sys::ZMQ_MAX_MSGSZ as c_int,
-            RawCtxOption::SocketLimit => sys::ZMQ_SOCKET_LIMIT as c_int,
-            RawCtxOption::IPV6 => sys::ZMQ_IPV6 as c_int,
-            RawCtxOption::Blocky => sys::ZMQ_BLOCKY as c_int,
+            CtxOption::IOThreads => sys::ZMQ_IO_THREADS as c_int,
+            CtxOption::MaxSockets => sys::ZMQ_MAX_SOCKETS as c_int,
+            CtxOption::MaxMsgSize => sys::ZMQ_MAX_MSGSZ as c_int,
+            CtxOption::SocketLimit => sys::ZMQ_SOCKET_LIMIT as c_int,
+            CtxOption::IPV6 => sys::ZMQ_IPV6 as c_int,
+            CtxOption::Blocky => sys::ZMQ_BLOCKY as c_int,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct RawCtx {
     ctx: *mut c_void,
 }
 
 impl RawCtx {
-    fn get(&self, option: RawCtxOption) -> i32 {
+    fn new() -> Self {
+        let ctx = unsafe { sys::zmq_ctx_new() };
+
+        if ctx.is_null() {
+            panic!(msg_from_errno(unsafe { sys::zmq_errno() }));
+        }
+
+        Self { ctx }
+    }
+
+    fn get(self, option: CtxOption) -> i32 {
         unsafe { sys::zmq_ctx_get(self.ctx, option.into()) }
     }
 
-    fn set(&self, option: RawCtxOption, value: i32) -> Result<(), Error> {
+    fn set(self, option: CtxOption, value: i32) -> Result<(), Error> {
         let rc = unsafe { sys::zmq_ctx_set(self.ctx, option.into(), value) };
 
         if rc == -1 {
@@ -67,11 +75,11 @@ impl RawCtx {
         }
     }
 
-    fn set_bool(&self, opt: RawCtxOption, flag: bool) -> Result<(), Error> {
+    fn set_bool(self, opt: CtxOption, flag: bool) -> Result<(), Error> {
         self.set(opt, flag as i32)
     }
 
-    fn terminate(&self) {
+    fn terminate(self) {
         // We loop in case `zmq_ctx_term` get interrupted by a signal.
         loop {
             let rc = unsafe { sys::zmq_ctx_term(self.ctx) };
@@ -87,7 +95,7 @@ impl RawCtx {
         }
     }
 
-    fn shutdown(&self) {
+    fn shutdown(self) {
         let rc = unsafe { sys::zmq_ctx_shutdown(self.ctx) };
         // Should never fail.
         assert_eq!(rc, 0);
@@ -98,33 +106,6 @@ impl RawCtx {
 unsafe impl Send for RawCtx {}
 unsafe impl Sync for RawCtx {}
 
-impl Drop for RawCtx {
-    fn drop(&mut self) {
-        self.terminate()
-    }
-}
-
-impl PartialEq for RawCtx {
-    /// Compares the two underlying raw C pointers.
-    fn eq(&self, other: &Self) -> bool {
-        ptr::eq(self.ctx, other.ctx)
-    }
-}
-
-impl Eq for RawCtx {}
-
-impl Default for RawCtx {
-    fn default() -> Self {
-        let ctx = unsafe { sys::zmq_ctx_new() };
-
-        if ctx.is_null() {
-            panic!(msg_from_errno(unsafe { sys::zmq_errno() }));
-        }
-
-        Self { ctx }
-    }
-}
-
 /// A config for a [`Ctx`].
 ///
 /// Usefull in configuration files.
@@ -133,7 +114,6 @@ impl Default for RawCtx {
 #[derive(Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CtxConfig {
     io_threads: Option<i32>,
-    max_msg_size: Option<i32>,
     max_sockets: Option<i32>,
 }
 
@@ -144,20 +124,17 @@ impl CtxConfig {
 
     pub fn build(&self) -> Result<Ctx, Error> {
         let ctx = Ctx::new();
-        self.apply(&ctx)?;
+        self.apply(ctx.handle())?;
 
         Ok(ctx)
     }
 
-    pub fn apply(&self, ctx: &Ctx) -> Result<(), Error> {
+    pub fn apply(&self, handle: CtxHandle) -> Result<(), Error> {
         if let Some(value) = self.io_threads {
-            ctx.set_io_threads(value)?;
+            handle.set_io_threads(value)?;
         }
         if let Some(value) = self.max_sockets {
-            ctx.set_max_sockets(value)?;
-        }
-        if let Some(value) = self.max_msg_size {
-            ctx.set_max_msg_size(value)?;
+            handle.set_max_sockets(value)?;
         }
 
         Ok(())
@@ -169,14 +146,6 @@ impl CtxConfig {
 
     pub fn set_io_threads(&mut self, value: Option<i32>) {
         self.io_threads = value;
-    }
-
-    pub fn max_msg_size(&self) -> Option<i32> {
-        self.max_msg_size
-    }
-
-    pub fn set_max_msg_size(&mut self, value: Option<i32>) {
-        self.max_msg_size = value;
     }
 
     pub fn max_sockets(&mut self) -> Option<i32> {
@@ -223,12 +192,13 @@ impl CtxBuilder {
     /// ```
     pub fn build(&self) -> Result<Ctx, Error> {
         let ctx = Ctx::new();
-        self.apply(&ctx)?;
+        self.apply(ctx.handle())?;
 
         Ok(ctx)
     }
 
-    /// Applies a `CtxBuilder` to an existing `Ctx`.
+    /// Applies the configuration of `CtxBuilder` to an existing context via
+    /// its `CtxHandle`.
     ///
     /// # Usage Example
     /// ```
@@ -241,19 +211,17 @@ impl CtxBuilder {
     ///
     /// CtxBuilder::new()
     ///   .io_threads(0)
-    ///   .max_msg_size(420)
     ///   .max_sockets(69)
     ///   .apply(global)?;
     ///
     /// assert_eq!(global.io_threads(), 0);
-    /// assert_eq!(global.max_msg_size(), 420);
     /// assert_eq!(global.max_sockets(), 69);
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn apply(&self, ctx: &Ctx) -> Result<(), Error> {
-        self.inner.apply(ctx)
+    pub fn apply(&self, handle: CtxHandle) -> Result<(), Error> {
+        self.inner.apply(handle)
     }
 
     /// See [`set_io_threads`].
@@ -261,14 +229,6 @@ impl CtxBuilder {
     /// [`set_io_threads`]: struct.Ctx.html#method.set_io_threads
     pub fn io_threads(&mut self, value: i32) -> &mut Self {
         self.inner.set_io_threads(Some(value));
-        self
-    }
-
-    /// See [`set_max_msg_size`].
-    ///
-    /// [`set_max_msg_size`]: struct.Ctx.html#method.set_max_msg_size
-    pub fn max_msg_size(&mut self, value: i32) -> &mut Self {
-        self.inner.set_max_msg_size(Some(value));
         self
     }
 
@@ -281,28 +241,100 @@ impl CtxBuilder {
     }
 }
 
+/// A handle to a `Ctx`.
+///
+/// A `CtxHandle` allows thread-safe configuration of the context aliased by
+/// the handle. It is also used to created sockets associated with the context.
+///
+/// As opposed to the `Ctx`, the `CtxHandle` does not manage the context's lifetime.
+/// This means that once a `Ctx` is `shutdown` or dropped, all associated
+/// `CtxHandle` will be invalidated. All calls involving an invalidated
+/// `CtxHandle` will return a `CtxInvalid` error.
+/// ```
+/// # use failure::Error;
+/// #
+/// # fn main() -> Result<(), Error> {
+/// use libzmq::{Ctx, Dish, ErrorKind};
+///
+/// // We create a `CtxHandle` from a new context. Since we drop
+/// // the context aliased by the handle, it will no longer be valid
+/// // once it reaches the outer scope.
+/// let handle = {
+///     let ctx = Ctx::new();
+///     ctx.handle()
+/// };
+///
+/// // Attempting to use the invalided handle will result in `CtxInvalid`
+/// // errors.
+/// let err = Dish::with_ctx(handle).unwrap_err();
+/// match err.kind() {
+///     ErrorKind::CtxInvalid => (),
+///     _ => unreachable!(),
+/// }
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub struct CtxHandle {
+    inner: RawCtx,
+}
+
+impl CtxHandle {
+    /// [`Read more`](struct.Ctx.html#method.io_threads)
+    pub fn io_threads(self) -> i32 {
+        self.inner.get(CtxOption::IOThreads)
+    }
+
+    /// [`Read more`](struct.Ctx.html#method.set_io_threads)
+    pub fn set_io_threads(self, nb_threads: i32) -> Result<(), Error> {
+        self.inner.set(CtxOption::IOThreads, nb_threads)
+    }
+
+    /// [`Read more`](struct.Ctx.html#method.max_sockets)
+    pub fn max_sockets(self) -> i32 {
+        self.inner.get(CtxOption::MaxSockets)
+    }
+
+    /// [`Read more`](struct.Ctx.html#method.set_max_sockets)
+    pub fn set_max_sockets(self, max: i32) -> Result<(), Error> {
+        self.inner.set(CtxOption::MaxSockets, max)
+    }
+
+    /// [`Read more`](struct.Ctx.html#method.shutdown)
+    pub fn shutdown(self) {
+        self.inner.shutdown()
+    }
+
+    pub(crate) fn as_ptr(self) -> *mut c_void {
+        self.inner.ctx
+    }
+}
+
 /// Keeps the list of sockets and manages the async I/O thread and
 /// internal queries.
 ///
 /// Each context also has an associated `AuthServer` which handles socket
 /// authentification.
 ///
-/// # Drop
+/// The `Ctx` manages the lifetime of the ØMQ context, meaning that dropping
+/// it also terminates the ØMQ context.
+///
+/// # Drop Behavior
 /// The context will call terminate when dropped which will cause all
-/// blocking calls to fail with `CtxTerminated`, then block until
-/// the following conditions are met:
-/// * All sockets open within context have been dropped.
-/// * All messages sent by the application with have either been physically
-///     transferred to a network peer, or the socket's linger period has expired.
+/// blocking calls to fail with `CtxInvalid`, then the dropping thread
+/// will block until the following conditions are met:
+/// * All sockets open within the context have been dropped.
+/// * All messages within the context are closed.
+///
+/// To prevent the context drop from blocking infinitely, users should properly
+/// manage `Result` returned by function calls.
 ///
 /// # Thread safety
 /// A ØMQ context is internally thread safe.
-///
-/// # Multiple Contexts
-/// Multiple contexts are allowed but are considered exotic.
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct Ctx {
-    raw: Arc<RawCtx>,
+    inner: RawCtx,
 }
 
 impl Ctx {
@@ -319,35 +351,55 @@ impl Ctx {
     /// ```
     /// use libzmq::Ctx;
     ///
+    /// // Creates a new unique context.
     /// let ctx = Ctx::new();
-    /// let cloned = ctx.clone();
-    ///
-    /// assert_eq!(ctx, cloned);
-    /// assert_ne!(ctx, Ctx::new());
+    /// // Returns a handle to the context that can be used
+    /// // to create sockets.
+    /// let handle = ctx.handle();
     /// ```
     ///
     /// [`global`]: #method.global
     pub fn new() -> Self {
-        let raw = Arc::new(RawCtx::default());
+        let inner = RawCtx::new();
         // Enable ipv6 by default.
-        raw.set_bool(RawCtxOption::IPV6, true).unwrap();
+        inner.set_bool(CtxOption::IPV6, true).unwrap();
         // Set linger period for all sockets to zero.
-        raw.set_bool(RawCtxOption::Blocky, true).unwrap();
+        inner.set_bool(CtxOption::Blocky, false).unwrap();
 
-        let ctx = Self { raw };
+        //// Start a `ZAP` handler for the context.
+        let mut auth = AuthServer::with_ctx(CtxHandle { inner }).unwrap();
 
-        // Start a `ZAP` handler for the context.
-        let mut auth = AuthServer::with_ctx(&ctx).unwrap();
-
-        // This thread is guaranteed to terminate before the ctx
-        // since it holds a `Arc` to it. No need to store & join the
-        // thread handle.
+        // This thread is guaranteed to terminate with the ctx because
+        // it terminates on `CtxInvalid` errors.
         thread::spawn(move || auth.run());
 
-        ctx
+        Self { inner }
     }
 
-    /// Returns a reference to the global context.
+    /// Returns a handle to the `Ctx`.
+    ///
+    /// Sockets can be created using `CtxHandle` so that they used the
+    /// context aliased by the handle.
+    ///
+    /// ```
+    /// # use failure::Error;
+    /// #
+    /// # fn main() -> Result<(), Error> {
+    /// use libzmq::{Ctx, Server};
+    ///
+    /// let ctx = Ctx::new();
+    /// let handle = ctx.handle();
+    ///
+    /// let server = Server::with_ctx(handle)?;
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn handle(&self) -> CtxHandle {
+        CtxHandle { inner: self.inner }
+    }
+
+    /// Returns a handle to the global context.
     ///
     /// This is a singleton used by sockets created via their respective
     /// `::new()` method. It merely exists for convenience and is no different
@@ -360,20 +412,21 @@ impl Ctx {
     /// # fn main() -> Result<(), Error> {
     /// use libzmq::{Ctx, Client};
     ///
-    /// // A socket created via `new` will use the global `Ctx`.
+    /// // A socket created via `new` will use the global context via
+    /// // its `CtxHandle`.
     /// let client = Client::new()?;
     /// assert_eq!(client.ctx(), Ctx::global());
     /// #
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn global() -> &'static Ctx {
-        &GLOBAL_CONTEXT
+    pub fn global() -> CtxHandle {
+        GLOBAL_CONTEXT.handle()
     }
 
     /// Returns the size of the ØMQ thread pool for this context.
     pub fn io_threads(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::IOThreads)
+        self.inner.get(CtxOption::IOThreads)
     }
 
     /// Set the size of the ØMQ thread pool to handle I/O operations.
@@ -405,12 +458,12 @@ impl Ctx {
     /// # }
     /// ```
     pub fn set_io_threads(&self, nb_threads: i32) -> Result<(), Error> {
-        self.raw.as_ref().set(RawCtxOption::IOThreads, nb_threads)
+        self.inner.set(CtxOption::IOThreads, nb_threads)
     }
 
     /// Returns the maximum number of sockets allowed for this context.
     pub fn max_sockets(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::MaxSockets)
+        self.inner.get(CtxOption::MaxSockets)
     }
 
     /// Sets the maximum number of sockets allowed on the context.
@@ -435,60 +488,28 @@ impl Ctx {
     /// # }
     /// ```
     pub fn set_max_sockets(&self, max: i32) -> Result<(), Error> {
-        self.raw.as_ref().set(RawCtxOption::MaxSockets, max)
-    }
-
-    /// Returns the maximum size of a message allowed for this context.
-    pub fn max_msg_size(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::MaxMsgSize)
-    }
-
-    /// Sets the maximum allowed size of a message sent in the context.
-    ///
-    /// # Default
-    /// The default value is `i32::max_value()`.
-    ///
-    /// # Usage Example
-    /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
-    /// use libzmq::Ctx;
-    ///
-    /// let ctx = Ctx::new();
-    /// assert_eq!(ctx.max_msg_size(), i32::max_value());
-    ///
-    /// ctx.set_max_msg_size(i32::max_value() - 1)?;
-    /// assert_eq!(ctx.max_msg_size(), i32::max_value() - 1);
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    pub fn set_max_msg_size(&self, size: i32) -> Result<(), Error> {
-        self.raw.as_ref().set(RawCtxOption::MaxMsgSize, size)
+        self.inner.set(CtxOption::MaxSockets, max)
     }
 
     /// Returns the largest number of sockets that the context will accept.
     pub fn socket_limit(&self) -> i32 {
-        self.raw.as_ref().get(RawCtxOption::SocketLimit)
+        self.inner.get(CtxOption::SocketLimit)
     }
 
-    /// Shutdown the ØMQ context context.
+    /// Invalidates all the handles to the ØMQ context.
     ///
     /// Context shutdown will cause any blocking operations currently in
-    /// progress on sockets open within context to fail immediately with
-    /// [`CtxTerminated`].
+    /// progress on sockets using handles associated with the context to fail
+    /// with [`CtxInvalid`].
     ///
-    /// Any further operations on sockets open within context shall fail with
-    /// with [`CtxTerminated`].
+    /// This is used as a mechanism to stop another blocked thread.
     ///
-    /// [`CtxTerminated`]: ../error/enum.ErrorKind.html#variant.CtxTerminated
+    /// Note that, while this invalidates the context, it does not terminate it.
+    /// The context will only get terminated once `Ctx` is dropped.
+    ///
+    /// [`CtxInvalid`]: ../error/enum.ErrorKind.html#variant.CtxInvalid
     pub fn shutdown(&self) {
-        self.raw.shutdown()
-    }
-
-    pub(crate) fn as_ptr(&self) -> *mut c_void {
-        self.raw.ctx
+        self.inner.shutdown()
     }
 }
 
@@ -498,8 +519,8 @@ impl Default for Ctx {
     }
 }
 
-impl<'a> From<&'a Ctx> for Ctx {
-    fn from(c: &'a Ctx) -> Ctx {
-        c.to_owned()
+impl Drop for Ctx {
+    fn drop(&mut self) {
+        self.inner.terminate()
     }
 }

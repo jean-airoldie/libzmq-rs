@@ -2,7 +2,7 @@ use crate::{
     addr::Endpoint,
     core::{GetRawSocket, RawSocket, RawSocketType},
     error::*,
-    Ctx, Msg,
+    CtxHandle, Msg,
 };
 use libzmq_sys as sys;
 use sys::errno;
@@ -24,7 +24,7 @@ fn send(
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
             _ => panic!(msg_from_errno(errno)),
@@ -42,7 +42,7 @@ fn recv(mut_sock_ptr: *mut c_void, msg: &mut Msg) -> Result<(), Error> {
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
             _ => panic!(msg_from_errno(errno)),
@@ -78,14 +78,11 @@ pub(crate) struct OldSocket {
 }
 
 impl OldSocket {
-    pub(crate) fn with_ctx<C>(
+    pub(crate) fn with_ctx(
         socket: OldSocketType,
-        ctx: C,
-    ) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let inner = RawSocket::with_ctx(socket.into(), ctx.into())?;
+        handle: CtxHandle,
+    ) -> Result<Self, Error> {
+        let inner = RawSocket::with_ctx(socket.into(), handle)?;
 
         Ok(Self { inner })
     }

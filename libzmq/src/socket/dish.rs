@@ -1,5 +1,6 @@
 use crate::{
-    addr::Endpoint, auth::*, core::*, error::*, Ctx, Group, GroupSlice,
+    addr::Endpoint, auth::*, core::*, error::*, Ctx, CtxHandle, Group,
+    GroupSlice,
 };
 use libzmq_sys as sys;
 use sys::errno;
@@ -22,7 +23,7 @@ fn join(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
             errno::EINVAL => {
                 Error::new(ErrorKind::InvalidInput("cannot join group twice"))
             }
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EMTHREAD => panic!("no i/o thread available"),
@@ -45,7 +46,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
             errno::EINVAL => Error::new(ErrorKind::InvalidInput(
                 "cannot leave a group that wasn't joined",
             )),
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EMTHREAD => panic!("no i/o thread available"),
@@ -140,10 +141,10 @@ impl Dish {
     /// Create a `Dish` socket from the [`global context`]
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
@@ -155,19 +156,17 @@ impl Dish {
         })
     }
 
-    /// Create a `Dish` socket from a specific context.
+    /// Create a `Dish` socket associated with a specific context
+    /// from a `CtxHandle`.
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dish, ctx)?);
+    pub fn with_ctx(handle: CtxHandle) -> Result<Self, Error> {
+        let inner = Arc::new(RawSocket::with_ctx(RawSocketType::Dish, handle)?);
 
         Ok(Self {
             inner,
@@ -176,7 +175,7 @@ impl Dish {
     }
 
     /// Returns a reference to the context of the socket.
-    pub fn ctx(&self) -> &crate::Ctx {
+    pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
     }
     /// Joins the specified group(s).
@@ -189,7 +188,7 @@ impl Dish {
     /// * Each group can be joined at most once.
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`Interrupted`]
     /// * [`InvalidInput`] (if group was already joined)
     ///
@@ -208,7 +207,7 @@ impl Dish {
     /// # }
     /// ```
     ///
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`Interrupted`]: enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: enum.ErrorKind.html#variant.InvalidInput
     pub fn join<I, G>(&self, groups: I) -> Result<(), Error<usize>>
@@ -266,7 +265,7 @@ impl Dish {
     /// * The group must be already joined.
     ///
     /// # Returned Error Variants
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     /// * [`Interrupted`]
     /// * [`InvalidInput`] (if group not already joined)
     ///
@@ -291,7 +290,7 @@ impl Dish {
     /// #     Ok(())
     /// # }
     /// ```
-    /// [`CtxTerminated`]: enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
     /// [`Interrupted`]: enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: enum.ErrorKind.html#variant.InvalidInput
     pub fn leave<I, G>(&self, groups: I) -> Result<(), Error<usize>>
@@ -358,11 +357,8 @@ impl DishConfig {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        let dish = Dish::with_ctx(ctx).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Dish, Error<usize>> {
+        let dish = Dish::with_ctx(handle).map_err(Error::cast)?;
         self.apply(&dish)?;
 
         Ok(dish)
@@ -475,11 +471,8 @@ impl DishBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<Dish, Error<usize>>
-    where
-        C: Into<Ctx>,
-    {
-        self.inner.with_ctx(ctx)
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Dish, Error<usize>> {
+        self.inner.with_ctx(handle)
     }
 
     pub fn join<I, G>(&mut self, groups: I) -> &mut Self

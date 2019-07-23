@@ -4,7 +4,7 @@ use crate::{
     core::sockopt::*,
     core::{Heartbeat, Period},
     error::*,
-    Ctx,
+    Ctx, CtxHandle,
 };
 
 use libzmq_sys as sys;
@@ -71,7 +71,7 @@ fn connect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::ENOCOMPATPROTO => {
                 Error::new(ErrorKind::InvalidInput("transport incompatible"))
             }
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EMTHREAD => panic!("no i/o thread available"),
             _ => panic!(msg_from_errno(errno)),
@@ -101,7 +101,7 @@ fn bind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
             errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
             errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EMTHREAD => panic!("no i/o thread available"),
             _ => panic!(msg_from_errno(errno)),
@@ -122,7 +122,7 @@ fn disconnect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::EINVAL => {
                 panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::ENOENT => {
                 Error::new(ErrorKind::NotFound("endpoint was not in use"))
@@ -145,7 +145,7 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::EINVAL => {
                 panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
-            errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::ENOENT => {
                 Error::new(ErrorKind::NotFound("endpoint was not bound to"))
@@ -165,25 +165,21 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
 #[doc(hidden)]
 pub struct RawSocket {
     socket_mut_ptr: *mut c_void,
-    ctx: Ctx,
+    ctx: CtxHandle,
     mechanism: Mutex<Mechanism>,
     heartbeat: Mutex<Option<Heartbeat>>,
 }
 
 impl RawSocket {
     pub(crate) fn new(sock_type: RawSocketType) -> Result<Self, Error> {
-        let ctx = Ctx::global().clone();
-        Self::with_ctx(sock_type, ctx)
+        let handle = Ctx::global();
+        Self::with_ctx(sock_type, handle)
     }
 
-    pub(crate) fn with_ctx<C>(
+    pub(crate) fn with_ctx(
         sock_type: RawSocketType,
-        ctx: C,
-    ) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let ctx = ctx.into();
+        ctx: CtxHandle,
+    ) -> Result<Self, Error> {
         let socket_mut_ptr =
             unsafe { sys::zmq_socket(ctx.as_ptr(), sock_type.into()) };
 
@@ -191,9 +187,11 @@ impl RawSocket {
             let errno = unsafe { sys::zmq_errno() };
             let err = match errno {
                 errno::EINVAL => panic!("invalid socket type"),
-                errno::EFAULT => panic!("invalid ctx"),
+                // The context associated with the handle was terminated.
+                errno::EFAULT => Error::new(ErrorKind::CtxInvalid),
                 errno::EMFILE => Error::new(ErrorKind::SocketLimit),
-                errno::ETERM => Error::new(ErrorKind::CtxTerminated),
+                // The context associated with the handle is being terminated.
+                errno::ETERM => Error::new(ErrorKind::CtxInvalid),
                 _ => panic!(msg_from_errno(errno)),
             };
 
@@ -239,8 +237,8 @@ impl RawSocket {
         unbind(self.as_mut_ptr(), c_string)
     }
 
-    pub(crate) fn ctx(&self) -> &Ctx {
-        &self.ctx
+    pub(crate) fn ctx(&self) -> CtxHandle {
+        self.ctx
     }
 
     /// This is safe since the pointed socket is thread safe.

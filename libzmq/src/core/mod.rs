@@ -212,7 +212,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Returned Errors
     /// * [`InvalidInput`] (transport incompatible or not supported)
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     ///
     /// # Example
     /// ```
@@ -234,7 +234,7 @@ pub trait Socket: GetRawSocket {
     /// ```
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
     fn connect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
@@ -273,7 +273,7 @@ pub trait Socket: GetRawSocket {
     /// * [`InvalidInput`] (transport incompatible or not supported)
     /// * [`AddrInUse`] (addr already in use)
     /// * [`AddrNotAvailable`] (addr not local)
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     ///
     /// # Example
     /// ```
@@ -296,7 +296,7 @@ pub trait Socket: GetRawSocket {
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
     fn bind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
         I: IntoIterator<Item = E>,
@@ -334,10 +334,10 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Returned Errors
     /// * [`NotFound`] (endpoint was not connected to)
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where
@@ -374,10 +374,10 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Returned Errors
     /// * [`NotFound`] (endpoint was not bound to)
-    /// * [`CtxTerminated`]
+    /// * [`CtxInvalid`]
     ///
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
-    /// [`CtxTerminated`]: ../enum.ErrorKind.html#variant.CtxTerminated
+    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
     fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
     where

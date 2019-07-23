@@ -89,21 +89,18 @@ pub struct AuthClient {
 }
 
 impl AuthClient {
-    /// Create a `AuthClient` connected to `AuthServer` associated
+    /// Create a `AuthClient` connected to the `AuthServer` associated
     /// with the default global `Ctx`.
     pub fn new() -> Result<Self, Error> {
         Self::with_ctx(Ctx::global())
     }
 
-    /// Create a `AuthClient` connected to `AuthServer` associated
-    /// with the give `Ctx`.
-    pub fn with_ctx<C>(ctx: C) -> Result<Self, Error>
-    where
-        C: Into<Ctx>,
-    {
+    /// Create a `AuthClient` connected to the `AuthServer` associated
+    /// with the context aliased by the `CtxHandle`.
+    pub fn with_ctx(handle: CtxHandle) -> Result<Self, Error> {
         let client = ClientBuilder::new()
             .connect(&*COMMAND_ENDPOINT)
-            .with_ctx(ctx)
+            .with_ctx(handle)
             .map_err(Error::cast)?;
 
         Ok(AuthClient { client })
@@ -360,12 +357,10 @@ impl AuthConfig {
     }
 
     /// Attempts to build a `AuthClient` and send the configuration
-    /// to the `AuthServer` associated with the given `Ctx`.
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<AuthClient, Error>
-    where
-        C: Into<Ctx>,
-    {
-        let client = AuthClient::with_ctx(ctx)?;
+    /// to the `AuthServer` associated with the context aliased by the
+    /// `CtxHandle`.
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<AuthClient, Error> {
+        let client = AuthClient::with_ctx(handle)?;
         self.apply(&client)?;
 
         Ok(client)
@@ -454,11 +449,8 @@ impl AuthBuilder {
         self.inner.build()
     }
 
-    pub fn with_ctx<C>(&self, ctx: C) -> Result<AuthClient, Error>
-    where
-        C: Into<Ctx>,
-    {
-        self.inner.with_ctx(ctx)
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<AuthClient, Error> {
+        self.inner.with_ctx(handle)
     }
 
     pub fn blacklist<I>(&mut self, ips: I) -> &mut Self
@@ -510,23 +502,26 @@ mod test {
 
     #[test]
     fn test_blacklist() {
-        // Create a new context use a disctinct auth handler.
+        // Create a new context to use a disctinct auth handler.
         let ctx = Ctx::new();
+        let handle = ctx.handle();
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
         let server = ServerBuilder::new()
+            .recv_timeout(Duration::from_millis(10))
             .bind(&addr)
-            .recv_timeout(Duration::from_millis(200))
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         // Blacklist the loopback addr.
         let ip: IpAddr = "127.0.0.1".parse().unwrap();
-        let _ = AuthBuilder::new().blacklist(ip).with_ctx(&ctx).unwrap();
+        let _ = AuthBuilder::new().blacklist(ip).with_ctx(handle).unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
-        let client =
-            ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
+        let client = ClientBuilder::new()
+            .connect(bound)
+            .with_ctx(handle)
+            .unwrap();
 
         client.try_send("").unwrap();
         server.recv_msg().unwrap_err();
@@ -534,23 +529,26 @@ mod test {
 
     #[test]
     fn test_whitelist() {
-        // Create a new context use a disctinct auth handler.
+        // Create a new context to use a disctinct auth handler.
         let ctx = Ctx::new();
+        let handle = ctx.handle();
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
         let server = ServerBuilder::new()
             .bind(&addr)
             .recv_timeout(Duration::from_millis(200))
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         // Whitelist the loopback addr.
         let ip: IpAddr = "127.0.0.1".parse().unwrap();
-        let _ = AuthBuilder::new().whitelist(ip).with_ctx(&ctx).unwrap();
+        let _ = AuthBuilder::new().whitelist(ip).with_ctx(handle).unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
-        let client =
-            ClientBuilder::new().connect(bound).with_ctx(&ctx).unwrap();
+        let client = ClientBuilder::new()
+            .connect(bound)
+            .with_ctx(handle)
+            .unwrap();
 
         client.try_send("").unwrap();
         server.recv_msg().unwrap();
@@ -599,12 +597,14 @@ mod test {
 
     #[test]
     fn test_plain() {
+        // Create a new context to use a disctinct auth handler.
         let ctx = Ctx::new();
+        let handle = ctx.handle();
 
         let creds = PlainClientCreds::new("user", "pwd");
         let _ = AuthBuilder::new()
             .plain_registry(&creds)
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
@@ -613,7 +613,7 @@ mod test {
             .bind(&addr)
             .mechanism(Mechanism::PlainServer)
             .recv_timeout(Duration::from_millis(200))
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
@@ -621,7 +621,7 @@ mod test {
         let client = ClientBuilder::new()
             .connect(bound)
             .mechanism(creds)
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         client.try_send("").unwrap();
@@ -630,14 +630,16 @@ mod test {
 
     #[test]
     fn test_curve() {
+        // Create a new context to use a disctinct auth handler.
         let ctx = Ctx::new();
+        let handle = ctx.handle();
 
         let server_cert = CurveCert::new_unique();
         let client_cert = CurveCert::new_unique();
 
         let _ = AuthBuilder::new()
             .curve_registry(client_cert.public())
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
@@ -653,7 +655,7 @@ mod test {
             .bind(&addr)
             .mechanism(server_creds)
             .recv_timeout(Duration::from_millis(200))
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
@@ -661,7 +663,7 @@ mod test {
         let client = ClientBuilder::new()
             .mechanism(client_creds)
             .connect(bound)
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         client.try_send("").unwrap();
@@ -698,12 +700,14 @@ mod test {
 
     #[test]
     fn test_curve_no_auth() {
+        // Create a new context to use a disctinct auth handler.
         let ctx = Ctx::new();
+        let handle = ctx.handle();
 
         let server_cert = CurveCert::new_unique();
         let server_creds = CurveServerCreds::new(server_cert.secret());
 
-        let _ = AuthBuilder::new().no_curve_auth().with_ctx(&ctx).unwrap();
+        let _ = AuthBuilder::new().no_curve_auth().with_ctx(handle).unwrap();
 
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
@@ -711,12 +715,12 @@ mod test {
             .bind(&addr)
             .mechanism(server_creds)
             .recv_timeout(Duration::from_millis(200))
-            .with_ctx(&ctx)
+            .with_ctx(handle)
             .unwrap();
 
         let bound = server.last_endpoint().unwrap().unwrap();
 
-        let client = Client::with_ctx(&ctx).unwrap();
+        let client = Client::with_ctx(handle).unwrap();
 
         let client_creds = CurveClientCreds::new(server_cert.public());
         client.set_mechanism(client_creds).unwrap();

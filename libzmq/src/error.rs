@@ -33,7 +33,7 @@ use std::{
 ///     match err.kind() {
 ///         // This covers all the possible error scenarios for this socket type.
 ///         // Normally we would process each error differently.
-///         WouldBlock | CtxTerminated | Interrupted => {
+///         WouldBlock | CtxInvalid | Interrupted => {
 ///             // Here we get back the message we tried to send.
 ///             let msg = err.take_content().unwrap();
 ///             assert_eq!("msg", msg.to_str()?);
@@ -147,7 +147,7 @@ impl<T> From<Error<T>> for io::Error {
             HostUnreachable => {
                 io::Error::new(io::ErrorKind::BrokenPipe, "host unreachable")
             }
-            CtxTerminated => {
+            CtxInvalid => {
                 io::Error::new(io::ErrorKind::Other, "context terminated")
             }
             Interrupted => io::Error::from(io::ErrorKind::Interrupted),
@@ -187,16 +187,17 @@ pub enum ErrorKind {
     /// [`Server`]: socket/struct.Server.html
     #[fail(display = "host unreachable")]
     HostUnreachable,
-    /// The context was terminated while the operation was ongoing. Any
-    /// further operations on sockets that share this context will result
-    /// in this error.
+    /// The context used in the operation was invalidated. Either the
+    /// context is being terminated, or was already terminated.
     ///
-    /// This error can only occur if the [`Ctx`] was explicitely [`terminated`].
+    /// This error only occurs if:
+    /// * The `Ctx` is being dropped or was previously dropped.
+    /// * [`shutdown`] was called.
     ///
     /// [`Ctx`]: ../ctx/struct.Ctx.html
-    /// [`terminated`]: ../ctx/struct.Ctx.html#method.terminate
-    #[fail(display = "context terminated")]
-    CtxTerminated,
+    /// [`shutdown`]: ../ctx/struct.Ctx.html#method.terminate
+    #[fail(display = "context invalidated")]
+    CtxInvalid,
     /// The operation was interrupted by a OS signal delivery.
     #[fail(display = "interrupted by signal")]
     Interrupted,
@@ -215,11 +216,7 @@ pub enum ErrorKind {
     /// The open socket limit was reached.
     #[fail(display = "open socket limit was reached")]
     SocketLimit,
-    /// A fn call did not follow its usage contract and provided invalid inputs.
-    ///
-    /// An `InvalidInput` error is guaranteed to be related to some API misuse
-    /// that can be known at compile time. Thus `panic` should be called on
-    /// those types of error.
+    /// The user did not follow its usage contract and provided invalid inputs.
     ///
     /// Contains information on the specific contract breach.
     #[fail(display = "invalid input: {}", _0)]
