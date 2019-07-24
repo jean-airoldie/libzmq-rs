@@ -159,12 +159,19 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
     }
 }
 
-/// This socket may or may not be thread safe depending on the `RawSocketType`.
-/// We prevent that it is always thread-safe and let the wrapping types decide.
+#[derive(Copy, Clone, Debug)]
+pub struct SocketHandle(*mut c_void);
+
+impl SocketHandle {
+    pub(crate) fn as_ptr(&self) -> *mut c_void {
+        self.0
+    }
+}
+
 #[derive(Debug)]
 #[doc(hidden)]
 pub struct RawSocket {
-    socket_mut_ptr: *mut c_void,
+    ptr: *mut c_void,
     ctx: CtxHandle,
     mechanism: Mutex<Mechanism>,
     heartbeat: Mutex<Option<Heartbeat>>,
@@ -180,10 +187,10 @@ impl RawSocket {
         sock_type: RawSocketType,
         ctx: CtxHandle,
     ) -> Result<Self, Error> {
-        let socket_mut_ptr =
+        let ptr =
             unsafe { sys::zmq_socket(ctx.as_ptr(), sock_type.into()) };
 
-        if socket_mut_ptr.is_null() {
+        if ptr.is_null() {
             let errno = unsafe { sys::zmq_errno() };
             let err = match errno {
                 errno::EINVAL => panic!("invalid socket type"),
@@ -199,22 +206,26 @@ impl RawSocket {
         } else {
             // Set ZAP domain handling to strictly adhere the RFC.
             // This will eventually be enabled by default by ØMQ.
-            setsockopt_bool(socket_mut_ptr, SocketOption::EnforceDomain, true)?;
+            setsockopt_bool(ptr, SocketOption::EnforceDomain, true)?;
             // We hardset the same domain name for each sockets because I don't
             // see any use cases for them.
             setsockopt_str(
-                socket_mut_ptr,
+                ptr,
                 SocketOption::ZapDomain,
                 Some("global"),
             )?;
 
             Ok(Self {
                 ctx,
-                socket_mut_ptr,
+                ptr,
                 mechanism: Mutex::default(),
                 heartbeat: Mutex::default(),
             })
         }
+    }
+
+    pub(crate) fn handle(&self) -> SocketHandle {
+        SocketHandle(self.ptr)
     }
 
     pub(crate) fn connect(&self, endpoint: &Endpoint) -> Result<(), Error> {
@@ -243,7 +254,7 @@ impl RawSocket {
 
     /// This is safe since the pointed socket is thread safe.
     pub(crate) fn as_mut_ptr(&self) -> *mut c_void {
-        self.socket_mut_ptr
+        self.ptr
     }
 
     pub(crate) fn mechanism(&self) -> &Mutex<Mechanism> {
@@ -427,7 +438,7 @@ impl RawSocket {
 
 impl PartialEq for RawSocket {
     fn eq(&self, other: &RawSocket) -> bool {
-        self.socket_mut_ptr == other.socket_mut_ptr
+        self.ptr == other.ptr
     }
 }
 
@@ -440,7 +451,7 @@ impl Drop for RawSocket {
     ///
     /// [`zmq_close`]: http://api.zeromq.org/master:zmq-close
     fn drop(&mut self) {
-        let rc = unsafe { sys::zmq_close(self.socket_mut_ptr) };
+        let rc = unsafe { sys::zmq_close(self.ptr) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
