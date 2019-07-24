@@ -71,8 +71,7 @@ fn connect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::ENOCOMPATPROTO => {
                 Error::new(ErrorKind::InvalidInput("transport incompatible"))
             }
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
-            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::EMTHREAD => panic!("no i/o thread available"),
             _ => panic!(msg_from_errno(errno)),
         };
@@ -101,8 +100,7 @@ fn bind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::EADDRINUSE => Error::new(ErrorKind::AddrInUse),
             errno::EADDRNOTAVAIL => Error::new(ErrorKind::AddrNotAvailable),
             errno::ENODEV => Error::new(ErrorKind::AddrNotAvailable),
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
-            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::EMTHREAD => panic!("no i/o thread available"),
             _ => panic!(msg_from_errno(errno)),
         };
@@ -122,8 +120,7 @@ fn disconnect(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::EINVAL => {
                 panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
-            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::ENOENT => {
                 Error::new(ErrorKind::NotFound("endpoint was not in use"))
             }
@@ -145,8 +142,7 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
             errno::EINVAL => {
                 panic!("invalid endpoint : {}", c_string.to_string_lossy())
             }
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
-            errno::ENOTSOCK => panic!("invalid socket"),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::ENOENT => {
                 Error::new(ErrorKind::NotFound("endpoint was not bound to"))
             }
@@ -159,8 +155,17 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct SocketHandle(*mut c_void);
+// Socket handle is dangerous because it is considered undefined
+// behavior to use a socket ptr after is was droppped.
+// This is a problem because the `Poller` hold a pointer to a socket.
+// This means that we have to tie the lifetime of the socket in the
+// poller. However since our executor will be on a separate thread
+// we can simply use a reference. So we have to manually enforce
+// this lifetime by removing the handle to the socket within
+// the executor's poller. To do this we can either use a mutex
+// to the poller, or do some request reply with the executor.
+#[derive(Debug, Hash, Eq, PartialEq)]
+struct SocketHandle(*mut c_void);
 
 impl SocketHandle {
     pub(crate) fn as_ptr(&self) -> *mut c_void {
@@ -195,10 +200,10 @@ impl RawSocket {
             let err = match errno {
                 errno::EINVAL => panic!("invalid socket type"),
                 // The context associated with the handle was terminated.
-                errno::EFAULT => Error::new(ErrorKind::CtxInvalid),
+                errno::EFAULT => Error::new(ErrorKind::InvalidCtx),
                 errno::EMFILE => Error::new(ErrorKind::SocketLimit),
                 // The context associated with the handle is being terminated.
-                errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+                errno::ETERM => Error::new(ErrorKind::InvalidCtx),
                 _ => panic!(msg_from_errno(errno)),
             };
 
@@ -224,7 +229,7 @@ impl RawSocket {
         }
     }
 
-    pub(crate) fn handle(&self) -> SocketHandle {
+    pub(crate) unsafe fn handle(&self) -> SocketHandle {
         SocketHandle(self.ptr)
     }
 

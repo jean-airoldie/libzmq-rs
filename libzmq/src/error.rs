@@ -33,7 +33,7 @@ use std::{
 ///     match err.kind() {
 ///         // This covers all the possible error scenarios for this socket type.
 ///         // Normally we would process each error differently.
-///         WouldBlock | CtxInvalid | Interrupted => {
+///         WouldBlock | InvalidCtx | Interrupted => {
 ///             // Here we get back the message we tried to send.
 ///             let msg = err.take_content().unwrap();
 ///             assert_eq!("msg", msg.to_str()?);
@@ -147,7 +147,7 @@ impl<T> From<Error<T>> for io::Error {
             HostUnreachable => {
                 io::Error::new(io::ErrorKind::BrokenPipe, "host unreachable")
             }
-            CtxInvalid => {
+            InvalidCtx => {
                 io::Error::new(io::ErrorKind::Other, "context terminated")
             }
             Interrupted => io::Error::from(io::ErrorKind::Interrupted),
@@ -161,6 +161,9 @@ impl<T> From<Error<T>> for io::Error {
             }
             InvalidInput(msg) => {
                 io::Error::new(io::ErrorKind::InvalidInput, msg)
+            }
+            InvalidSocket => {
+                io::Error::new(io::ErrorKind::Other, "socket terminated")
             }
         }
     }
@@ -197,7 +200,7 @@ pub enum ErrorKind {
     /// [`Ctx`]: ../ctx/struct.Ctx.html
     /// [`shutdown`]: ../ctx/struct.Ctx.html#method.terminate
     #[fail(display = "context invalidated")]
-    CtxInvalid,
+    InvalidCtx,
     /// The operation was interrupted by a OS signal delivery.
     #[fail(display = "interrupted by signal")]
     Interrupted,

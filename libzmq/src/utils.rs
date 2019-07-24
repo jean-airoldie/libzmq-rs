@@ -44,7 +44,7 @@ pub fn version() -> (i32, i32, i32) {
 /// backend.
 ///
 /// # Returned Errors
-/// * [`CtxInvalid`]
+/// * [`InvalidCtx`]
 ///
 /// # Example
 /// ```
@@ -89,7 +89,7 @@ pub fn version() -> (i32, i32, i32) {
 /// # }
 /// ```
 ///
-/// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
+/// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
 pub fn proxy<F, B>(frontend: F, backend: B) -> Result<(), Error>
 where
     F: AsRawSocket,
@@ -105,7 +105,7 @@ where
 
     let errno = unsafe { sys::zmq_errno() };
     let err = match errno {
-        errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+        errno::ETERM => Error::new(ErrorKind::InvalidCtx),
         _ => panic!(msg_from_errno(errno)),
     };
 

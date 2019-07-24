@@ -99,7 +99,7 @@ impl From<PollId> for usize {
     }
 }
 
-/// The types that can be polled by the [`Poller`].
+/// A type that can be polled by the [`Poller`].
 ///
 /// # Example
 /// ```
@@ -107,17 +107,17 @@ impl From<PollId> for usize {
 /// #
 /// # fn main() -> Result<(), Error> {
 /// use libzmq::{Server, poll::*};
-/// use std::net::TcpListener;
+/// use std::{net::TcpListener, os::unix::io::AsRawFd};
 ///
 /// let mut poller = Poller::new();
 ///
-/// // The poller can poll sockets...
+/// // The poller can poll sockets using their handle...
 /// let server = Server::new()?;
-/// poller.add(&server, PollId(0), READABLE)?;
+/// poller.add(server.handle(), PollId(0), READABLE)?;
 ///
-/// // ...as well as any type that implements `AsRawFd`.
+/// // ...as well as a `RawFd`
 /// let tcp_listener = TcpListener::bind("127.0.0.1:0")?;
-/// poller.add(&tcp_listener, PollId(1), READABLE | WRITABLE)?;
+/// poller.add(tcp_listener.as_raw_fd(), PollId(1), READABLE | WRITABLE)?;
 /// #
 /// #     Ok(())
 /// # }
@@ -136,34 +136,28 @@ pub trait Pollable {
 }
 
 impl Pollable for SocketHandle {
-    /// Add the pollable type to the poller.
     fn add(self, poller: &mut Poller, id: PollId, trigger: Trigger) -> Result<(), Error> {
         poller.add_socket(self, id, trigger)
     }
 
-    /// Remove the pollable type from the poller.
     fn remove(self, poller: &mut Poller) -> Result<(), Error> {
         poller.remove_socket(self)
     }
 
-    /// Remove the pollable type from the poller.
     fn modify(self, poller: &mut Poller, trigger: Trigger) -> Result<(), Error> {
-        poller.modify_raw_socket(self, trigger)
+        poller.modify_socket(self, trigger)
     }
 }
 
 impl Pollable for RawFd {
-    /// Add the pollable type to the poller.
     fn add(self, poller: &mut Poller, id: PollId, trigger: Trigger) -> Result<(), Error> {
         poller.add_fd(self, id, trigger)
     }
 
-    /// Remove the pollable type from the poller.
     fn remove(self, poller: &mut Poller) -> Result<(), Error> {
         poller.remove_fd(self)
     }
 
-    /// Remove the pollable type from the poller.
     fn modify(self, poller: &mut Poller, trigger: Trigger) -> Result<(), Error> {
         poller.modify_fd(self, trigger)
     }
@@ -379,8 +373,8 @@ impl IntoIterator for Events {
 ///
 /// // We create our poller instance.
 /// let mut poller = Poller::new();
-/// poller.add(&server, PollId(0), READABLE)?;
-/// poller.add(&client, PollId(1), READABLE)?;
+/// poller.add(server.handle(), PollId(0), READABLE)?;
+/// poller.add(client.handle(), PollId(1), READABLE)?;
 ///
 /// // Initialize the client.
 /// client.send("ping")?;
@@ -449,8 +443,8 @@ impl Poller {
     ///
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, PollId(0), EMPTY)?;
-    /// let err = poller.add(&server, PollId(1), EMPTY).unwrap_err();
+    /// poller.add(server.handle(), PollId(0), EMPTY)?;
+    /// let err = poller.add(server.handle(), PollId(1), EMPTY).unwrap_err();
     ///
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (),
@@ -473,10 +467,10 @@ impl Poller {
     where
         P: Pollable,
     {
-        pollable.add(&mut self, id, trigger);
+        pollable.add(self, id, trigger)
     }
 
-    fn add_fd(
+    pub(crate) fn add_fd(
         &mut self,
         fd: RawFd,
         id: PollId,
@@ -508,7 +502,7 @@ impl Poller {
         }
     }
 
-    fn add_socket(
+    pub(crate) fn add_socket(
         &mut self,
         handle: SocketHandle,
         id: PollId,
@@ -534,7 +528,7 @@ impl Poller {
                 errno::EINVAL => Error::new(ErrorKind::InvalidInput(
                     "cannot add socket twice",
                 )),
-                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::ENOTSOCK => Error::new(ErrorKind::InvalidSocket),
                 _ => panic!(msg_from_errno(errno)),
             };
 
@@ -558,12 +552,13 @@ impl Poller {
     /// use libzmq::{Server, poll::*, ErrorKind};
     ///
     /// let server = Server::new()?;
+    /// let handle = server.handle();
     /// let mut poller = Poller::new();
     ///
-    /// poller.add(&server, PollId(0), EMPTY)?;
-    /// poller.remove(&server)?;
+    /// poller.add(handle, PollId(0), EMPTY)?;
+    /// poller.remove(handle)?;
     ///
-    /// let err = poller.remove(&server).unwrap_err();
+    /// let err = poller.remove(handle).unwrap_err();
     /// match err.kind() {
     ///     ErrorKind::InvalidInput { .. } => (), // cannot remove socket twice.
     ///     _ => panic!("unexpected error"),
@@ -579,10 +574,10 @@ impl Poller {
     where
         P: Pollable,
     {
-        pollable.remove(&mut self)
+        pollable.remove(self)
     }
 
-    fn remove_fd(&mut self, fd: RawFd) -> Result<(), Error> {
+    pub(crate) fn remove_fd(&mut self, fd: RawFd) -> Result<(), Error> {
         let rc = unsafe { sys::zmq_poller_remove_fd(self.poller, fd) };
 
         if rc == -1 {
@@ -605,9 +600,9 @@ impl Poller {
         }
     }
 
-    fn remove_socket(
+    pub(crate) fn remove_socket(
         &mut self,
-        handle: &SocketHandle,
+        handle: SocketHandle,
     ) -> Result<(), Error> {
         let socket_ptr = handle.as_ptr();
 
@@ -646,17 +641,12 @@ impl Poller {
         trigger: Trigger,
     ) -> Result<(), Error>
     where
-        P: Into<Pollable<'a>>,
+        P: Pollable,
     {
-        match pollable.into() {
-            Pollable::Socket(raw_socket) => {
-                self.modify_raw_socket(raw_socket, trigger)
-            }
-            Pollable::Fd(fd) => self.modify_fd(fd, trigger),
-        }
+        pollable.modify(self, trigger)
     }
 
-    fn modify_fd(&mut self, fd: RawFd, trigger: Trigger) -> Result<(), Error> {
+    pub(crate) fn modify_fd(&mut self, fd: RawFd, trigger: Trigger) -> Result<(), Error> {
         let rc = unsafe {
             sys::zmq_poller_modify_fd(self.poller, fd, trigger.bits())
         };
@@ -680,15 +670,15 @@ impl Poller {
         }
     }
 
-    fn modify_raw_socket(
+    pub(crate) fn modify_socket(
         &mut self,
-        raw_socket: &RawSocket,
+        handle: SocketHandle,
         trigger: Trigger,
     ) -> Result<(), Error> {
-        let socket_mut_ptr = raw_socket.as_mut_ptr();
+        let socket_ptr = handle.as_ptr();
 
         let rc = unsafe {
-            sys::zmq_poller_modify(self.poller, socket_mut_ptr, trigger.bits())
+            sys::zmq_poller_modify(self.poller, socket_ptr, trigger.bits())
         };
 
         if rc == -1 {
@@ -698,7 +688,7 @@ impl Poller {
                 errno::EINVAL => Error::new(ErrorKind::InvalidInput(
                     "cannot modify absent socket",
                 )),
-                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::ENOTSOCK => Error::new(ErrorKind::InvalidSocket),
                 _ => panic!(msg_from_errno(errno)),
             };
 
@@ -726,7 +716,7 @@ impl Poller {
             let errno = unsafe { sys::zmq_errno() };
             let err = match errno {
                 errno::EINVAL => panic!("invalid poller"),
-                errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+                errno::ETERM => Error::new(ErrorKind::InvalidCtx),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
                 errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
                 _ => panic!(msg_from_errno(errno)),
@@ -745,11 +735,11 @@ impl Poller {
     ///
     /// # Returned Errors
     /// * [`WouldBlock`]
-    /// * [`CtxInvalid`] (`Ctx` of a polled socket was terminated)
+    /// * [`InvalidCtx`] (`Ctx` of a polled socket was terminated)
     /// * [`Interrupted`]
     ///
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.Interrupted
     pub fn try_poll(&mut self, events: &mut Events) -> Result<(), Error> {
         self.wait(events, 0)
@@ -764,11 +754,11 @@ impl Poller {
     ///
     /// # Returned Errors
     /// * [`WouldBlock`] (timeout expired)
-    /// * [`CtxInvalid`] (`Ctx` of a polled socket was terminated)
+    /// * [`InvalidCtx`] (`Ctx` of a polled socket was terminated)
     /// * [`Interrupted`]
     ///
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     pub fn poll(
         &mut self,

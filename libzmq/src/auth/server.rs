@@ -178,7 +178,7 @@ impl AuthServer {
     pub(crate) fn run(&mut self) -> Result<(), Error> {
         let mut poller = Poller::new();
         poller.add(&self.handler, PollId(0), READABLE)?;
-        poller.add(&self.request, PollId(1), READABLE)?;
+        poller.add(self.request.handle(), PollId(1), READABLE)?;
 
         let mut events = Events::new();
 

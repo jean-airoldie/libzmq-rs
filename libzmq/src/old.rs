@@ -1,8 +1,10 @@
 use crate::{
     addr::Endpoint,
     core::{AsRawSocket, RawSocket, RawSocketType},
+    poll::{Poller, Pollable, PollId, Trigger},
     error::*,
     CtxHandle, Msg,
+    SocketHandle,
 };
 use libzmq_sys as sys;
 use sys::errno;
@@ -24,7 +26,7 @@ fn send(
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
             _ => panic!(msg_from_errno(errno)),
@@ -42,7 +44,7 @@ fn recv(mut_sock_ptr: *mut c_void, msg: &mut Msg) -> Result<(), Error> {
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
             _ => panic!(msg_from_errno(errno)),
@@ -145,3 +147,18 @@ impl AsRawSocket for OldSocket {
         &self.inner
     }
 }
+
+impl Pollable for &'_ OldSocket {
+    fn add(self, poller: &mut Poller, id: PollId, trigger: Trigger) -> Result<(), Error> {
+        poller.add_socket(self.inner.handle(), id, trigger)
+    }
+
+    fn remove(self, poller: &mut Poller) -> Result<(), Error> {
+        poller.remove_socket(self.inner.handle())
+    }
+
+    fn modify(self, poller: &mut Poller, trigger: Trigger) -> Result<(), Error> {
+        poller.modify_socket(self.inner.handle(), trigger)
+    }
+}
+
