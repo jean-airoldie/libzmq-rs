@@ -195,7 +195,7 @@ impl From<Period> for Serde<Option<Duration>> {
 }
 
 /// Methods shared by all thread-safe sockets.
-pub trait Socket: GetRawSocket {
+pub trait Socket: AsRawSocket {
     /// Schedules a connection to one or more [`Endpoints`] and then accepts
     /// incoming connections.
     ///

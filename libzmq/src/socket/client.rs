@@ -112,13 +112,18 @@ impl Client {
         Ok(Self { inner })
     }
 
+    /// Returns a copyable, thread-safe handle to the socket used for polling.
+    pub fn handle(&self) -> SocketHandle {
+        self.inner.handle()
+    }
+
     /// Returns the handle to the `Ctx` of the socket.
     pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
     }
 }
 
-impl GetRawSocket for Client {
+impl AsRawSocket for Client {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

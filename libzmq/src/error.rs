@@ -221,6 +221,10 @@ pub enum ErrorKind {
     /// Contains information on the specific contract breach.
     #[fail(display = "invalid input: {}", _0)]
     InvalidInput(&'static str),
+    /// The socket handle used in the operation was invalidated. This
+    /// means that the socket refered by the handle was dropped.
+    #[fail(display = "socket invalidated")]
+    InvalidSocket,
 }
 
 pub(crate) fn msg_from_errno(x: i32) -> String {

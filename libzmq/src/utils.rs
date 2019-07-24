@@ -1,4 +1,4 @@
-use crate::{core::GetRawSocket, error::*};
+use crate::{core::AsRawSocket, error::*};
 use libzmq_sys as sys;
 use sys::errno;
 
@@ -92,8 +92,8 @@ pub fn version() -> (i32, i32, i32) {
 /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
 pub fn proxy<F, B>(frontend: F, backend: B) -> Result<(), Error>
 where
-    F: GetRawSocket,
-    B: GetRawSocket,
+    F: AsRawSocket,
+    B: AsRawSocket,
 {
     let frontend_socket_ptr = frontend.raw_socket().as_mut_ptr();
     let backend_socket_ptr = backend.raw_socket().as_mut_ptr();

@@ -1,6 +1,6 @@
 use crate::{
     addr::Endpoint,
-    core::{GetRawSocket, RawSocket, RawSocketType},
+    core::{AsRawSocket, RawSocket, RawSocketType},
     error::*,
     CtxHandle, Msg,
 };
@@ -140,7 +140,7 @@ impl OldSocket {
 
 unsafe impl Send for OldSocket {}
 
-impl GetRawSocket for OldSocket {
+impl AsRawSocket for OldSocket {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

@@ -127,6 +127,11 @@ impl Radio {
         Ok(Self { inner })
     }
 
+    /// Returns a copyable, thread-safe handle to the socket used for polling.
+    pub fn handle(&self) -> SocketHandle {
+        self.inner.handle()
+    }
+
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
@@ -187,7 +192,7 @@ impl Radio {
     }
 }
 
-impl GetRawSocket for Radio {
+impl AsRawSocket for Radio {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

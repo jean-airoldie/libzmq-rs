@@ -174,6 +174,11 @@ impl Dish {
         })
     }
 
+    /// Returns a copyable, thread-safe handle to the socket used for polling.
+    pub fn handle(&self) -> SocketHandle {
+        self.inner.handle()
+    }
+
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
@@ -322,7 +327,7 @@ impl PartialEq for Dish {
 
 impl Eq for Dish {}
 
-impl GetRawSocket for Dish {
+impl AsRawSocket for Dish {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

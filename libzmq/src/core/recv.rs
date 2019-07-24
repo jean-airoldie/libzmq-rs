@@ -1,5 +1,5 @@
 use crate::{
-    core::{raw::GetRawSocket, *},
+    core::{raw::AsRawSocket, *},
     error::{msg_from_errno, Error, ErrorKind},
     msg::Msg,
 };
@@ -44,7 +44,7 @@ fn recv(
 /// Receive atomic messages in an immutable, thread-safe fashion.
 ///
 /// Does not support multipart messages.
-pub trait RecvMsg: GetRawSocket {
+pub trait RecvMsg: AsRawSocket {
     /// Retreive a message from the inbound socket queue.
     ///
     /// This operation might block until the socket receives a message or,

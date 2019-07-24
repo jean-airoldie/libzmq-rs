@@ -50,7 +50,7 @@ fn send(
 /// Send messages in a thread-safe fashion.
 ///
 /// Does not support multipart messages.
-pub trait SendMsg: GetRawSocket {
+pub trait SendMsg: AsRawSocket {
     /// Push a message into the outgoing socket queue.
     ///
     /// This operation might block until the mute state end or,

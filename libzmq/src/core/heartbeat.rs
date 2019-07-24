@@ -1,4 +1,4 @@
-use super::{private, GetRawSocket, Period, RawSocket};
+use super::{private, AsRawSocket, Period, RawSocket};
 use crate::error::Error;
 use Period::*;
 
@@ -155,7 +155,7 @@ impl<'a> From<&'a Heartbeat> for Heartbeat {
 /// ```
 ///
 /// [`Mechanism`]: ../auth/enum.Mechanism.html
-pub trait Heartbeating: GetRawSocket {
+pub trait Heartbeating: AsRawSocket {
     /// Returns a the socket's heartbeating configuration.
     fn heartbeat(&self) -> Option<Heartbeat> {
         self.raw_socket().heartbeat().lock().unwrap().to_owned()

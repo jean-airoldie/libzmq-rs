@@ -94,6 +94,11 @@ impl Scatter {
         Ok(Self { inner })
     }
 
+    /// Returns a copyable, thread-safe handle to the socket used for polling.
+    pub fn handle(&self) -> SocketHandle {
+        self.inner.handle()
+    }
+
     /// Returns a handle to the context of the socket.
     pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
@@ -108,7 +113,7 @@ impl PartialEq for Scatter {
 
 impl Eq for Scatter {}
 
-impl GetRawSocket for Scatter {
+impl AsRawSocket for Scatter {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

@@ -15,7 +15,7 @@ pub use scatter::*;
 pub use server::*;
 
 use crate::{
-    core::{GetRawSocket, RawSocket},
+    core::{AsRawSocket, RawSocket},
     Error,
 };
 
@@ -38,7 +38,7 @@ pub enum SocketType {
     Scatter(Scatter),
 }
 
-impl GetRawSocket for SocketType {
+impl AsRawSocket for SocketType {
     fn raw_socket(&self) -> &RawSocket {
         match self {
             SocketType::Client(client) => client.raw_socket(),

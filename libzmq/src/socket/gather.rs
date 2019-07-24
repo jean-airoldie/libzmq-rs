@@ -103,6 +103,11 @@ impl Gather {
         Ok(Self { inner })
     }
 
+    /// Returns a copyable, thread-safe handle to the socket used for polling.
+    pub fn handle(&self) -> SocketHandle {
+        self.inner.handle()
+    }
+
     /// Returns a handle to the context of the socket.
     pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
@@ -117,7 +122,7 @@ impl PartialEq for Gather {
 
 impl Eq for Gather {}
 
-impl GetRawSocket for Gather {
+impl AsRawSocket for Gather {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

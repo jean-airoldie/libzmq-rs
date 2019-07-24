@@ -22,7 +22,7 @@ use std::{
 const MAX_HB_TTL: i64 = 6_553_599;
 
 #[doc(hidden)]
-pub trait GetRawSocket: super::private::Sealed {
+pub trait AsRawSocket: super::private::Sealed {
     fn raw_socket(&self) -> &RawSocket;
 }
 
@@ -159,7 +159,7 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct SocketHandle(*mut c_void);
 
 impl SocketHandle {

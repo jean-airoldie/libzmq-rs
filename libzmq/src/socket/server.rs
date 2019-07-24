@@ -116,6 +116,11 @@ impl Server {
         Ok(Self { inner })
     }
 
+    /// Returns a copyable, thread-safe handle to the socket used for polling.
+    pub fn handle(&self) -> SocketHandle {
+        self.inner.handle()
+    }
+
     /// Returns a reference to the context of the socket.
     pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
@@ -158,7 +163,7 @@ impl Server {
     }
 }
 
-impl GetRawSocket for Server {
+impl AsRawSocket for Server {
     fn raw_socket(&self) -> &RawSocket {
         &self.inner
     }

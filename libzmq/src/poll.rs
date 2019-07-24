@@ -5,7 +5,7 @@
 //! [`Poller`]: struct.Poller.html
 
 use crate::{
-    core::{GetRawSocket, Period, RawSocket},
+    core::{AsRawSocket, Period, RawSocket, SocketHandle},
     error::{msg_from_errno, Error, ErrorKind},
     old::OldSocket,
     socket::*,
@@ -124,62 +124,48 @@ impl From<PollId> for usize {
 /// ```
 ///
 /// [`Poller`]: struct.Poller.html#method.add
-pub enum Pollable<'a> {
-    /// A `Socket` type.
-    Socket(&'a RawSocket),
-    /// A file descriptor.
-    Fd(RawFd),
+pub trait Pollable {
+    /// Add the pollable type to the poller.
+    fn add(self, poller: &mut Poller, id: PollId, trigger: Trigger) -> Result<(), Error>;
+
+    /// Remove the pollable type from the poller.
+    fn remove(self, poller: &mut Poller) -> Result<(), Error>;
+
+    /// Remove the pollable type from the poller.
+    fn modify(self, poller: &mut Poller, trigger: Trigger) -> Result<(), Error>;
 }
 
-impl<'a, T> From<&'a T> for Pollable<'a>
-where
-    T: AsRawFd,
-{
-    fn from(entity: &'a T) -> Self {
-        Pollable::Fd(entity.as_raw_fd())
+impl Pollable for SocketHandle {
+    /// Add the pollable type to the poller.
+    fn add(self, poller: &mut Poller, id: PollId, trigger: Trigger) -> Result<(), Error> {
+        poller.add_socket(self, id, trigger)
+    }
+
+    /// Remove the pollable type from the poller.
+    fn remove(self, poller: &mut Poller) -> Result<(), Error> {
+        poller.remove_socket(self)
+    }
+
+    /// Remove the pollable type from the poller.
+    fn modify(self, poller: &mut Poller, trigger: Trigger) -> Result<(), Error> {
+        poller.modify_raw_socket(self, trigger)
     }
 }
 
-impl<'a> From<&'a Client> for Pollable<'a> {
-    fn from(client: &'a Client) -> Self {
-        Pollable::Socket(client.raw_socket())
+impl Pollable for RawFd {
+    /// Add the pollable type to the poller.
+    fn add(self, poller: &mut Poller, id: PollId, trigger: Trigger) -> Result<(), Error> {
+        poller.add_fd(self, id, trigger)
     }
-}
 
-impl<'a> From<&'a Server> for Pollable<'a> {
-    fn from(server: &'a Server) -> Self {
-        Pollable::Socket(server.raw_socket())
+    /// Remove the pollable type from the poller.
+    fn remove(self, poller: &mut Poller) -> Result<(), Error> {
+        poller.remove_fd(self)
     }
-}
 
-impl<'a> From<&'a Radio> for Pollable<'a> {
-    fn from(radio: &'a Radio) -> Self {
-        Pollable::Socket(radio.raw_socket())
-    }
-}
-
-impl<'a> From<&'a Dish> for Pollable<'a> {
-    fn from(dish: &'a Dish) -> Self {
-        Pollable::Socket(dish.raw_socket())
-    }
-}
-
-impl<'a> From<&'a Gather> for Pollable<'a> {
-    fn from(gather: &'a Gather) -> Self {
-        Pollable::Socket(gather.raw_socket())
-    }
-}
-
-impl<'a> From<&'a Scatter> for Pollable<'a> {
-    fn from(scatter: &'a Scatter) -> Self {
-        Pollable::Socket(scatter.raw_socket())
-    }
-}
-
-#[doc(hidden)]
-impl<'a> From<&'a OldSocket> for Pollable<'a> {
-    fn from(old: &'a OldSocket) -> Self {
-        Pollable::Socket(old.raw_socket())
+    /// Remove the pollable type from the poller.
+    fn modify(self, poller: &mut Poller, trigger: Trigger) -> Result<(), Error> {
+        poller.modify_fd(self, trigger)
     }
 }
 
@@ -478,21 +464,16 @@ impl Poller {
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`Pollable`]: enum.Pollable.html
     /// [`Trigger`]: struct.Trigger.html
-    pub fn add<'a, P>(
+    pub fn add<P>(
         &mut self,
         pollable: P,
         id: PollId,
         trigger: Trigger,
     ) -> Result<(), Error>
     where
-        P: Into<Pollable<'a>>,
+        P: Pollable,
     {
-        match pollable.into() {
-            Pollable::Socket(raw_socket) => {
-                self.add_raw_socket(raw_socket, id, trigger)
-            }
-            Pollable::Fd(fd) => self.add_fd(fd, id, trigger),
-        }
+        pollable.add(&mut self, id, trigger);
     }
 
     fn add_fd(
@@ -527,13 +508,13 @@ impl Poller {
         }
     }
 
-    fn add_raw_socket(
+    fn add_socket(
         &mut self,
-        raw_socket: &RawSocket,
+        handle: SocketHandle,
         id: PollId,
         trigger: Trigger,
     ) -> Result<(), Error> {
-        let socket_mut_ptr = raw_socket.as_mut_ptr();
+        let socket_ptr = handle.as_ptr();
 
         let user_data: usize = id.into();
         let user_data = user_data as *mut usize as *mut c_void;
@@ -541,7 +522,7 @@ impl Poller {
         let rc = unsafe {
             sys::zmq_poller_add(
                 self.poller,
-                socket_mut_ptr,
+                socket_ptr,
                 user_data,
                 trigger.bits(),
             )
@@ -596,12 +577,9 @@ impl Poller {
     /// [`Pollable`]: enum.Pollable.html
     pub fn remove<'a, P>(&mut self, pollable: P) -> Result<(), Error>
     where
-        P: Into<Pollable<'a>>,
+        P: Pollable,
     {
-        match pollable.into() {
-            Pollable::Socket(raw_socket) => self.remove_raw_socket(raw_socket),
-            Pollable::Fd(fd) => self.remove_fd(fd),
-        }
+        pollable.remove(&mut self)
     }
 
     fn remove_fd(&mut self, fd: RawFd) -> Result<(), Error> {
@@ -627,19 +605,19 @@ impl Poller {
         }
     }
 
-    fn remove_raw_socket(
+    fn remove_socket(
         &mut self,
-        raw_socket: &RawSocket,
+        handle: &SocketHandle,
     ) -> Result<(), Error> {
-        let socket_mut_ptr = raw_socket.as_mut_ptr();
+        let socket_ptr = handle.as_ptr();
 
-        let rc = unsafe { sys::zmq_poller_remove(self.poller, socket_mut_ptr) };
+        let rc = unsafe { sys::zmq_poller_remove(self.poller, socket_ptr) };
 
         if rc == -1 {
             let errno = unsafe { sys::zmq_errno() };
 
             let err = match errno {
-                errno::ENOTSOCK => panic!("invalid socket"),
+                errno::ENOTSOCK => Error::new(ErrorKind::InvalidSocket),
                 errno::EINVAL => Error::new(ErrorKind::InvalidInput(
                     "cannot remove absent socket",
                 )),
