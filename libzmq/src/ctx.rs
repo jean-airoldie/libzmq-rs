@@ -241,13 +241,12 @@ impl CtxBuilder {
     }
 }
 
-/// A handle to a `Ctx`.
+/// A non-owning pointer to a `Ctx`.
 ///
 /// A `CtxHandle` allows thread-safe configuration of the context aliased by
 /// the handle. It is also used to created sockets associated with the context.
 ///
-/// As opposed to the `Ctx`, the `CtxHandle` does not manage the context's lifetime.
-/// This means that once a `Ctx` is `shutdown` or dropped, all associated
+/// Once the `Ctx` it is pointing to is `shutdown` or dropped, all associated
 /// `CtxHandle` will be invalidated. All calls involving an invalidated
 /// `CtxHandle` will return a `CtxInvalid` error.
 /// ```
@@ -257,7 +256,7 @@ impl CtxBuilder {
 /// use libzmq::{Ctx, Dish, ErrorKind};
 ///
 /// // We create a `CtxHandle` from a new context. Since we drop
-/// // the context aliased by the handle, it will no longer be valid
+/// // the context pointed by the handle, it will no longer be valid
 /// // once it reaches the outer scope.
 /// let handle = {
 ///     let ctx = Ctx::new();
@@ -311,14 +310,13 @@ impl CtxHandle {
     }
 }
 
-/// Keeps the list of sockets and manages the async I/O thread and
+/// A owning pointer to a ØMQ context.
+///
+/// A context leeps the list of sockets and manages the async I/O thread and
 /// internal queries.
 ///
 /// Each context also has an associated `AuthServer` which handles socket
 /// authentification.
-///
-/// The `Ctx` manages the lifetime of the ØMQ context, meaning that dropping
-/// it also terminates the ØMQ context.
 ///
 /// # Drop Behavior
 /// The context will call terminate when dropped which will cause all
