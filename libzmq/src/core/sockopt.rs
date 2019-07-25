@@ -110,7 +110,7 @@ fn getsockopt(
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
             errno::EINVAL => panic!("invalid option"),
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             _ => panic!(msg_from_errno(errno)),
@@ -216,7 +216,7 @@ fn setsockopt(
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
             errno::EINVAL => panic!("invalid option"),
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             _ => panic!(msg_from_errno(errno)),

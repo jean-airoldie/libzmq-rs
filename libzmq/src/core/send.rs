@@ -31,7 +31,7 @@ fn send(
             errno::EFSM => {
                 panic!("operation cannot be completed in current socket state")
             }
-            errno::ETERM => Error::with_content(ErrorKind::CtxInvalid, msg),
+            errno::ETERM => Error::with_content(ErrorKind::InvalidCtx, msg),
             errno::ENOTSOCK => panic!("invalid socket"),
             errno::EINTR => Error::with_content(ErrorKind::Interrupted, msg),
             errno::EFAULT => panic!("invalid message"),
@@ -67,13 +67,13 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// ## Possible Error Variants
     /// * [`WouldBlock`] (if `send_timeout` expires)
-    /// * [`CtxInvalid`]
+    /// * [`InvalidCtx`]
     /// * [`Interrupted`]
     /// * [`HostUnreachable`] (only for [`Server`] socket)
     ///
     /// [`zmq_msg_send`]: http://api.zeromq.org/master:zmq-msg-send
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html
@@ -100,13 +100,13 @@ pub trait SendMsg: GetRawSocket {
     ///
     /// ## Possible Error Variants
     /// * [`WouldBlock`]
-    /// * [`CtxInvalid`]
+    /// * [`InvalidCtx`]
     /// * [`Interrupted`]
     /// * [`HostUnreachable`] (only for [`Server`] socket)
     ///
     /// [`zmq_msg_send`]: http://api.zeromq.org/master:zmq-msg-send
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
-    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
     /// [`HostUnreachable`]: ../enum.ErrorKind.html#variant.HostUnreachable
     /// [`Server`]: struct.Server.html

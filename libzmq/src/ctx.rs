@@ -248,7 +248,7 @@ impl CtxBuilder {
 ///
 /// Once the `Ctx` it is pointing to is `shutdown` or dropped, all associated
 /// `CtxHandle` will be invalidated. All calls involving an invalidated
-/// `CtxHandle` will return a `CtxInvalid` error.
+/// `CtxHandle` will return a `InvalidCtx` error.
 /// ```
 /// # use failure::Error;
 /// #
@@ -263,11 +263,11 @@ impl CtxBuilder {
 ///     ctx.handle()
 /// };
 ///
-/// // Attempting to use the invalided handle will result in `CtxInvalid`
+/// // Attempting to use the invalided handle will result in `InvalidCtx`
 /// // errors.
 /// let err = Dish::with_ctx(handle).unwrap_err();
 /// match err.kind() {
-///     ErrorKind::CtxInvalid => (),
+///     ErrorKind::InvalidCtx => (),
 ///     _ => unreachable!(),
 /// }
 /// #
@@ -320,7 +320,7 @@ impl CtxHandle {
 ///
 /// # Drop Behavior
 /// The context will call terminate when dropped which will cause all
-/// blocking calls to fail with `CtxInvalid`, then the dropping thread
+/// blocking calls to fail with `InvalidCtx`, then the dropping thread
 /// will block until the following conditions are met:
 /// * All sockets open within the context have been dropped.
 /// * All messages within the context are closed.
@@ -368,7 +368,7 @@ impl Ctx {
         let mut auth = AuthServer::with_ctx(CtxHandle { inner }).unwrap();
 
         // This thread is guaranteed to terminate with the ctx because
-        // it terminates on `CtxInvalid` errors.
+        // it terminates on `InvalidCtx` errors.
         thread::spawn(move || auth.run());
 
         Self { inner }
@@ -498,14 +498,14 @@ impl Ctx {
     ///
     /// Context shutdown will cause any blocking operations currently in
     /// progress on sockets using handles associated with the context to fail
-    /// with [`CtxInvalid`].
+    /// with [`InvalidCtx`].
     ///
     /// This is used as a mechanism to stop another blocked thread.
     ///
     /// Note that, while this invalidates the context, it does not terminate it.
     /// The context will only get terminated once `Ctx` is dropped.
     ///
-    /// [`CtxInvalid`]: ../error/enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: ../error/enum.ErrorKind.html#variant.InvalidCtx
     pub fn shutdown(&self) {
         self.inner.shutdown()
     }

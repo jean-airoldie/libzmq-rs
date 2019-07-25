@@ -66,10 +66,10 @@ impl Scatter {
     /// Create a `Scatter` socket from the [`global context`]
     ///
     /// # Returned Error Variants
-    /// * [`CtxInvalid`]
+    /// * [`InvalidCtx`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: enum.ErrorKind.html#variant.InvalidCtx
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     /// [`global context`]: struct.Ctx.html#method.global
     pub fn new() -> Result<Self, Error> {
@@ -82,10 +82,10 @@ impl Scatter {
     /// from a `CtxHandle`.
     ///
     /// # Returned Error Variants
-    /// * [`CtxInvalid`]
+    /// * [`InvalidCtx`]
     /// * [`SocketLimit`]
     ///
-    /// [`CtxInvalid`]: enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: enum.ErrorKind.html#variant.InvalidCtx
     /// [`SocketLimit`]: enum.ErrorKind.html#variant.SocketLimit
     pub fn with_ctx(handle: CtxHandle) -> Result<Self, Error> {
         let inner =

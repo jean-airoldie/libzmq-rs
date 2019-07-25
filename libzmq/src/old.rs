@@ -24,7 +24,7 @@ fn send(
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
             _ => panic!(msg_from_errno(errno)),
@@ -42,7 +42,7 @@ fn recv(mut_sock_ptr: *mut c_void, msg: &mut Msg) -> Result<(), Error> {
     if rc == -1 {
         let errno = unsafe { sys::zmq_errno() };
         let err = match errno {
-            errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+            errno::ETERM => Error::new(ErrorKind::InvalidCtx),
             errno::EINTR => Error::new(ErrorKind::Interrupted),
             errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
             _ => panic!(msg_from_errno(errno)),
