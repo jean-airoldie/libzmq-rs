@@ -748,7 +748,7 @@ impl Poller {
             let errno = unsafe { sys::zmq_errno() };
             let err = match errno {
                 errno::EINVAL => panic!("invalid poller"),
-                errno::ETERM => Error::new(ErrorKind::CtxInvalid),
+                errno::ETERM => Error::new(ErrorKind::InvalidCtx),
                 errno::EINTR => Error::new(ErrorKind::Interrupted),
                 errno::EAGAIN => Error::new(ErrorKind::WouldBlock),
                 _ => panic!(msg_from_errno(errno)),
@@ -767,11 +767,11 @@ impl Poller {
     ///
     /// # Returned Errors
     /// * [`WouldBlock`]
-    /// * [`CtxInvalid`] (`Ctx` of a polled socket was terminated)
+    /// * [`InvalidCtx`] (`Ctx` of a polled socket was terminated)
     /// * [`Interrupted`]
     ///
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.Interrupted
     pub fn try_poll(&mut self, events: &mut Events) -> Result<(), Error> {
         self.wait(events, 0)
@@ -786,11 +786,11 @@ impl Poller {
     ///
     /// # Returned Errors
     /// * [`WouldBlock`] (timeout expired)
-    /// * [`CtxInvalid`] (`Ctx` of a polled socket was terminated)
+    /// * [`InvalidCtx`] (`Ctx` of a polled socket was terminated)
     /// * [`Interrupted`]
     ///
     /// [`Interrupted`]: ../enum.ErrorKind.html#variant.Interrupted
-    /// [`CtxInvalid`]: ../enum.ErrorKind.html#variant.CtxInvalid
+    /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`WouldBlock`]: ../enum.ErrorKind.html#variant.WouldBlock
     pub fn poll(
         &mut self,
