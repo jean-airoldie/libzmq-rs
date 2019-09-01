@@ -159,6 +159,12 @@ fn unbind(socket_ptr: *mut c_void, c_string: CString) -> Result<(), Error> {
     }
 }
 
+fn assert_curve_enabled() {
+    if cfg!(not(feature = "curve")) {
+        panic!("CURVE support requires enabling feature flag 'curve'");
+    }
+}
+
 /// This socket may or may not be thread safe depending on the `RawSocketType`.
 /// We prevent that it is always thread-safe and let the wrapping types decide.
 #[derive(Debug)]
@@ -400,6 +406,7 @@ impl RawSocket {
         &self,
         key: Option<&BinCurveKey>,
     ) -> Result<(), Error> {
+        assert_curve_enabled();
         let key = key.map(BinCurveKey::as_bytes);
         setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurvePublicKey, key)
     }
@@ -408,11 +415,13 @@ impl RawSocket {
         &self,
         key: Option<&BinCurveKey>,
     ) -> Result<(), Error> {
+        assert_curve_enabled();
         let key = key.map(BinCurveKey::as_bytes);
         setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveSecretKey, key)
     }
 
     pub(crate) fn set_curve_server(&self, enabled: bool) -> Result<(), Error> {
+        assert_curve_enabled();
         setsockopt_bool(self.as_mut_ptr(), SocketOption::CurveServer, enabled)
     }
 
@@ -420,6 +429,7 @@ impl RawSocket {
         &self,
         key: Option<&BinCurveKey>,
     ) -> Result<(), Error> {
+        assert_curve_enabled();
         let key = key.map(BinCurveKey::as_bytes);
         setsockopt_bytes(self.as_mut_ptr(), SocketOption::CurveServerKey, key)
     }

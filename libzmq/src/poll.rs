@@ -206,7 +206,7 @@ impl<'a> Iterator for Iter<'a> {
         if let Some(event) = raw {
             // Skip empty events.
             if event.events == 0 {
-                return self.next();
+                self.next()
             } else {
                 let user_data = event.user_data as *mut usize as usize;
                 Some(Event {

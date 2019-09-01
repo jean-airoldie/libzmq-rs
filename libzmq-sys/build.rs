@@ -32,10 +32,22 @@ fn main() {
 
     let wants_debug = env::var_os("PROFILE").unwrap() == "debug";
 
+    let maybe_libsodium = if cfg!(feature = "libsodium") {
+        let lib_dir = env::var("DEP_SODIUM_LIB")
+            .expect("build metadata `DEP_SODIUM_LIB` required");
+        let include_dir = env::var("DEP_SODIUM_INCLUDE")
+            .expect("build metadata `DEP_SODIUM_INCLUDE` required");
+
+        Some(zeromq_src::LibLocation::new(lib_dir, include_dir))
+    } else {
+        None
+    };
+
     let artifacts = zeromq_src::Build::new()
         .link_static(true)
         .enable_draft(true)
         .build_debug(wants_debug)
+        .with_libsodium(maybe_libsodium)
         .build();
 
     artifacts.print_cargo_metadata();

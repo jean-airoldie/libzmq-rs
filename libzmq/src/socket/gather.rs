@@ -318,8 +318,8 @@ mod test {
     fn test_ser_de() {
         let config = GatherConfig::new();
 
-        let ron = ron::ser::to_string(&config).unwrap();
-        let de: GatherConfig = ron::de::from_str(&ron).unwrap();
+        let ron = serde_yaml::to_string(&config).unwrap();
+        let de: GatherConfig = serde_yaml::from_str(&ron).unwrap();
         assert_eq!(config, de);
     }
 
