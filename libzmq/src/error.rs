@@ -35,7 +35,7 @@ use std::{
 ///         // Normally we would process each error differently.
 ///         WouldBlock | InvalidCtx | Interrupted => {
 ///             // Here we get back the message we tried to send.
-///             let msg = err.take_content().unwrap();
+///             let msg = err.take().unwrap();
 ///             assert_eq!("msg", msg.to_str()?);
 ///         }
 ///         // Since `ErrorKind` is non-exhaustive, need an
@@ -79,13 +79,23 @@ impl<T> Error<T> {
         *self.inner.get_context()
     }
 
-    /// Returns a reference to the content held by the error.
+    #[deprecated(since = "0.2.1", note = "please use `get` instead")]
     pub fn content(&self) -> Option<&T> {
         self.content.as_ref()
     }
 
-    /// Takes the content held by the error, if any, replacing with `None`.
+    /// Returns a reference to the content held by the error.
+    pub fn get(&self) -> Option<&T> {
+        self.content.as_ref()
+    }
+
+    #[deprecated(since = "0.2.1", note = "please use `take` instead")]
     pub fn take_content(&mut self) -> Option<T> {
+        self.content.take()
+    }
+
+    /// Takes the content held by the error, if any, replacing with `None`.
+    pub fn take(&mut self) -> Option<T> {
         self.content.take()
     }
 
