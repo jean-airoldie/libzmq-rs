@@ -149,19 +149,19 @@ impl GatherConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Gather, Error<usize>> {
+    pub fn build(&self) -> Result<Gather, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Gather, Error<usize>> {
-        let gather = Gather::with_ctx(handle).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Gather, Error> {
+        let gather = Gather::with_ctx(handle)?;
         self.apply(&gather)?;
 
         Ok(gather)
     }
 
-    pub fn apply(&self, gather: &Gather) -> Result<(), Error<usize>> {
-        self.recv_config.apply(gather).map_err(Error::cast)?;
+    pub fn apply(&self, gather: &Gather) -> Result<(), Error> {
+        self.recv_config.apply(gather)?;
         self.socket_config.apply(gather)?;
 
         Ok(())
@@ -264,11 +264,11 @@ impl GatherBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Gather, Error<usize>> {
+    pub fn build(&self) -> Result<Gather, Error> {
         self.inner.build()
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Gather, Error<usize>> {
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Gather, Error> {
         self.inner.with_ctx(handle)
     }
 }

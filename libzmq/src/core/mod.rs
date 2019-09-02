@@ -196,16 +196,11 @@ impl From<Period> for Serde<Option<Duration>> {
 
 /// Methods shared by all thread-safe sockets.
 pub trait Socket: GetRawSocket {
-    /// Schedules a connection to one or more [`Endpoints`] and then accepts
-    /// incoming connections.
+    /// Schedules a connection to a [`Endpoint`].
     ///
     /// Since ØMQ handles all connections behind the curtain, one cannot know
     /// exactly when the connection is truly established a blocking `send`
     /// or `recv` call is made on that connection.
-    ///
-    /// When any of the connection attempt fail, the `Error` will contain the position
-    /// of the iterator before the failure. This represents the number of
-    /// connections that succeeded before the failure.
     ///
     /// # Usage Contract
     /// * The endpoint's protocol must be supported by the socket.
@@ -222,12 +217,10 @@ pub trait Socket: GetRawSocket {
     /// use libzmq::{prelude::*, Client, TcpAddr};
     /// use std::convert::TryInto;
     ///
-    /// let addr1: TcpAddr = "127.0.0.1:420".try_into()?;
-    /// let addr2: TcpAddr = "127.0.0.1:69".try_into()?;
+    /// let addr: TcpAddr = "127.0.0.1:420".try_into()?;
     ///
     /// let client = Client::new()?;
-    /// // Connect to multiple endpoints at once.
-    /// client.connect(&[addr1, addr2])?;
+    /// client.connect(&addr)?;
     /// #
     /// #     Ok(())
     /// # }
@@ -235,34 +228,18 @@ pub trait Socket: GetRawSocket {
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`InvalidInput`]: ../enum.ErrorKind.html#variant.InvalidInput
     /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
-    fn connect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
+    fn connect<E>(&self, endpoint: E) -> Result<(), Error>
     where
-        I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let mut count = 0;
-        let raw_socket = self.raw_socket();
-
-        for endpoint in endpoints.into_iter().map(E::into) {
-            raw_socket
-                .connect(&endpoint)
-                .map_err(|err| Error::with_content(err.kind(), count))?;
-
-            count += 1;
-        }
-
-        Ok(())
+        self.raw_socket().connect(&endpoint.into())
     }
 
-    /// Schedules a bind to one or more [`Endpoints`] and then accepts
+    /// Schedules a bind to a [`Endpoint`] and then accepts
     /// incoming connections.
     ///
     /// As opposed to `connect`, the socket will straight await and start
     /// accepting connections.
-    ///
-    /// When any of the connection attempt fail, the `Error` will contain the position
-    /// of the iterator before the failure. This represents the number of
-    /// binds that succeeded before the failure.
     ///
     /// # Usage Contract
     /// * The transport must be supported by the socket type.
@@ -297,30 +274,14 @@ pub trait Socket: GetRawSocket {
     /// [`AddrInUse`]: ../enum.ErrorKind.html#variant.AddrInUse
     /// [`AddrNotAvailable`]: ../enum.ErrorKind.html#variant.AddrNotAvailable
     /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
-    fn bind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
+    fn bind<E>(&self, endpoint: E) -> Result<(), Error>
     where
-        I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let mut count = 0;
-        let raw_socket = self.raw_socket();
-
-        for endpoint in endpoints.into_iter().map(E::into) {
-            raw_socket
-                .bind(&endpoint)
-                .map_err(|err| Error::with_content(err.kind(), count))?;
-
-            count += 1;
-        }
-
-        Ok(())
+        self.raw_socket().bind(&endpoint.into())
     }
 
-    /// Disconnect the socket from one or more [`Endpoints`].
-    ///
-    /// When any of the disconnection attempt fail, the `Error` will contain the
-    /// position of the iterator before the failure. This represents the number
-    /// of disconnections that succeeded before the failure.
+    /// Disconnect the socket from a [`Endpoint`].
     ///
     /// ## Disconnect from a connected endpoint
     /// The socket stops receiving and sending messages to the remote.
@@ -339,30 +300,14 @@ pub trait Socket: GetRawSocket {
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-    fn disconnect<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
+    fn disconnect<E>(&self, endpoint: E) -> Result<(), Error>
     where
-        I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let mut count = 0;
-        let raw_socket = self.raw_socket();
-
-        for endpoint in endpoints.into_iter().map(E::into) {
-            raw_socket
-                .disconnect(&endpoint)
-                .map_err(|err| Error::with_content(err.kind(), count))?;
-
-            count += 1;
-        }
-
-        Ok(())
+        self.raw_socket().disconnect(&endpoint.into())
     }
 
-    /// Unbind the socket from one or more [`Endpoints`].
-    ///
-    /// When any of the unbind attempt fail, the `Error` will contain
-    /// the position of the iterator before the failure. This represents the
-    /// number of unbind that succeeded before the failure.
+    /// Unbind the socket from a [`Endpoint`].
     ///
     /// ## Disconnect from a bound endpoint
     /// The socket stops receiving and sending messages to peers connected to
@@ -379,23 +324,11 @@ pub trait Socket: GetRawSocket {
     /// [`Endpoints`]: ../endpoint/enum.Endpoint.html
     /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
-    fn unbind<I, E>(&self, endpoints: I) -> Result<(), Error<usize>>
+    fn unbind<I, E>(&self, endpoint: E) -> Result<(), Error>
     where
-        I: IntoIterator<Item = E>,
         E: Into<Endpoint>,
     {
-        let mut count = 0;
-        let raw_socket = self.raw_socket();
-
-        for endpoint in endpoints.into_iter().map(E::into) {
-            raw_socket
-                .unbind(&endpoint)
-                .map_err(|err| Error::with_content(err.kind(), count))?;
-
-            count += 1;
-        }
-
-        Ok(())
+        self.raw_socket().unbind(&endpoint.into())
     }
 
     /// Retrieve the last endpoint connected or bound to.
@@ -603,20 +536,21 @@ pub struct SocketConfig {
 }
 
 impl SocketConfig {
-    pub(crate) fn apply<S: Socket>(
-        &self,
-        socket: &S,
-    ) -> Result<(), Error<usize>> {
+    pub(crate) fn apply<S: Socket>(&self, socket: &S) -> Result<(), Error> {
         if let Some(ref mechanism) = self.mechanism {
-            socket.set_mechanism(mechanism).map_err(Error::cast)?;
+            socket.set_mechanism(mechanism)?;
         }
         // We connect as the last step because some socket options
         // only affect subsequent connections.
         if let Some(ref endpoints) = self.connect {
-            socket.connect(endpoints)?;
+            for endpoint in endpoints {
+                socket.connect(endpoint)?;
+            }
         }
         if let Some(ref endpoints) = self.bind {
-            socket.bind(endpoints)?;
+            for endpoint in endpoints {
+                socket.bind(endpoint)?;
+            }
         }
         Ok(())
     }

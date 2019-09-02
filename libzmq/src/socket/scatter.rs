@@ -140,19 +140,19 @@ impl ScatterConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Scatter, Error<usize>> {
+    pub fn build(&self) -> Result<Scatter, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Scatter, Error<usize>> {
-        let scatter = Scatter::with_ctx(handle).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Scatter, Error> {
+        let scatter = Scatter::with_ctx(handle)?;
         self.apply(&scatter)?;
 
         Ok(scatter)
     }
 
-    pub fn apply(&self, scatter: &Scatter) -> Result<(), Error<usize>> {
-        self.send_config.apply(scatter).map_err(Error::cast)?;
+    pub fn apply(&self, scatter: &Scatter) -> Result<(), Error> {
+        self.send_config.apply(scatter)?;
         self.socket_config.apply(scatter)?;
 
         Ok(())
@@ -255,11 +255,11 @@ impl ScatterBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Scatter, Error<usize>> {
+    pub fn build(&self) -> Result<Scatter, Error> {
         self.inner.build()
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Scatter, Error<usize>> {
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Scatter, Error> {
         self.inner.with_ctx(handle)
     }
 }

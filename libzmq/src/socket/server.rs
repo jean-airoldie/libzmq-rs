@@ -190,21 +190,21 @@ impl ServerConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, Error<usize>> {
+    pub fn build(&self) -> Result<Server, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Server, Error<usize>> {
-        let server = Server::with_ctx(handle).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Server, Error> {
+        let server = Server::with_ctx(handle)?;
         self.apply(&server)?;
 
         Ok(server)
     }
 
-    pub fn apply(&self, server: &Server) -> Result<(), Error<usize>> {
-        self.send_config.apply(server).map_err(Error::cast)?;
-        self.recv_config.apply(server).map_err(Error::cast)?;
-        self.heartbeat_config.apply(server).map_err(Error::cast)?;
+    pub fn apply(&self, server: &Server) -> Result<(), Error> {
+        self.send_config.apply(server)?;
+        self.recv_config.apply(server)?;
+        self.heartbeat_config.apply(server)?;
         self.socket_config.apply(server)?;
 
         Ok(())
@@ -333,11 +333,11 @@ impl ServerBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Server, Error<usize>> {
+    pub fn build(&self) -> Result<Server, Error> {
         self.inner.build()
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Server, Error<usize>> {
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Server, Error> {
         self.inner.with_ctx(handle)
     }
 }

@@ -70,7 +70,7 @@ pub enum ConfigType {
 }
 
 impl ConfigType {
-    pub fn build(&self) -> Result<SocketType, Error<usize>> {
+    pub fn build(&self) -> Result<SocketType, Error> {
         match self {
             ConfigType::Client(config) => {
                 let client = config.build()?;
