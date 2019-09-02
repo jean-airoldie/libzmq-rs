@@ -2,13 +2,17 @@ use super::{client::*, *};
 use crate::{old::*, poll::*, prelude::*, socket::*, *};
 
 use failure::Fail;
-use hashbrown::{HashMap, HashSet};
 use lazy_static::lazy_static;
 use log::info;
 
 use libc::c_long;
 
-use std::{fmt, net::Ipv6Addr, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+    net::Ipv6Addr,
+    vec,
+};
 
 const ZAP_VERSION: &str = "1.0";
 lazy_static! {

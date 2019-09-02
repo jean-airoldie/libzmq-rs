@@ -15,9 +15,9 @@ before_script:
   - (test -x $HOME/.cargo/bin/cargo-cache || cargo install cargo-cache)
   - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.3" mdbook)
 script:
-  - cargo test --all-targets --no-run
-  - cargo test --all
-  - cargo test --examples
+  - cargo test --all-targets --all-features --no-run
+  - cargo test --all --all-features
+  - cargo test --examples --all-features
   - cargo fmt --all -- --check
   - cargo clippy --all-targets -- -D warnings
   - mdbook build libzmq-book

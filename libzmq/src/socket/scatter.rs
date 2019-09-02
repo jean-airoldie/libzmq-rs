@@ -310,8 +310,8 @@ mod test {
     fn test_ser_de() {
         let config = ScatterConfig::new();
 
-        let ron = ron::ser::to_string(&config).unwrap();
-        let de: ScatterConfig = ron::de::from_str(&ron).unwrap();
+        let ron = serde_yaml::to_string(&config).unwrap();
+        let de: ScatterConfig = serde_yaml::from_str(&ron).unwrap();
         assert_eq!(config, de);
     }
 

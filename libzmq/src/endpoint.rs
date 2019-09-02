@@ -1388,8 +1388,8 @@ mod test {
                     let addr: $name = $string.try_into().unwrap();
                     let endpoint: Endpoint = addr.into();
 
-                    let ron = ron::ser::to_string(&endpoint).unwrap();
-                    let de: Endpoint = ron::de::from_str(&ron).unwrap();
+                    let ron = serde_yaml::to_string(&endpoint).unwrap();
+                    let de: Endpoint = serde_yaml::from_str(&ron).unwrap();
                     assert_eq!(endpoint, de);
                 }
             }

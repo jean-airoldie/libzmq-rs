@@ -5,13 +5,16 @@ For a public `TCP` connection, its a must. Let's fix that by adapting the
 previous example.
 
 This time we will the `CURVE` mechanism, which is a public-key crypto.
-Depending on your setup, it should have little to no overhead.
-It might even boost throughtput in case where the NIC is the bottleneck
-because of the extra compression.
+To enable the usage of the `CURVE` mechanism, the feature flag 'curve'
+must be enabled.
 
 However, this time we will use an external configuration file to get
 rid of all the boilerplate. This will also allows our application
 to run indepently of the socket configuration.
+
+Based on some basic benchmarks, the `CURVE` mechanism
+might reduce the throughtput of I/O heavy applications by half due
+to the overhead of the `salsa20` encryption.
 
 ## Config File
 

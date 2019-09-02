@@ -106,7 +106,7 @@ impl<T> Fail for Error<T>
 where
     T: 'static + Debug + Sync + Send,
 {
-    fn cause(&self) -> Option<&Fail> {
+    fn cause(&self) -> Option<&dyn Fail> {
         self.inner.cause()
     }
 

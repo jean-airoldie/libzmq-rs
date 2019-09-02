@@ -44,42 +44,44 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 /// # use failure::Error;
 /// #
 /// # fn main() -> Result<(), Error> {
-/// use libzmq::{prelude::*, auth::*, *};
-/// use std::{time::Duration};
+/// #[cfg(feature = "curve")] {
+///     use libzmq::{prelude::*, auth::*, *};
+///     use std::{time::Duration};
 ///
-/// let server_cert = CurveCert::new_unique();
-/// let client_cert = CurveCert::new_unique();
+///     let server_cert = CurveCert::new_unique();
+///     let client_cert = CurveCert::new_unique();
 ///
-/// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
+///     let addr: TcpAddr = "127.0.0.1:*".try_into()?;
 ///
-/// let server_creds = CurveServerCreds::new(server_cert.secret());
+///     let server_creds = CurveServerCreds::new(server_cert.secret());
 ///
-/// // Creates a server using the `CurveServer` mechanism. Since `CURVE`
-/// // authentication is enabled by default, only sockets whose public key
-/// // is in the whitelist will be allowed to connect.
-/// let server = ServerBuilder::new()
-///     .bind(&addr)
-///     .mechanism(server_creds)
-///     .recv_timeout(Duration::from_millis(200))
-///     .build()?;
+///     // Creates a server using the `CurveServer` mechanism. Since `CURVE`
+///     // authentication is enabled by default, only sockets whose public key
+///     // is in the whitelist will be allowed to connect.
+///     let server = ServerBuilder::new()
+///         .bind(&addr)
+///         .mechanism(server_creds)
+///         .recv_timeout(Duration::from_millis(200))
+///         .build()?;
 ///
-/// // We need to tell the `AuthServer` to allow the client's public key.
-/// let _ = AuthBuilder::new().curve_registry(client_cert.public()).build()?;
+///     // We need to tell the `AuthServer` to allow the client's public key.
+///     let _ = AuthBuilder::new().curve_registry(client_cert.public()).build()?;
 ///
-/// let bound = server.last_endpoint()?;
+///     let bound = server.last_endpoint()?;
 ///
-/// let client_creds = CurveClientCreds::new(server_cert.public())
-///     .add_cert(client_cert);
+///     let client_creds = CurveClientCreds::new(server_cert.public())
+///         .add_cert(client_cert);
 ///
-/// // Creates a server using the `CurveServer` mechanism. Since `CURVE`
-/// let client = ClientBuilder::new()
-///     .mechanism(client_creds)
-///     .connect(bound)
-///     .build()?;
+///     // Creates a server using the `CurveServer` mechanism. Since `CURVE`
+///     let client = ClientBuilder::new()
+///         .mechanism(client_creds)
+///         .connect(bound)
+///         .build()?;
 ///
-/// // The handshake is successfull so we can now send and receive messages.
-/// client.send("").unwrap();
-/// server.recv_msg().unwrap();
+///     // The handshake is successfull so we can now send and receive messages.
+///     client.send("").unwrap();
+///     server.recv_msg().unwrap();
+/// }
 /// #
 /// #     Ok(())
 /// # }
@@ -629,6 +631,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "curve")]
     fn test_curve() {
         // Create a new context to use a disctinct auth handler.
         let ctx = Ctx::new();
@@ -671,6 +674,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "curve")]
     fn test_curve_denied() {
         let addr: TcpAddr = "127.0.0.1:*".try_into().unwrap();
 
@@ -699,6 +703,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "curve")]
     fn test_curve_no_auth() {
         // Create a new context to use a disctinct auth handler.
         let ctx = Ctx::new();

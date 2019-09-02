@@ -458,28 +458,36 @@ pub trait Socket: GetRawSocket {
     }
 
     /// Set the socket's [`Mechanism`].
+    ///
+    /// # Feature Flags
+    ///
+    /// Note that `Mechanism::CurveClient` and `Mechanism::CurveServer` require
+    /// the feature flag "curve" to be enabled, and will panic if used otherwise.
+    ///
     /// # Example
     /// ```
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Client, auth::*};
+    /// #[cfg(feature = "curve")] {
+    ///     use libzmq::{prelude::*, Client, auth::*};
     ///
-    /// let client = Client::new()?;
-    /// assert_eq!(client.mechanism(), Mechanism::Null);
+    ///     let client = Client::new()?;
+    ///     assert_eq!(client.mechanism(), Mechanism::Null);
     ///
-    /// let server_cert = CurveCert::new_unique();
-    /// // We do not specify a client certificate, so it
-    /// // will be automatically generated.
-    /// let creds = CurveClientCreds::new(server_cert.public());
+    ///     let server_cert = CurveCert::new_unique();
+    ///     // We do not specify a client certificate, so it
+    ///     // will be automatically generated.
+    ///     let creds = CurveClientCreds::new(server_cert.public());
     ///
-    /// client.set_mechanism(&creds)?;
+    ///     client.set_mechanism(&creds)?;
     ///
-    /// if let Mechanism::CurveClient(creds) = client.mechanism() {
-    ///     assert_eq!(creds.server(), server_cert.public());
-    ///     assert!(creds.cert().is_some());
-    /// } else {
-    ///     unreachable!()
+    ///     if let Mechanism::CurveClient(creds) = client.mechanism() {
+    ///         assert_eq!(creds.server(), server_cert.public());
+    ///         assert!(creds.cert().is_some());
+    ///     } else {
+    ///         unreachable!()
+    ///     }
     /// }
     /// #
     /// #     Ok(())
