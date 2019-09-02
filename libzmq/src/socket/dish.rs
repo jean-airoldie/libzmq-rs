@@ -88,7 +88,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
 ///     .bind(addr)
 ///     .build()?;
 ///
-/// let bound = radio.last_endpoint().unwrap();
+/// let bound = radio.last_endpoint()?;
 /// let a: Group = "group a".try_into()?;
 ///
 /// let dish = DishBuilder::new()
@@ -178,14 +178,10 @@ impl Dish {
     pub fn ctx(&self) -> CtxHandle {
         self.inner.ctx()
     }
-    /// Joins the specified group(s).
-    ///
-    /// When any of the connection attempt fail, the `Error` will contain the position
-    /// of the iterator before the failure. This represents the number of
-    /// groups that were joined before the failure.
+    /// Joins the specified group.
     ///
     /// # Usage Contract
-    /// * Each group can be joined at most once.
+    /// * A group can be joined at most once.
     ///
     /// # Returned Error Variants
     /// * [`InvalidCtx`]
@@ -210,21 +206,14 @@ impl Dish {
     /// [`InvalidCtx`]: enum.ErrorKind.html#variant.InvalidCtx
     /// [`Interrupted`]: enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: enum.ErrorKind.html#variant.InvalidInput
-    pub fn join<I, G>(&self, groups: I) -> Result<(), Error<usize>>
+    pub fn join<G>(&self, group: G) -> Result<(), Error>
     where
-        I: IntoIterator<Item = G>,
         G: Into<Group>,
     {
-        let mut count = 0;
         let mut guard = self.groups.lock().unwrap();
-
-        for group in groups.into_iter().map(G::into) {
-            join(self.raw_socket().as_mut_ptr(), &group)
-                .map_err(|err| Error::with_content(err.kind(), count))?;
-
-            guard.push(group);
-            count += 1;
-        }
+        let group = group.into();
+        join(self.raw_socket().as_mut_ptr(), &group)?;
+        guard.push(group);
         Ok(())
     }
 
@@ -239,14 +228,13 @@ impl Dish {
     /// # fn main() -> Result<(), Error> {
     /// use libzmq::{prelude::*, Dish, Group};
     ///
-    /// let first: Group = "first group".try_into()?;
-    /// let second: Group = "second group".try_into()?;
+    /// let first: Group = "group name".try_into()?;
     ///
     /// let dish = Dish::new()?;
     /// assert!(dish.joined().is_empty());
     ///
-    /// dish.join(&[first, second])?;
-    /// assert_eq!(dish.joined().len(), 2);
+    /// dish.join(first)?;
+    /// assert_eq!(dish.joined().len(), 1);
     /// #
     /// #     Ok(())
     /// # }
@@ -255,11 +243,7 @@ impl Dish {
         self.groups.lock().unwrap().to_owned()
     }
 
-    /// Leave the specified group(s).
-    ///
-    /// When any of the connection attempt fail, the `Error` will contain the position
-    /// of the iterator before the failure. This represents the number of
-    /// groups that were leaved before the failure.
+    /// Leave the specified group.
     ///
     /// # Usage Contract
     /// * The group must be already joined.
@@ -293,23 +277,17 @@ impl Dish {
     /// [`InvalidCtx`]: enum.ErrorKind.html#variant.InvalidCtx
     /// [`Interrupted`]: enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<I, G>(&self, groups: I) -> Result<(), Error<usize>>
+    pub fn leave<G>(&self, group: G) -> Result<(), Error>
     where
-        I: IntoIterator<Item = G>,
         G: AsRef<GroupSlice>,
     {
-        let mut count = 0;
         let mut guard = self.groups.lock().unwrap();
+        let group = group.as_ref();
 
-        for group in groups.into_iter() {
-            let group = group.as_ref();
-            leave(self.raw_socket().as_mut_ptr(), group)
-                .map_err(|err| Error::with_content(err.kind(), count))?;
+        leave(self.raw_socket().as_mut_ptr(), group)?;
 
-            let position = guard.iter().position(|g| g == group).unwrap();
-            guard.remove(position);
-            count += 1;
-        }
+        let position = guard.iter().position(|g| g == group).unwrap();
+        guard.remove(position);
         Ok(())
     }
 }
@@ -353,12 +331,12 @@ impl DishConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, Error<usize>> {
+    pub fn build(&self) -> Result<Dish, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Dish, Error<usize>> {
-        let dish = Dish::with_ctx(handle).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Dish, Error> {
+        let dish = Dish::with_ctx(handle)?;
         self.apply(&dish)?;
 
         Ok(dish)
@@ -376,11 +354,13 @@ impl DishConfig {
         self.groups = groups;
     }
 
-    pub fn apply(&self, dish: &Dish) -> Result<(), Error<usize>> {
+    pub fn apply(&self, dish: &Dish) -> Result<(), Error> {
         if let Some(ref groups) = self.groups {
-            dish.join(groups)?;
+            for group in groups {
+                dish.join(group)?;
+            }
         }
-        self.recv_config.apply(dish).map_err(Error::cast)?;
+        self.recv_config.apply(dish)?;
         self.socket_config.apply(dish)?;
 
         Ok(())
@@ -467,11 +447,11 @@ impl DishBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Dish, Error<usize>> {
+    pub fn build(&self) -> Result<Dish, Error> {
         self.inner.build()
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Dish, Error<usize>> {
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Dish, Error> {
         self.inner.with_ctx(handle)
     }
 

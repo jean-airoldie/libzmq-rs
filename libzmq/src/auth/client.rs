@@ -519,7 +519,7 @@ mod test {
         let ip: IpAddr = "127.0.0.1".parse().unwrap();
         let _ = AuthBuilder::new().blacklist(ip).with_ctx(handle).unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
         let client = ClientBuilder::new()
             .connect(bound)
             .with_ctx(handle)
@@ -546,7 +546,7 @@ mod test {
         let ip: IpAddr = "127.0.0.1".parse().unwrap();
         let _ = AuthBuilder::new().whitelist(ip).with_ctx(handle).unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
         let client = ClientBuilder::new()
             .connect(bound)
             .with_ctx(handle)
@@ -565,7 +565,7 @@ mod test {
             .build()
             .unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
         let client = Client::new().unwrap();
 
         client.connect(bound).unwrap();
@@ -585,7 +585,7 @@ mod test {
             .build()
             .unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
 
         let client = Client::new().unwrap();
 
@@ -618,7 +618,7 @@ mod test {
             .with_ctx(handle)
             .unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
 
         let client = ClientBuilder::new()
             .connect(bound)
@@ -661,7 +661,7 @@ mod test {
             .with_ctx(handle)
             .unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
 
         let client = ClientBuilder::new()
             .mechanism(client_creds)
@@ -690,7 +690,7 @@ mod test {
             .build()
             .unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
 
         let client = ClientBuilder::new()
             .mechanism(client_creds)
@@ -723,7 +723,7 @@ mod test {
             .with_ctx(handle)
             .unwrap();
 
-        let bound = server.last_endpoint().unwrap().unwrap();
+        let bound = server.last_endpoint().unwrap();
 
         let client = Client::with_ctx(handle).unwrap();
 

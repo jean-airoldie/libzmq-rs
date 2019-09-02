@@ -180,10 +180,8 @@ impl HeartbeatingConfig {
     pub(crate) fn apply<S: Heartbeating>(
         &self,
         socket: &S,
-    ) -> Result<(), Error<usize>> {
-        socket
-            .set_heartbeat(self.heartbeat.clone())
-            .map_err(Error::cast)
+    ) -> Result<(), Error> {
+        socket.set_heartbeat(self.heartbeat.clone())
     }
 }
 

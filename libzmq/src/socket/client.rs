@@ -152,21 +152,21 @@ impl ClientConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Client, Error<usize>> {
+    pub fn build(&self) -> Result<Client, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Client, Error<usize>> {
-        let client = Client::with_ctx(handle).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Client, Error> {
+        let client = Client::with_ctx(handle)?;
         self.apply(&client)?;
 
         Ok(client)
     }
 
-    pub fn apply(&self, client: &Client) -> Result<(), Error<usize>> {
-        self.send_config.apply(client).map_err(Error::cast)?;
-        self.recv_config.apply(client).map_err(Error::cast)?;
-        self.heartbeat_config.apply(client).map_err(Error::cast)?;
+    pub fn apply(&self, client: &Client) -> Result<(), Error> {
+        self.send_config.apply(client)?;
+        self.recv_config.apply(client)?;
+        self.heartbeat_config.apply(client)?;
         self.socket_config.apply(client)?;
 
         Ok(())
@@ -292,11 +292,11 @@ impl ClientBuilder {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Client, Error<usize>> {
+    pub fn build(&self) -> Result<Client, Error> {
         self.inner.build()
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Client, Error<usize>> {
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Client, Error> {
         self.inner.with_ctx(handle)
     }
 }

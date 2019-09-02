@@ -40,7 +40,7 @@ use std::sync::Arc;
 ///     .bind(addr)
 ///     .build()?;
 ///
-/// let bound = radio.last_endpoint().unwrap();
+/// let bound = radio.last_endpoint()?;
 /// let a: Group = "A".try_into()?;
 /// let b: Group = "B".try_into()?;
 ///
@@ -216,12 +216,12 @@ impl RadioConfig {
         Self::default()
     }
 
-    pub fn build(&self) -> Result<Radio, Error<usize>> {
+    pub fn build(&self) -> Result<Radio, Error> {
         self.with_ctx(Ctx::global())
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Radio, Error<usize>> {
-        let radio = Radio::with_ctx(handle).map_err(Error::cast)?;
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Radio, Error> {
+        let radio = Radio::with_ctx(handle)?;
         self.apply(&radio)?;
 
         Ok(radio)
@@ -237,11 +237,11 @@ impl RadioConfig {
         self.no_drop = Some(cond);
     }
 
-    pub fn apply(&self, radio: &Radio) -> Result<(), Error<usize>> {
+    pub fn apply(&self, radio: &Radio) -> Result<(), Error> {
         if let Some(enabled) = self.no_drop {
-            radio.set_no_drop(enabled).map_err(Error::cast)?;
+            radio.set_no_drop(enabled)?;
         }
-        self.send_config.apply(radio).map_err(Error::cast)?;
+        self.send_config.apply(radio)?;
         self.socket_config.apply(radio)?;
 
         Ok(())
@@ -337,11 +337,11 @@ impl RadioBuilder {
         self
     }
 
-    pub fn build(&self) -> Result<Radio, Error<usize>> {
+    pub fn build(&self) -> Result<Radio, Error> {
         self.inner.build()
     }
 
-    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Radio, Error<usize>> {
+    pub fn with_ctx(&self, handle: CtxHandle) -> Result<Radio, Error> {
         self.inner.with_ctx(handle)
     }
 }

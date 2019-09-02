@@ -38,7 +38,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                 .build()
                 .unwrap();
 
-            let bound = producer.last_endpoint().unwrap().unwrap();
+            let bound = producer.last_endpoint().unwrap();
             let consumer = ClientBuilder::new()
                 .connect(bound)
                 .recv_hwm(HWM)
@@ -73,7 +73,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                 .build()
                 .unwrap();
 
-            let bound = producer.last_endpoint().unwrap().unwrap();
+            let bound = producer.last_endpoint().unwrap();
 
             let creds = CurveClientCreds::new(server_cert.public());
 
