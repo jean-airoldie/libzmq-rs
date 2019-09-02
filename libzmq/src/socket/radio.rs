@@ -40,7 +40,7 @@ use std::sync::Arc;
 ///     .bind(addr)
 ///     .build()?;
 ///
-/// let bound = radio.last_endpoint().unwrap();
+/// let bound = radio.last_endpoint()?;
 /// let a: Group = "A".try_into()?;
 /// let b: Group = "B".try_into()?;
 ///

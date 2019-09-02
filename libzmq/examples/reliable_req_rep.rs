@@ -18,7 +18,7 @@ fn main() -> Result<(), failure::Error> {
         .build()?;
 
     // Retrieve the assigned port.
-    let bound = server.last_endpoint()?.unwrap();
+    let bound = server.last_endpoint()?;
 
     // Spawn the server thread. In a real application, this
     // would be on another node.

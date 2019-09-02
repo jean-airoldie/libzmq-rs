@@ -47,7 +47,7 @@ mod private {
     impl Sealed for OldSocket {}
 }
 
-use crate::{addr::Endpoint, auth::*, Error};
+use crate::{addr::Endpoint, auth::*, Error, ErrorKind};
 
 use humantime_serde::Serde;
 use serde::{Deserialize, Serialize};
@@ -333,15 +333,25 @@ pub trait Socket: GetRawSocket {
 
     /// Retrieve the last endpoint connected or bound to.
     ///
+    /// Returns `Error` with `ErrorKind::NotFound` if not endpoint
+    /// was previously bound or connect to.
+    ///
     /// This is the only way to retrieve the assigned value of an
     /// [`Unspecified`] port.
+    ///
+    /// # Returned Errors
+    /// * [`NotFound`] (no endpoint to retrieve)
+    /// * [`InvalidCtx`]
+    ///
+    /// [`NotFound`]: ../endpoint/enum.Endpoint.html
+    /// [`InvalidCtx`]: ../enum.ErrorKind.html#variant.InvalidCtx
     ///
     /// # Example
     /// ```
     /// # use failure::Error;
     /// #
     /// # fn main() -> Result<(), Error> {
-    /// use libzmq::{prelude::*, Server, TcpAddr, addr::Endpoint};
+    /// use libzmq::{prelude::*, Server, TcpAddr, addr::Endpoint, ErrorKind};
     ///
     /// // We create a tcp addr with an unspecified port.
     /// // This port will be assigned by the OS when binding.
@@ -349,15 +359,21 @@ pub trait Socket: GetRawSocket {
     /// assert!(addr.host().port().is_unspecified());
     ///
     /// let server = Server::new()?;
-    /// assert!(server.last_endpoint()?.is_none());
+    ///
+    /// // Returns a `NotFound` error since no endpoint was bound
+    /// // or connected to.
+    /// let err = server.last_endpoint().unwrap_err();
+    /// match err.kind() {
+    ///     ErrorKind::NotFound(_) => (),
+    ///     _ => unreachable!(),
+    /// }
     ///
     /// server.bind(&addr)?;
     ///
-    /// if let Endpoint::Tcp(tcp) = server.last_endpoint()?.unwrap() {
-    ///     // The port was indeed assigned by the OS.
-    ///     assert!(tcp.host().port().is_specified());
-    /// } else {
-    ///     unreachable!();
+    /// // Now we retrieve the endpoint that was previously bound.
+    /// match server.last_endpoint()? {
+    ///     Endpoint::Tcp(tcp) => assert!(tcp.host().port().is_specified()),
+    ///     _ => unreachable!(),
     /// }
     /// #
     /// #     Ok(())
@@ -365,8 +381,14 @@ pub trait Socket: GetRawSocket {
     /// ```
     ///
     /// [`Unspecified`]: ../addr/enum.Port.html#variant.Unspecified
-    fn last_endpoint(&self) -> Result<Option<Endpoint>, Error> {
-        self.raw_socket().last_endpoint()
+    /// [`NotFound`]: ../enum.ErrorKind.html#variant.NotFound
+    fn last_endpoint(&self) -> Result<Endpoint, Error> {
+        match self.raw_socket().last_endpoint()? {
+            Some(endpoint) => Ok(endpoint),
+            None => Err(Error::new(ErrorKind::NotFound(
+                "no endpoint previously bound or connected to",
+            ))),
+        }
     }
 
     /// Returns the socket's [`Mechanism`].

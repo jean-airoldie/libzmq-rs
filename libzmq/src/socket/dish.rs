@@ -88,7 +88,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
 ///     .bind(addr)
 ///     .build()?;
 ///
-/// let bound = radio.last_endpoint().unwrap();
+/// let bound = radio.last_endpoint()?;
 /// let a: Group = "group a".try_into()?;
 ///
 /// let dish = DishBuilder::new()
@@ -228,14 +228,13 @@ impl Dish {
     /// # fn main() -> Result<(), Error> {
     /// use libzmq::{prelude::*, Dish, Group};
     ///
-    /// let first: Group = "first group".try_into()?;
-    /// let second: Group = "second group".try_into()?;
+    /// let first: Group = "group name".try_into()?;
     ///
     /// let dish = Dish::new()?;
     /// assert!(dish.joined().is_empty());
     ///
-    /// dish.join(&[first, second])?;
-    /// assert_eq!(dish.joined().len(), 2);
+    /// dish.join(first)?;
+    /// assert_eq!(dish.joined().len(), 1);
     /// #
     /// #     Ok(())
     /// # }
@@ -278,7 +277,7 @@ impl Dish {
     /// [`InvalidCtx`]: enum.ErrorKind.html#variant.InvalidCtx
     /// [`Interrupted`]: enum.ErrorKind.html#variant.Interrupted
     /// [`InvalidInput`]: enum.ErrorKind.html#variant.InvalidInput
-    pub fn leave<I, G>(&self, group: G) -> Result<(), Error>
+    pub fn leave<G>(&self, group: G) -> Result<(), Error>
     where
         G: AsRef<GroupSlice>,
     {
