@@ -167,7 +167,7 @@ impl SocketMonitor {
         self.sub.disconnect(addr)
     }
 
-    pub(crate) fn subscribe_all(&mut self) -> Result<(), Error> {
+    pub fn subscribe_all(&mut self) -> Result<(), Error> {
         self.sub.subscribe(b"")
     }
 
