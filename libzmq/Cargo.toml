@@ -15,7 +15,7 @@ autobenches = false
 homepage = "https://jean-airoldie.github.io/libzmq-rs/"
 
 [badges]
-maintenance = { status = "actively-developed" } 
+maintenance = { status = "passively-maintained" } 
 
 [features]
 curve = ['libzmq-sys/libsodium']
