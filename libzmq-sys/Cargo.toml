@@ -15,7 +15,7 @@ keywords = ["libzmq", "zmq", "zeromq", "bindings", "cffi"]
 categories = ["external-ffi-bindings"]
 
 [badges]
-maintenance = { status = "actively-developed" } 
+maintenance = { status = "passively-maintained" } 
 
 [features]
 # Renew the pre-generated `libzmq` bindings.
