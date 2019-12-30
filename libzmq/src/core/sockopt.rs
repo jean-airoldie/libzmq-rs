@@ -16,6 +16,7 @@ use std::{
 const MAX_OPTION_SIZE: size_t = 255;
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub(crate) enum SocketOption {
     Backlog = sys::ZMQ_BACKLOG as isize,
     ConnectTimeout = sys::ZMQ_CONNECT_TIMEOUT as isize,
@@ -262,11 +263,16 @@ where
 {
     let size = mem::size_of::<T>() as size_t;
 
-    let value_ptr = match maybe {
-        Some(value) => &value as *const T as *const c_void,
-        None => &none_value as *const T as *const c_void,
-    };
-    setsockopt(mut_sock_ptr, option, value_ptr, size)
+    match maybe {
+        Some(value) => {
+            let value_ptr = &value as *const T as *const c_void;
+            setsockopt(mut_sock_ptr, option, value_ptr, size)
+        }
+        None => {
+            let value_ptr = &none_value as *const T as *const c_void;
+            setsockopt(mut_sock_ptr, option, value_ptr, size)
+        }
+    }
 }
 
 pub(crate) fn setsockopt_bytes(
