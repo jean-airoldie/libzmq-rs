@@ -314,6 +314,8 @@ mod test {
     use super::*;
     use crate::*;
 
+    use std::time::Duration;
+
     #[test]
     fn test_ser_de() {
         let config = GatherConfig::new();
@@ -321,6 +323,14 @@ mod test {
         let ron = serde_yaml::to_string(&config).unwrap();
         let de: GatherConfig = serde_yaml::from_str(&ron).unwrap();
         assert_eq!(config, de);
+    }
+
+    #[test]
+    fn test_issue_125() {
+        let gather = Gather::new().unwrap();
+        gather
+            .set_recv_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
     }
 
     #[test]

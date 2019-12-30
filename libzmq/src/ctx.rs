@@ -17,6 +17,7 @@ lazy_static! {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 enum CtxOption {
     IOThreads,
     MaxSockets,

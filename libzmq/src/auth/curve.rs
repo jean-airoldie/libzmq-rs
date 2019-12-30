@@ -840,7 +840,7 @@ mod tests {
 
     quickcheck! {
         fn codec_quickcheck(input: Vec<u8>) -> bool {
-            let mut input = input.clone();
+            let mut input = input;
             input.extend_from_slice(&input.clone());
             input.extend_from_slice(&input.clone());
 

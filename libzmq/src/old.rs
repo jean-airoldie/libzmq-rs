@@ -54,6 +54,7 @@ fn recv(mut_sock_ptr: *mut c_void, msg: &mut Msg) -> Result<(), Error> {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) enum OldSocketType {
     Router,
     Dealer,
