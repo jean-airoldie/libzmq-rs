@@ -1,6 +1,4 @@
 // Taken from https://github.com/erickt/rust-zmq/blob/master/zmq-sys/src/windows.rs
-pub use std::os::windows::io::RawSocket as RawFd;
-
 pub mod errno {
     use libc::c_int;
 
@@ -10,6 +8,7 @@ pub mod errno {
     pub const EADDRINUSE: c_int = 100;
     pub const EADDRNOTAVAIL: c_int = 101;
     pub const EAGAIN: c_int = 11;
+    pub const EBADF: c_int = 9;
     pub const EBUSY: c_int = 16;
     pub const ECONNREFUSED: c_int = 107;
     pub const EFAULT: c_int = 14;

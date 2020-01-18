@@ -1,9 +1,9 @@
 // taken from github.com/erickt/rust-zmq/blob/master/zmq-sys/src/errno.rs
 
-#[cfg(unix)]
-use libc as errno;
 #[cfg(windows)]
 use super::windows::errno;
+#[cfg(unix)]
+use libc as errno;
 
 const ZMQ_HAUSNUMERO: i32 = 156_384_712;
 
