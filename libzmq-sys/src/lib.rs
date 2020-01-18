@@ -10,6 +10,8 @@
 
 mod bindings;
 pub mod errno;
+#[cfg(windows)]
+pub(crate) mod windows;
 
 pub use bindings::*;
 
