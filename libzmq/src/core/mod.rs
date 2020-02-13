@@ -195,6 +195,12 @@ impl From<Period> for Serde<Option<Duration>> {
 }
 
 /// Methods shared by all thread-safe sockets.
+///
+/// Here is the list of socket option that differs from the ØMQ defaults:
+/// * All sockets have their linger period set to zero (`ZMQ_BLOCKY`).
+/// * All sockets have IPV6 enabled (`ZMQ_IPV6`).
+/// * All sockets have `ZMQ_ZAP_ENFORCE_DOMAIN` set to true.
+/// * All sockets have `ZMQ_ZAP_DOMAIN` hardcoded to "global".
 pub trait Socket: GetRawSocket {
     /// Schedules a connection to a [`Endpoint`].
     ///
