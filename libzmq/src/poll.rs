@@ -440,6 +440,10 @@ pub struct Poller {
     count: usize,
 }
 
+// `Poller` is not thread-safe but it can be transferred across thread boundaries
+// since it doesn't rely on thread-local storage.
+unsafe impl Send for Poller {}
+
 impl Poller {
     /// Create a new empty poller.
     pub fn new() -> Self {
