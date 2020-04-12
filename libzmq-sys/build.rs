@@ -8,6 +8,7 @@ fn gen_bindings(include_dir: &Path) {
 
     let bindings = bindgen::Builder::default()
         .header(include_dir.join("zmq.h").to_string_lossy())
+        .size_t_is_usize(true)
         .derive_default(true)
         .derive_eq(true)
         .derive_partialeq(true)
