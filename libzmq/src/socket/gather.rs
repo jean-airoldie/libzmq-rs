@@ -132,7 +132,7 @@ unsafe impl Sync for Gather {}
 
 /// A configuration for a `Gather`.
 ///
-/// Especially helpfull in config files.
+/// Especially helpful in config files.
 // We can't derive and use #[serde(flatten)] because of this issue:
 // https://github.com/serde-rs/serde/issues/1346
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

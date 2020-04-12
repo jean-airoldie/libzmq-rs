@@ -280,7 +280,7 @@ impl FromStr for Port {
     type Err = AddrParseError;
     fn from_str(s: &str) -> Result<Self, AddrParseError> {
         if !s.is_empty() {
-            if s.chars().nth(0).unwrap() == '*' && s.len() == 1 {
+            if s.starts_with('*') && s.len() == 1 {
                 Ok(Port::Unspecified)
             } else {
                 let port = u16::from_str(s)
@@ -401,8 +401,7 @@ impl FromStr for SocketAddr {
         if let Some(mid) = s.rfind(':') {
             let addr = {
                 // Check for IPv6.
-                if s.chars().nth(0).unwrap() == '['
-                    && s.chars().nth(mid - 1).unwrap() == ']'
+                if s.starts_with('[') && s.chars().nth(mid - 1).unwrap() == ']'
                 {
                     let interface = Interface::from_str(&s[1..mid - 1])?;
                     let port = Port::from_str(&s[mid + 1..])?;

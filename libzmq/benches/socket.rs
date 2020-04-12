@@ -3,7 +3,7 @@ use super::*;
 use criterion::{black_box, Benchmark, Criterion, Throughput};
 use lazy_static::lazy_static;
 use libzmq::{prelude::*, *};
-use rand::{distributions::Standard, Rng};
+use rand::distributions::{Distribution, Standard};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 
@@ -14,14 +14,9 @@ lazy_static! {
 
 fn gen_dataset(dataset_size: usize, msg_size: usize) -> Vec<Vec<u8>> {
     let mut rng: Isaac64Rng = SeedableRng::seed_from_u64(123_490_814_327);
-    let mut dataset = Vec::with_capacity(dataset_size);
-
-    for _ in 0..dataset_size {
-        let s: Vec<u8> = rng.sample_iter(&Standard).take(msg_size).collect();
-        dataset.push(s);
-    }
-
-    dataset
+    (0..dataset_size)
+        .map(|_| Standard.sample_iter(&mut rng).take(msg_size).collect())
+        .collect()
 }
 
 pub(crate) fn bench(c: &mut Criterion) {
@@ -112,7 +107,7 @@ pub(crate) fn bench(c: &mut Criterion) {
                 }
             });
         })
-        .throughput(Throughput::Bytes((MSG_AMOUNT * MSG_SIZE) as u32))
+        .throughput(Throughput::Bytes((MSG_AMOUNT * MSG_SIZE) as u64))
         .sample_size(SAMPLE_SIZE)
         .measurement_time(Duration::from_secs(30)),
     );
