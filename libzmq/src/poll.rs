@@ -15,10 +15,12 @@ use sys::errno;
 
 use bitflags::bitflags;
 
-use std::os::{
-    raw::{c_short, c_void},
-    unix::io::{AsRawFd, RawFd},
-};
+use std::os::raw::{c_short, c_void};
+
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsRawSocket as AsRawFd, RawSocket as RawFd};
 
 bitflags! {
     /// A bitflag used to specifies the condition for triggering an [`Event`] in the
