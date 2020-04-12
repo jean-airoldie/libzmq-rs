@@ -23,24 +23,24 @@ curve = ['libzmq-sys/libsodium']
 [dependencies]
 libc = "0.2"
 serde = { version = "1.0", features = ["derive"] }
-humantime-serde = "0.1"
+humantime-serde = "1.0"
 serde_with = "1.3.1"
 lazy_static = "1.3.0"
 failure = "0.1"
 libzmq-sys = { path = "../libzmq-sys", version = "0.1.7" }
 bitflags = "1.0"
 log = "0.4"
-uuid = { version = "0.7", features = ["v4"] }
+uuid = { version = "0.8", features = ["v4"] }
 bincode = "1.1"
 byteorder = "1.3.1"
 
 [dev-dependencies]
-rand = "0.6"
-rand_isaac = "0.1.1"
-rand_core = "0.4"
-criterion = "0.2"
-version-sync = "0.8"
-quickcheck = "0.8.3"
+rand = "0.7"
+rand_isaac = "0.2"
+rand_core = "0.5"
+criterion = "0.3"
+version-sync = "0.9"
+quickcheck = "0.9"
 serde_yaml = "0.8"
 
 [build-dependencies]

@@ -343,7 +343,7 @@ impl DishConfig {
     }
 
     pub fn groups(&self) -> Option<&[Group]> {
-        self.groups.as_ref().map(Vec::as_slice)
+        self.groups.as_deref()
     }
 
     pub fn set_groups<I>(&mut self, maybe_groups: Option<I>)
