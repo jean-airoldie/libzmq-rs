@@ -16,7 +16,7 @@ use sys::errno;
 use bitflags::bitflags;
 
 use std::os::{
-    raw::{c_short, c_void, c_long},
+    raw::{c_long, c_short, c_void},
     unix::io::{AsRawFd, RawFd},
 };
 
