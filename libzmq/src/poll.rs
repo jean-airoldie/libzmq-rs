@@ -16,7 +16,7 @@ use sys::errno;
 use bitflags::bitflags;
 
 use std::os::{
-    raw::{c_short, c_void},
+    raw::{c_short, c_void, c_long},
     unix::io::{AsRawFd, RawFd},
 };
 
@@ -735,22 +735,12 @@ impl Poller {
         for _i in 0..self.count {
             events.inner.push(sys::zmq_poller_event_t::default());
         }
-        #[cfg(not(target_pointer_width = "32"))]
         let rc = unsafe {
             sys::zmq_poller_wait_all(
                 self.poller,
                 events.inner.as_mut_ptr(),
                 events.inner.len() as i32,
-                timeout,
-            )
-        };
-        #[cfg(target_pointer_width = "32")]
-        let rc = unsafe {
-            sys::zmq_poller_wait_all(
-                self.poller,
-                events.inner.as_mut_ptr(),
-                events.inner.len() as i32,
-                timeout as i32,
+                timeout as c_long,
             )
         };
 
