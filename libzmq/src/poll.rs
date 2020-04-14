@@ -16,7 +16,7 @@ use sys::errno;
 use bitflags::bitflags;
 
 use std::os::{
-    raw::{c_short, c_void},
+    raw::{c_long, c_short, c_void},
     unix::io::{AsRawFd, RawFd},
 };
 
@@ -740,7 +740,7 @@ impl Poller {
                 self.poller,
                 events.inner.as_mut_ptr(),
                 events.inner.len() as i32,
-                timeout,
+                timeout as c_long,
             )
         };
 

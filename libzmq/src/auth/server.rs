@@ -68,6 +68,18 @@ impl TryFrom<c_long> for StatusCode {
     }
 }
 
+#[cfg(target_pointer_width = "32")]
+impl<'a> TryFrom<&'a [u8]> for StatusCode {
+    type Error = StatusCodeParseError;
+    fn try_from(a: &'a [u8]) -> Result<Self, Self::Error> {
+        let mut bytes: [u8; 4] = Default::default();
+        bytes.copy_from_slice(a);
+        let code = c_long::from_ne_bytes(bytes);
+        Self::try_from(code)
+    }
+}
+
+#[cfg(not(target_pointer_width = "32"))]
 impl<'a> TryFrom<&'a [u8]> for StatusCode {
     type Error = StatusCodeParseError;
     fn try_from(a: &'a [u8]) -> Result<Self, Self::Error> {
