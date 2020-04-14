@@ -740,7 +740,7 @@ impl Poller {
                 self.poller,
                 events.inner.as_mut_ptr(),
                 events.inner.len() as i32,
-                timeout,
+                timeout.into(),
             )
         };
 
