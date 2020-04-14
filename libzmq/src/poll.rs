@@ -735,12 +735,22 @@ impl Poller {
         for _i in 0..self.count {
             events.inner.push(sys::zmq_poller_event_t::default());
         }
+        #[cfg(not(target_pointer_width = "32"))]
         let rc = unsafe {
             sys::zmq_poller_wait_all(
                 self.poller,
                 events.inner.as_mut_ptr(),
                 events.inner.len() as i32,
-                timeout.into(),
+                timeout,
+            )
+        };
+        #[cfg(target_pointer_width = "32")]
+        let rc = unsafe {
+            sys::zmq_poller_wait_all(
+                self.poller,
+                events.inner.as_mut_ptr(),
+                events.inner.len() as i32,
+                timeout as i32,
             )
         };
 
