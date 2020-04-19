@@ -703,7 +703,7 @@ mod test {
         // this means that is only one outstanding message.
         client.disconnect(bound).unwrap();
         // Let the client some time to disconnect.
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(200));
 
         // The client's incoming message queue was discarded.
         client.try_recv(&mut msg).unwrap_err();
