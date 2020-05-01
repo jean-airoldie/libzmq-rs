@@ -177,9 +177,7 @@ impl CtxBuilder {
     ///
     /// # Usage Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::*;
     ///
     /// let ctx = CtxBuilder::new()
@@ -203,9 +201,7 @@ impl CtxBuilder {
     ///
     /// # Usage Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::*;
     ///
     /// let global = Ctx::global();
@@ -251,9 +247,7 @@ impl CtxBuilder {
 /// `CtxHandle` will be invalidated. All calls involving an invalidated
 /// `CtxHandle` will return a `InvalidCtx` error.
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{Ctx, Dish, ErrorKind};
 ///
 /// // We create a `CtxHandle` from a new context. Since we drop
@@ -381,9 +375,7 @@ impl Ctx {
     /// context aliased by the handle.
     ///
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{Ctx, Server};
     ///
     /// let ctx = Ctx::new();
@@ -406,9 +398,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{Ctx, Client};
     ///
     /// // A socket created via `new` will use the global context via
@@ -440,9 +430,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();
@@ -472,9 +460,7 @@ impl Ctx {
     ///
     /// # Usage Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::Ctx;
     ///
     /// let ctx = Ctx::new();

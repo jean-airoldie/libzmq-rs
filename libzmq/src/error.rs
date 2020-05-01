@@ -1,15 +1,8 @@
 use crate::{addr::AddrParseError, group::GroupParseError};
 use libzmq_sys as sys;
+use thiserror::Error;
 
-use failure::{Backtrace, Context, Fail};
-
-use std::{
-    convert::Infallible,
-    ffi,
-    fmt::Debug,
-    fmt::{self, Display},
-    io, str,
-};
+use std::{convert::Infallible, ffi, fmt, io, str};
 
 /// An error with a kind and a msg.
 ///
@@ -20,9 +13,7 @@ use std::{
 ///
 /// # Usage example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *, ErrorKind::*};
 ///
 /// // This client has no peer and is therefore in mute state.
@@ -51,7 +42,7 @@ use std::{
 /// [`ErrorKind`]: enum.ErrorKind.html
 #[derive(Debug)]
 pub struct Error<T = ()> {
-    inner: Context<ErrorKind>,
+    inner: ErrorKind,
     content: Option<T>,
 }
 
@@ -61,7 +52,7 @@ impl<T> Error<T> {
     /// The `content` field will be `None`.
     pub(crate) fn new(kind: ErrorKind) -> Self {
         Self {
-            inner: Context::new(kind),
+            inner: kind,
             content: None,
         }
     }
@@ -69,14 +60,14 @@ impl<T> Error<T> {
     /// Creates a new `Error` from an `ErrorKind` and some content.
     pub(crate) fn with_content(kind: ErrorKind, content: T) -> Self {
         Self {
-            inner: Context::new(kind),
+            inner: kind,
             content: Some(content),
         }
     }
 
     /// Returns the kind of error.
     pub fn kind(&self) -> ErrorKind {
-        *self.inner.get_context()
+        self.inner
     }
 
     #[deprecated(since = "0.2.1", note = "please use `get` instead")]
@@ -104,7 +95,7 @@ impl<T> Error<T> {
     ///
     /// This is not implemented as `Into<Error<I>>` to be explicit since
     /// information is lost in the conversion.
-    pub fn cast<I>(self) -> Error<I> {
+    pub fn cast<I: fmt::Debug>(self) -> Error<I> {
         Error {
             inner: self.inner,
             content: None,
@@ -112,22 +103,15 @@ impl<T> Error<T> {
     }
 }
 
-impl<T> Fail for Error<T>
-where
-    T: 'static + Debug + Sync + Send,
-{
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
+impl<T: fmt::Debug> std::error::Error for Error<T> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.inner.source()
     }
 }
 
-impl<T> Display for Error<T> {
+impl<T> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.inner, f)
+        fmt::Display::fmt(&self.inner, f)
     }
 }
 
@@ -178,24 +162,19 @@ impl<T> From<Error<T>> for io::Error {
 
 /// Used to give context to an `Error`.
 ///
-/// # Note
-/// This error type is non-exhaustive and could have additional variants
-/// added in future. Therefore, when matching against variants of
-/// non-exhaustive enums, an extra wildcard arm must be added to account
-/// for any future variants.
-///
 /// [`Error`]: enum.Error.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Fail, Hash)]
+#[derive(Debug, Error, Copy, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// Non-blocking mode was requested and the message cannot be sent
     /// without blocking
-    #[fail(display = "operation would block")]
+    #[error("operation would block")]
     WouldBlock,
     /// Occurs when a [`Server`] socket cannot route a message
     /// to a host.
     ///
     /// [`Server`]: socket/struct.Server.html
-    #[fail(display = "host unreachable")]
+    #[error("host unreachable")]
     HostUnreachable,
     /// The context used in the operation was invalidated. Either the
     /// context is being terminated, or was already terminated.
@@ -206,30 +185,30 @@ pub enum ErrorKind {
     ///
     /// [`Ctx`]: ../ctx/struct.Ctx.html
     /// [`shutdown`]: ../ctx/struct.Ctx.html#method.terminate
-    #[fail(display = "context invalidated")]
+    #[error("context invalidated")]
     InvalidCtx,
     /// The operation was interrupted by a OS signal delivery.
-    #[fail(display = "interrupted by signal")]
+    #[error("interrupted by signal")]
     Interrupted,
     /// The addr cannot be bound because it is already in use.
-    #[fail(display = "addr in use")]
+    #[error("addr in use")]
     AddrInUse,
     /// A nonexistent interface was requested or the requested address was
     /// not local.
-    #[fail(display = "addr not available")]
+    #[error("addr not available")]
     AddrNotAvailable,
     /// An entity was not found.
     ///
     /// Contains information on the specific entity.
-    #[fail(display = "not found: {}", _0)]
+    #[error("not found: {}", _0)]
     NotFound(&'static str),
     /// The open socket limit was reached.
-    #[fail(display = "open socket limit was reached")]
+    #[error("open socket limit was reached")]
     SocketLimit,
     /// The user did not follow its usage contract and provided invalid inputs.
     ///
     /// Contains information on the specific contract breach.
-    #[fail(display = "invalid input: {}", _0)]
+    #[error("invalid input: {}", _0)]
     InvalidInput(&'static str),
 }
 

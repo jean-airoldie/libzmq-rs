@@ -217,9 +217,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, Client, TcpAddr};
     /// use std::convert::TryInto;
     ///
@@ -260,9 +258,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, Server, TcpAddr};
     /// use std::convert::TryInto;
     ///
@@ -354,9 +350,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, Server, TcpAddr, addr::Endpoint, ErrorKind};
     ///
     /// // We create a tcp addr with an unspecified port.
@@ -401,9 +395,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, Server, auth::Mechanism};
     ///
     /// let server = Server::new()?;
@@ -427,9 +419,7 @@ pub trait Socket: GetRawSocket {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// #[cfg(feature = "curve")] {
     ///     use libzmq::{prelude::*, Client, auth::*};
     ///

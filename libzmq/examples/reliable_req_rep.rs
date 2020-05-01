@@ -2,7 +2,7 @@ use libzmq::{prelude::*, *};
 
 use std::{thread, time::Duration};
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<(), anyhow::Error> {
     // We use a system assigned port here.
     let addr: TcpAddr = "127.0.0.1:*".try_into()?;
     let duration = Duration::from_millis(300);

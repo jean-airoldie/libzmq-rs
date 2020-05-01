@@ -210,6 +210,9 @@ pub const ZMQ_CURRENT_EVENT_VERSION: u32 = 1;
 pub const ZMQ_CURRENT_EVENT_VERSION_DRAFT: u32 = 2;
 pub const ZMQ_EVENT_ALL_V1: u32 = 65535;
 pub const ZMQ_EVENT_ALL_V2: u32 = 131071;
+pub type __uint8_t = ::std::os::raw::c_uchar;
+pub type __uint32_t = ::std::os::raw::c_uint;
+pub type __uint64_t = ::std::os::raw::c_ulong;
 extern "C" {
     pub fn zmq_errno() -> ::std::os::raw::c_int;
 }

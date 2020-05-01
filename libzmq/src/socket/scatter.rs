@@ -20,9 +20,7 @@ use std::{str, sync::Arc};
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *};
 /// use std::time::Duration;
 ///

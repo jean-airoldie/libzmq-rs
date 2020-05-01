@@ -1,6 +1,6 @@
 use crate::prelude::TryFrom;
-use failure::Fail;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
 use uuid::Uuid;
 
 use std::{
@@ -78,8 +78,8 @@ where
 /// An error that occurs when an address cannot be parsed.
 ///
 /// The error contains a message detailling the source of the error.
-#[derive(Debug, Fail)]
-#[fail(display = "cannot parse address : {}", msg)]
+#[derive(Debug, Error)]
+#[error("cannot parse address : {}", msg)]
 pub struct AddrParseError {
     msg: &'static str,
 }
@@ -152,9 +152,7 @@ macro_rules! tryfrom_fromstr {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, addr::Hostname};
 ///
 /// // This is a network interface.
@@ -239,9 +237,7 @@ impl<'a> TryFrom<&'a str> for Hostname {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, addr::Port};
 ///
 /// let port: Port = "*".try_into()?;
@@ -310,9 +306,7 @@ serde_display_tryfrom!(Port);
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, addr::Interface};
 ///
 /// let interface: Interface = "0.0.0.0".try_into()?;
@@ -361,9 +355,7 @@ serde_display_tryfrom!(Interface);
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, addr::SocketAddr};
 ///
 /// let host: SocketAddr = "127.0.0.1:3000".try_into()?;
@@ -455,9 +447,7 @@ impl<'a> From<&'a SocketAddr> for SocketAddr {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, addr::SrcAddr};
 ///
 /// // Specify an IPv4 addr with a unspecified port.
@@ -527,9 +517,7 @@ impl<'a> From<&'a SrcAddr> for SrcAddr {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, TcpAddr};
 ///
 /// // Connecting using a IPv4 address and bind to `eth0` interface.
@@ -647,9 +635,7 @@ impl<'a> From<&'a TcpAddr> for Endpoint {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, UdpAddr};
 ///
 /// // Multicast - UDP port 5555 on a Multicast address
@@ -670,9 +656,7 @@ pub struct UdpAddr {
 impl UdpAddr {
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::TryInto, UdpAddr, addr::SocketAddr};
     ///
     /// let host: SocketAddr = "localhost:5555".try_into()?;
@@ -694,9 +678,7 @@ impl UdpAddr {
 
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::TryInto, UdpAddr, addr::{SrcAddr, SocketAddr}};
     ///
     /// let host: SocketAddr = "localhost:5555".try_into()?;
@@ -801,9 +783,7 @@ impl<'a> From<&'a UdpAddr> for Endpoint {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, PgmAddr};
 ///
 /// // Connecting to the multicast address 239.192.1.1, port 5555,
@@ -921,9 +901,7 @@ impl<'a> From<&'a PgmAddr> for Endpoint {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, EpgmAddr};
 ///
 /// // Connecting to the multicast address 239.192.1.1, port 5555,
@@ -1048,9 +1026,7 @@ impl<'a> From<&'a EpgmAddr> for Endpoint {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, InprocAddr};
 ///
 /// // Can be any arbitrary string.
@@ -1095,9 +1071,7 @@ impl InprocAddr {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, InprocAddr, ServerBuilder};
     ///
     /// let addr = InprocAddr::new_unique();
@@ -1212,9 +1186,7 @@ impl<'a> From<&'a InprocAddr> for Endpoint {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, TcpAddr, addr::Endpoint};
 ///
 /// // IPv4 addr with TCP transport.

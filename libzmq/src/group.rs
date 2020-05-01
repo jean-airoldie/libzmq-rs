@@ -2,8 +2,8 @@
 
 use crate::prelude::TryFrom;
 
-use failure::Fail;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
 
 use std::{
     borrow::{Borrow, Cow, ToOwned},
@@ -19,8 +19,8 @@ pub const MAX_GROUP_SIZE: usize = 15;
 /// This error occurs from a string that exceeds [`MAX_GROUP_SIZE`] char.
 ///
 /// [`MAX_GROUP_SIZE`]: constant.MAX_GROUP_SIZE.html
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Fail, Hash)]
-#[fail(display = "unable to parse group: {}", msg)]
+#[derive(Debug, Error, Copy, Clone, PartialEq, Eq, Hash)]
+#[error("unable to parse group: {}", msg)]
 pub struct GroupParseError {
     msg: &'static str,
 }
@@ -150,9 +150,7 @@ impl<'a> IntoIterator for &'a GroupSlice {
 ///
 /// # Example
 /// ```
-/// #
-/// # use failure::Error;
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::TryInto, Group};
 ///
 /// let string = "abc".to_owned();

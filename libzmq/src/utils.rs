@@ -48,9 +48,7 @@ pub fn version() -> (i32, i32, i32) {
 ///
 /// # Example
 /// ```
-/// #
-/// # use failure::Error;
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *};
 /// use std::thread;
 ///

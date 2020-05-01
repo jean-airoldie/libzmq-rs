@@ -25,7 +25,7 @@ fn read_file(name: &Path) -> std::io::Result<Vec<u8>> {
     Ok(buf)
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<(), anyhow::Error> {
     let path = PathBuf::from("examples").join(CONFIG_FILE);
 
     let config: Config =

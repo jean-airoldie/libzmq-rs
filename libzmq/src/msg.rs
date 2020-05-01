@@ -21,9 +21,7 @@ use std::{
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *};
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;
@@ -133,9 +131,7 @@ impl Msg {
     /// Return the message content as a `str` slice if it is valid UTF-8.
     ///
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::Msg;
     ///
     /// let text = "blzit";
@@ -241,9 +237,7 @@ impl Msg {
     /// Set the group property on the message.
     ///
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::TryInto, Msg, Group};
     ///
     /// let a: Group = "A".try_into()?;

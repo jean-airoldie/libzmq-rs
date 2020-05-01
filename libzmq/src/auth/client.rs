@@ -41,9 +41,7 @@ fn into_ipv6(ip: IpAddr) -> Ipv6Addr {
 /// # Example
 ///
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// #[cfg(feature = "curve")] {
 ///     use libzmq::{prelude::*, auth::*, *};
 ///     use std::{time::Duration};
