@@ -122,9 +122,7 @@ pub trait RecvMsg: GetRawSocket {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, *};
     ///
     /// let client = ClientBuilder::new().build()?;

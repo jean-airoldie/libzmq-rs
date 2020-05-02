@@ -1,9 +1,9 @@
 use super::{client::*, *};
 use crate::{old::*, poll::*, prelude::*, socket::*, *};
 
-use failure::Fail;
 use lazy_static::lazy_static;
 use log::info;
+use thiserror::Error;
 
 use libc::c_long;
 
@@ -46,8 +46,8 @@ impl fmt::Display for StatusCode {
     }
 }
 
-#[derive(Debug, Fail)]
-#[fail(display = "unable to parse status code")]
+#[derive(Debug, Error)]
+#[error("unable to parse status code")]
 #[doc(hidden)]
 pub struct StatusCodeParseError(());
 

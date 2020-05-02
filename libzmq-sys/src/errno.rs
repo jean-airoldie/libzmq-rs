@@ -33,7 +33,7 @@ pub const EPROTO: i32 = errno::EOPNOTSUPP;
 pub const EPROTONOSUPPORT: i32 = errno::EPROTONOSUPPORT;
 
 #[cfg(not(target_os = "windows"))]
-pub const ENOTSUP: i32 = (ZMQ_HAUSNUMERO + 1);
+pub const ENOTSUP: i32 = ZMQ_HAUSNUMERO + 1;
 #[cfg(target_os = "windows")]
 pub const ENOTSUP: i32 = errno::ENOTSUP;
 
@@ -42,7 +42,7 @@ pub const ENETDOWN: i32 = errno::ENETDOWN;
 pub const EADDRNOTAVAIL: i32 = errno::EADDRNOTAVAIL;
 
 // native zmq error codes
-pub const EFSM: i32 = (ZMQ_HAUSNUMERO + 51);
-pub const ENOCOMPATPROTO: i32 = (ZMQ_HAUSNUMERO + 52);
-pub const ETERM: i32 = (ZMQ_HAUSNUMERO + 53);
-pub const EMTHREAD: i32 = (ZMQ_HAUSNUMERO + 54);
+pub const EFSM: i32 = ZMQ_HAUSNUMERO + 51;
+pub const ENOCOMPATPROTO: i32 = ZMQ_HAUSNUMERO + 52;
+pub const ETERM: i32 = ZMQ_HAUSNUMERO + 53;
+pub const EMTHREAD: i32 = ZMQ_HAUSNUMERO + 54;

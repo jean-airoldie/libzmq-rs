@@ -3,9 +3,9 @@ use super::Mechanism;
 use crate::prelude::TryFrom;
 
 use libzmq_sys as sys;
+use thiserror::Error;
 
 use byteorder::{BigEndian, ByteOrder};
-use failure::Fail;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use std::{ffi::CString, fmt, option, os::raw::c_char};
@@ -36,13 +36,14 @@ static OCTETS: [u8; 96] = [
 const CURVE_CURVE_KEY_SIZE: usize = 40;
 
 /// A error when encoding or decoding a `CurveKey`.
-#[derive(Debug, Fail, Eq, PartialEq)]
+#[derive(Debug, Error, Eq, PartialEq)]
 pub enum CurveError {
-    #[fail(display = "input string must have len of 40 char")]
+    #[error("input string must have len of 40 char")]
     InvalidSize,
-    #[fail(
-        display = "input string contains invalid byte 0x{:2X} at offset {}",
-        byte, pos
+    #[error(
+        "input string contains invalid byte 0x{:2X} at offset {}",
+        byte,
+        pos
     )]
     InvalidByte { pos: usize, byte: u8 },
 }

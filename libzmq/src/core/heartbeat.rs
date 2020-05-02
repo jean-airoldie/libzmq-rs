@@ -133,9 +133,7 @@ impl<'a> From<&'a Heartbeat> for Heartbeat {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, Client, Heartbeat, auth::*};
 /// use std::time::Duration;
 ///

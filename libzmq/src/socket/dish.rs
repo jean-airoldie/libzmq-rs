@@ -76,9 +76,7 @@ fn leave(socket_mut_ptr: *mut c_void, group: &GroupSlice) -> Result<(), Error> {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *};
 /// use std::{thread, time::Duration};
 ///
@@ -190,9 +188,7 @@ impl Dish {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, Dish, Group};
     ///
     /// let group: Group = "some group".try_into()?;
@@ -223,9 +219,7 @@ impl Dish {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, Dish, Group};
     ///
     /// let first: Group = "group name".try_into()?;
@@ -255,9 +249,7 @@ impl Dish {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{prelude::*, Dish, Group};
     ///
     /// let group: Group = "some group".to_owned().try_into()?;

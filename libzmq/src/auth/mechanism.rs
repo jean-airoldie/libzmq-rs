@@ -1,7 +1,6 @@
 use super::*;
 use crate::{prelude::TryFrom, *};
 
-use failure::Fail;
 use serde::{Deserialize, Serialize};
 
 use std::option;
@@ -258,8 +257,8 @@ pub(crate) enum MechanismName {
     Curve,
 }
 
-#[derive(Debug, Fail)]
-#[fail(display = "unsupported mechanism")]
+#[derive(Debug, Error)]
+#[error("unsupported mechanism")]
 pub(crate) struct InvalidMechanismName;
 
 impl<'a> TryFrom<&'a str> for MechanismName {

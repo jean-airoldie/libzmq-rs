@@ -103,9 +103,7 @@ impl From<PollId> for usize {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{Server, poll::*};
 /// use std::net::TcpListener;
 ///
@@ -375,9 +373,7 @@ impl IntoIterator for Events {
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *, poll::*};
 ///
 /// // We initialize our sockets and connect them to each other.
@@ -454,9 +450,7 @@ impl Poller {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{Server, poll::*, ErrorKind};
     ///
     /// let server = Server::new()?;
@@ -571,9 +565,7 @@ impl Poller {
     ///
     /// # Example
     /// ```
-    /// # use failure::Error;
-    /// #
-    /// # fn main() -> Result<(), Error> {
+    /// # fn main() -> Result<(), anyhow::Error> {
     /// use libzmq::{Server, poll::*, ErrorKind};
     ///
     /// let server = Server::new()?;

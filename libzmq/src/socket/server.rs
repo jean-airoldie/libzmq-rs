@@ -34,9 +34,7 @@ use std::sync::Arc;
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *};
 ///
 /// let addr: TcpAddr = "127.0.0.1:*".try_into()?;

@@ -33,9 +33,7 @@ use std::sync::Arc;
 ///
 /// # Example
 /// ```
-/// # use failure::Error;
-/// #
-/// # fn main() -> Result<(), Error> {
+/// # fn main() -> Result<(), anyhow::Error> {
 /// use libzmq::{prelude::*, *};
 ///
 /// // Use a system assigned port.

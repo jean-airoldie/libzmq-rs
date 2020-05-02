@@ -2,7 +2,7 @@ use libzmq::{prelude::*, *};
 
 use std::thread;
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<(), anyhow::Error> {
     let addr: InprocAddr = InprocAddr::new_unique();
 
     let server = ServerBuilder::new().bind(&addr).build()?;
