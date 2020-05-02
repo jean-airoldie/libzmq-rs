@@ -40,9 +40,8 @@ use std::{convert::Infallible, ffi, fmt, io, str};
 /// ```
 ///
 /// [`ErrorKind`]: enum.ErrorKind.html
-#[derive(Debug)]
 pub struct Error<T = ()> {
-    inner: ErrorKind,
+    kind: ErrorKind,
     content: Option<T>,
 }
 
@@ -52,7 +51,7 @@ impl<T> Error<T> {
     /// The `content` field will be `None`.
     pub(crate) fn new(kind: ErrorKind) -> Self {
         Self {
-            inner: kind,
+            kind,
             content: None,
         }
     }
@@ -60,14 +59,14 @@ impl<T> Error<T> {
     /// Creates a new `Error` from an `ErrorKind` and some content.
     pub(crate) fn with_content(kind: ErrorKind, content: T) -> Self {
         Self {
-            inner: kind,
+            kind,
             content: Some(content),
         }
     }
 
     /// Returns the kind of error.
     pub fn kind(&self) -> ErrorKind {
-        self.inner
+        self.kind
     }
 
     #[deprecated(since = "0.2.1", note = "please use `get` instead")]
@@ -95,23 +94,29 @@ impl<T> Error<T> {
     ///
     /// This is not implemented as `Into<Error<I>>` to be explicit since
     /// information is lost in the conversion.
-    pub fn cast<I: fmt::Debug>(self) -> Error<I> {
+    pub fn cast<I>(self) -> Error<I> {
         Error {
-            inner: self.inner,
+            kind: self.kind,
             content: None,
         }
     }
 }
 
-impl<T: fmt::Debug> std::error::Error for Error<T> {
+impl<T> std::error::Error for Error<T> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.inner.source()
+        self.kind.source()
+    }
+}
+
+impl<T> fmt::Debug for Error<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Error").field("kind", &self.kind).finish()
     }
 }
 
 impl<T> fmt::Display for Error<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
+        fmt::Display::fmt(&self.kind, f)
     }
 }
 
