@@ -31,6 +31,8 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=PROFILE");
 
+    let enable_curve = cfg!(feature = "curve");
+
     let wants_debug = env::var_os("PROFILE").unwrap() == "debug";
 
     let maybe_libsodium = if cfg!(feature = "libsodium") {
@@ -47,6 +49,7 @@ fn main() {
     let artifacts = zeromq_src::Build::new()
         .link_static(true)
         .enable_draft(true)
+        .enable_curve(enable_curve)
         .build_debug(wants_debug)
         .with_libsodium(maybe_libsodium)
         .build();
