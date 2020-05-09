@@ -35,4 +35,4 @@ version-sync = "0.9"
 cmake = "0.1"
 bindgen = { version = "0.53.2", optional = true }
 # libzmq 4.3.2
-zeromq-src = "0.1.8"
+zeromq-src = "0.1.10"
