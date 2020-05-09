@@ -18,6 +18,8 @@ categories = ["external-ffi-bindings"]
 maintenance = { status = "passively-maintained" } 
 
 [features]
+default = ['curve']
+curve = []
 # Renew the pre-generated `libzmq` bindings.
 renew-bindings = ['bindgen']
 libsodium = ['libsodium-sys']
