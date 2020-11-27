@@ -1,3 +1,6 @@
+> :warning: I wouldn't recommand using ZeroMQ or any ZeroMq bindings library (including `libzmq-rs`), unless **you absolutely have to**.
+If you do, then `libzmq-rs` might fit your use case since it basically makes ZeroMQ not a complete footgun. However, just because this library hides the unmaintainable mess that is ZeroMQ, doesn't mean the mess does not exist. See [this comment for more context](https://github.com/jean-airoldie/libzmq-rs/issues/125#issuecomment-570551319).
+
 [![](https://img.shields.io/crates/v/libzmq.svg)][crates-io]
 [![](https://docs.rs/libzmq/badge.svg)][api-docs]
 [![Apache 2.0 licensed](https://img.shields.io/badge/license-Apache2.0-blue.svg)](./LICENSE-APACHE)
